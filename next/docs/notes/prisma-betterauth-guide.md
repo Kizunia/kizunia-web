@@ -138,8 +138,9 @@ pnpm prisma generate
 
 ## 💡 Tips
 
-- **`prisma.config.ts`** is technically a Prisma v7 feature but Prisma 6 picks it up and uses it for the datasource URL — it works, don't remove it.
+- **`prisma.config.ts`** — Do **NOT** add a `datasource` property to this file on Prisma 6. The `datasource` field is a Prisma 7-only type and will cause `next build` to fail with: `'datasource' does not exist in type 'PrismaConfig'`. The DB URL is already in `schema.prisma` via `url = env("DATABASE_URL")`.
 - **Prisma Studio** sometimes doesn't reflect schema changes until you run `pnpm prisma generate`.
 - **`pnpm dev`** hot-reloads code but does **not** re-generate Prisma types — always run `pnpm prisma generate` manually after schema changes.
 - The `username` plugin adds `username` and `displayUsername` columns to the `user` table.
 - **Export style matters:** `src/lib/prisma.ts` uses `export default prisma` — import it as `import prisma from "./prisma"`, not `import { prisma }`.
+
