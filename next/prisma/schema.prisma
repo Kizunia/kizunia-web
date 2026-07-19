@@ -1,18 +1,158 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// =============================================================================
+// Kizunia Web — Prisma Schema
+// =============================================================================
+//
+// Architecture: PostgreSQL + Prisma ORM
+// Auth: Better Auth (User, Session, Account, Verification)
+//
+// Conventions:
+// - Better Auth tables are never modified.
+// - Media is a pure asset — entities own media through direct refs and join tables.
+// - Link is a pure resource — entities own links through join tables.
+// - Badge is generic — not limited to verification.
+// - HackathonStatus = lifecycle only. Moderation belongs to HackathonSuggestion.
+// - Audit fields use onDelete: SetNull so history survives user deletion.
+// - Major published entities support soft delete via deletedAt.
 
 generator client {
   provider = "prisma-client-js"
-
-  output = "../src/generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// =============================================================================
+// Enums — User
+// =============================================================================
+
+enum UserVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+// =============================================================================
+// Enums — Hackathon
+// =============================================================================
+
+enum HackathonMode {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+enum HackathonVisibility {
+  PUBLIC
+  UNLISTED
+  ARCHIVED
+}
+
+// Lifecycle-only. Moderation workflow belongs to HackathonSuggestion.
+enum HackathonStatus {
+  UPCOMING
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+// Supports multiple member roles beyond simple maintainers.
+enum HackathonMemberRole {
+  OWNER
+  ORGANIZER
+  MAINTAINER
+}
+
+// =============================================================================
+// Enums — Suggestion
+// =============================================================================
+
+// Moderation workflow. Never reuse HackathonStatus for moderation.
+enum SuggestionStatus {
+  DRAFT
+  UNDER_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+// =============================================================================
+// Enums — Project
+// =============================================================================
+
+enum ProjectVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum ProjectStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum ProjectRole {
+  OWNER
+  MAINTAINER
+  CONTRIBUTOR
+}
+
+// =============================================================================
+// Enums — Shared (Link, Media)
+// =============================================================================
+
+// The frontend determines icons based on type. No icon field in the database.
+enum LinkType {
+  WEBSITE
+  GITHUB
+  GITLAB
+  BITBUCKET
+  LINKEDIN
+  DISCORD
+  YOUTUBE
+  DEVPOST
+  FIGMA
+  DOCUMENTATION
+  DEMO
+  PLAY_STORE
+  APP_STORE
+  OTHER
+}
+
+enum MediaProvider {
+  CLOUDINARY
+  GOOGLE_DRIVE
+  YOUTUBE
+  EXTERNAL
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+// Role of a media asset relative to its owning entity.
+enum MediaRole {
+  AVATAR
+  LOGO
+  BANNER
+  COVER
+  GALLERY
+}
+
+// =============================================================================
+// Better Auth Models — DO NOT MODIFY Better Auth fields
+// =============================================================================
 
 model User {
   id            String    @id
@@ -32,9 +172,49 @@ model User {
   username        String?
   displayUsername String?
 
+  // --- Kizunia Custom Fields ---
+
+  // Profile — identity media through direct references
+  avatarMediaId String?
+  avatar        Media?  @relation("userAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
+  bannerMediaId String?
+  bannerMedia   Media?  @relation("userBanner", fields: [bannerMediaId], references: [id], onDelete: SetNull)
+
+  headline       String?
+  bio            String?
+  college        String?
+  degree         String?
+  graduationYear Int?
+  location       String?
+
+  // System
+  visibility UserVisibility @default(PUBLIC)
+  status     UserStatus     @default(ACTIVE)
+
+  // Relationships
+  technologies       UserTechnology[]
+  interests          UserCategory[]
+  badges             UserBadge[]
+  userLinks          UserLink[]
+  notificationPref   NotificationPreference?
+  hackathonMembers   HackathonMember[]
+  hackathonBookmarks HackathonBookmark[]
+  projectMembers     ProjectMember[]
+  projectBookmarks   ProjectBookmark[]
+
+  // Suggestions — submitted and reviewed by this user
+  suggestionsSubmitted HackathonSuggestion[] @relation("suggestionSubmittedBy")
+  suggestionsReviewed  HackathonSuggestion[] @relation("suggestionReviewedBy")
+
+  // Audit — entities created or last updated by this user
+  hackathonsCreated Hackathon[] @relation("hackathonCreatedBy")
+  hackathonsUpdated Hackathon[] @relation("hackathonUpdatedBy")
+  projectsCreated   Project[]   @relation("projectCreatedBy")
+  projectsUpdated   Project[]   @relation("projectUpdatedBy")
+
   @@unique([email])
-  @@map("user")
   @@unique([username])
+  @@map("user")
 }
 
 model Session {
@@ -84,4 +264,538 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+// =============================================================================
+// Shared Models — Link, Media, Technology, Category, Badge
+// =============================================================================
+
+// Pure resource. Entities own links through join tables.
+// The frontend determines icons based on type.
+model Link {
+  id    String   @id @default(cuid())
+  type  LinkType
+  title String
+  url   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Reverse relations — ownership lives in join tables, not here
+  userLinks       UserLink[]
+  hackathonLinks  HackathonLink[]
+  projectLinks    ProjectLink[]
+  suggestionLinks HackathonSuggestionLink[]
+
+  @@map("link")
+}
+
+// Pure asset. Media never owns anything — entities reference media.
+// Identity assets (avatar, banner, logo) use direct foreign keys on the entity.
+// Collections (gallery) use join tables.
+model Media {
+  id           String        @id @default(cuid())
+  provider     MediaProvider
+  type         MediaType
+  url          String
+  thumbnailUrl String?
+  alt          String?
+  caption      String?
+  width        Int?
+  height       Int?
+  mimeType     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Reverse relations for identity references
+  userAvatars      User[]      @relation("userAvatar")
+  userBanners      User[]      @relation("userBanner")
+  hackathonLogos   Hackathon[] @relation("hackathonLogo")
+  hackathonBanners Hackathon[] @relation("hackathonBanner")
+  projectLogos     Project[]   @relation("projectLogo")
+  projectBanners   Project[]   @relation("projectBanner")
+
+  // Reverse relations for gallery join tables
+  hackathonGallery HackathonMedia[]
+  projectGallery   ProjectMedia[]
+  suggestionMedia  HackathonSuggestionMedia[]
+
+  @@map("media")
+}
+
+// Global pool of technologies/skills.
+model Technology {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  iconUrl     String?
+
+  users       UserTechnology[]
+  hackathons  HackathonTechnology[]
+  projects    ProjectTechnology[]
+  suggestions HackathonSuggestionTechnology[]
+
+  @@map("technology")
+}
+
+// Global pool of categories/interests.
+model Category {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+
+  users       UserCategory[]
+  hackathons  HackathonCategory[]
+  projects    ProjectCategory[]
+  suggestions HackathonSuggestionCategory[]
+
+  @@map("category")
+}
+
+// Generic badge system. Not limited to verification.
+model Badge {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  iconUrl     String?
+
+  users    UserBadge[]
+  projects ProjectBadge[]
+
+  @@map("badge")
+}
+
+// =============================================================================
+// User Domain — Join Tables
+// =============================================================================
+
+model UserTechnology {
+  userId       String
+  technologyId String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, technologyId])
+  @@map("user_technology")
+}
+
+model UserCategory {
+  userId     String
+  categoryId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([userId, categoryId])
+  @@map("user_category")
+}
+
+model UserBadge {
+  userId   String
+  badgeId  String
+  issuedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge    Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, badgeId])
+  @@map("user_badge")
+}
+
+model UserLink {
+  userId String
+  linkId String
+  order  Int    @default(0)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  link   Link   @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@id([userId, linkId])
+  @@map("user_link")
+}
+
+model NotificationPreference {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailNotifications Boolean  @default(true)
+  pushNotifications  Boolean  @default(false)
+  preferences        Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("notification_preference")
+}
+
+// =============================================================================
+// Hackathon Domain
+// =============================================================================
+
+model Hackathon {
+  id               String @id @default(cuid())
+  title            String
+  slug             String @unique
+  shortDescription String
+
+  organizer            String
+  mode                 HackathonMode @default(ONLINE)
+  location             String?
+  registrationLink     String?
+  website              String?
+  startDate            DateTime?
+  endDate              DateTime?
+  registrationDeadline DateTime?
+  minTeamSize          Int?
+  maxTeamSize          Int?
+  prizePool            String?
+
+  documentation String? @db.Text
+
+  // Identity media
+  logoMediaId   String?
+  logo          Media?  @relation("hackathonLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  bannerMediaId String?
+  bannerMedia   Media?  @relation("hackathonBanner", fields: [bannerMediaId], references: [id], onDelete: SetNull)
+
+  visibility HackathonVisibility @default(UNLISTED)
+  // Lifecycle-only. Moderation belongs to HackathonSuggestion.
+  status     HackathonStatus     @default(UPCOMING)
+
+  // Audit — SetNull preserves history after user deletion.
+  createdById String?
+  createdBy   User?   @relation("hackathonCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?   @relation("hackathonUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  // Soft delete — rows are never permanently removed.
+  deletedAt DateTime?
+
+  categories     HackathonCategory[]
+  technologies   HackathonTechnology[]
+  members        HackathonMember[]
+  bookmarks      HackathonBookmark[]
+  hackathonLinks HackathonLink[]
+  gallery        HackathonMedia[]
+  submissions    HackathonSubmission[]
+
+  // Edit suggestions targeting this hackathon
+  suggestions HackathonSuggestion[]
+
+  @@index([status])
+  @@index([visibility])
+  @@index([deletedAt])
+  @@index([startDate])
+  @@index([registrationDeadline])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("hackathon")
+}
+
+// Role-based hackathon membership.
+model HackathonMember {
+  hackathonId String
+  userId      String
+  role        HackathonMemberRole @default(MAINTAINER)
+  assignedAt  DateTime            @default(now())
+  hackathon   Hackathon           @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([hackathonId, userId])
+  @@map("hackathon_member")
+}
+
+model HackathonCategory {
+  hackathonId String
+  categoryId  String
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([hackathonId, categoryId])
+  @@map("hackathon_category")
+}
+
+model HackathonTechnology {
+  hackathonId  String
+  technologyId String
+  hackathon    Hackathon  @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@id([hackathonId, technologyId])
+  @@map("hackathon_technology")
+}
+
+model HackathonBookmark {
+  hackathonId String
+  userId      String
+  createdAt   DateTime  @default(now())
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([hackathonId, userId])
+  @@map("hackathon_bookmark")
+}
+
+model HackathonLink {
+  hackathonId String
+  linkId      String
+  order       Int       @default(0)
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  link        Link      @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@id([hackathonId, linkId])
+  @@map("hackathon_link")
+}
+
+// Gallery images for hackathons. Identity assets (logo, banner) use direct refs.
+model HackathonMedia {
+  hackathonId String
+  mediaId     String
+  role        MediaRole @default(GALLERY)
+  order       Int       @default(0)
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  media       Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([hackathonId, mediaId])
+  @@map("hackathon_media")
+}
+
+// =============================================================================
+// Hackathon Suggestion Domain
+// =============================================================================
+
+// Stores moderation workflow. hackathonId = NULL means new hackathon suggestion.
+// hackathonId != NULL means edit suggestion for an existing hackathon.
+model HackathonSuggestion {
+  id String @id @default(cuid())
+
+  // Workflow
+  status          SuggestionStatus @default(DRAFT)
+  submittedAt     DateTime?
+  reviewedAt      DateTime?
+  reviewNotes     String?          @db.Text
+  rejectionReason String?          @db.Text
+
+  // NULL = new hackathon suggestion, NOT NULL = edit suggestion
+  hackathonId String?
+  hackathon   Hackathon? @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  submittedById String
+  submittedBy   User   @relation("suggestionSubmittedBy", fields: [submittedById], references: [id], onDelete: Cascade)
+
+  reviewedById String?
+  reviewedBy   User?   @relation("suggestionReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  // Editable content — mirrors Hackathon fields
+  title                String
+  shortDescription     String
+  organizer            String
+  mode                 HackathonMode @default(ONLINE)
+  location             String?
+  website              String?
+  registrationLink     String?
+  startDate            DateTime?
+  endDate              DateTime?
+  registrationDeadline DateTime?
+  minTeamSize          Int?
+  maxTeamSize          Int?
+  prizePool            String?
+  documentation        String?       @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categories      HackathonSuggestionCategory[]
+  technologies    HackathonSuggestionTechnology[]
+  suggestionLinks HackathonSuggestionLink[]
+  suggestionMedia HackathonSuggestionMedia[]
+
+  @@index([status])
+  @@index([submittedById])
+  @@index([reviewedById])
+  @@index([hackathonId])
+  @@map("hackathon_suggestion")
+}
+
+model HackathonSuggestionCategory {
+  suggestionId String
+  categoryId   String
+  suggestion   HackathonSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  category     Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([suggestionId, categoryId])
+  @@map("hackathon_suggestion_category")
+}
+
+model HackathonSuggestionTechnology {
+  suggestionId String
+  technologyId String
+  suggestion   HackathonSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  technology   Technology          @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@id([suggestionId, technologyId])
+  @@map("hackathon_suggestion_technology")
+}
+
+model HackathonSuggestionLink {
+  suggestionId String
+  linkId       String
+  order        Int                 @default(0)
+  suggestion   HackathonSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  link         Link                @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@id([suggestionId, linkId])
+  @@map("hackathon_suggestion_link")
+}
+
+model HackathonSuggestionMedia {
+  suggestionId String
+  mediaId      String
+  role         MediaRole           @default(GALLERY)
+  order        Int                 @default(0)
+  suggestion   HackathonSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  media        Media               @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([suggestionId, mediaId])
+  @@map("hackathon_suggestion_media")
+}
+
+// =============================================================================
+// Project Domain
+// =============================================================================
+
+model Project {
+  id               String @id @default(cuid())
+  title            String
+  slug             String @unique
+  shortDescription String
+
+  documentation String? @db.Text
+
+  // Identity media
+  logoMediaId   String?
+  logo          Media?  @relation("projectLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  bannerMediaId String?
+  bannerMedia   Media?  @relation("projectBanner", fields: [bannerMediaId], references: [id], onDelete: SetNull)
+
+  visibility ProjectVisibility @default(PUBLIC)
+  status     ProjectStatus     @default(DRAFT)
+
+  // Audit — SetNull preserves history after user deletion.
+  createdById String?
+  createdBy   User?   @relation("projectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?   @relation("projectUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  // Soft delete
+  deletedAt DateTime?
+
+  members      ProjectMember[]
+  categories   ProjectCategory[]
+  technologies ProjectTechnology[]
+  badges       ProjectBadge[]
+  projectLinks ProjectLink[]
+  gallery      ProjectMedia[]
+  bookmarks    ProjectBookmark[]
+  submissions  HackathonSubmission[]
+
+  @@index([status])
+  @@index([visibility])
+  @@index([deletedAt])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("project")
+}
+
+model ProjectMember {
+  projectId String
+  userId    String
+  role      ProjectRole @default(CONTRIBUTOR)
+  joinedAt  DateTime    @default(now())
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@map("project_member")
+}
+
+model ProjectCategory {
+  projectId  String
+  categoryId String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, categoryId])
+  @@map("project_category")
+}
+
+model ProjectTechnology {
+  projectId    String
+  technologyId String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, technologyId])
+  @@map("project_technology")
+}
+
+model ProjectBadge {
+  projectId String
+  badgeId   String
+  issuedAt  DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, badgeId])
+  @@map("project_badge")
+}
+
+model ProjectLink {
+  projectId String
+  linkId    String
+  order     Int     @default(0)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  link      Link    @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, linkId])
+  @@map("project_link")
+}
+
+// Gallery images for projects. Identity assets (logo, banner) use direct refs.
+model ProjectMedia {
+  projectId String
+  mediaId   String
+  role      MediaRole @default(GALLERY)
+  order     Int       @default(0)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  media     Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, mediaId])
+  @@map("project_media")
+}
+
+model ProjectBookmark {
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@map("project_bookmark")
+}
+
+// A project submitted to a hackathon. Extensible for future scoring/ranking.
+model HackathonSubmission {
+  hackathonId String
+  projectId   String
+  submittedAt DateTime  @default(now())
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([hackathonId, projectId])
+  @@map("hackathon_submission")
 }
