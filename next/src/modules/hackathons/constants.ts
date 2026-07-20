@@ -1,0 +1,3 @@
+﻿/**
+ * Hackathons Module - Constants
+ */
