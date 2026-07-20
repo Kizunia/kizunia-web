@@ -26,12 +26,14 @@ import {
     BoldItalicUnderlineToggles,
     InsertImage,
 } from '@mdxeditor/editor'
+import { useTheme } from 'next-themes'
 
 // Only import this to the next file
 export default function InitializedMDXEditor({
     editorRef,
     ...props
 }: { editorRef: ForwardedRef<MDXEditorMethods> | null } & MDXEditorProps) {
+    const { theme } = useTheme()
 
     async function imageUploadHandler(image: File) {
         console.log(image)
@@ -40,7 +42,7 @@ export default function InitializedMDXEditor({
 
     return (
         <MDXEditor
-            className='dark-theme dark-editor'
+            className={`${theme === 'light' ? 'light-theme light-editor' : 'dark-theme dark-editor'} `}
             plugins={[
                 // Example Plugin Usage
                 listsPlugin(),
