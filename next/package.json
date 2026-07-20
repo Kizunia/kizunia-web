@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@better-auth/prisma-adapter": "^1.6.23",
+    "@mdxeditor/editor": "^4.0.4",
     "@prisma/client": "6.14.0",
+    "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@tsparticles/engine": "^3.9.1",
     "@tsparticles/react": "^3.0.0",
