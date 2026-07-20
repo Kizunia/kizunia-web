@@ -102,6 +102,26 @@ enum AssetProvider {
   CLOUDINARY
 }
 
+enum LinkType {
+  WEBSITE
+  REGISTRATION
+  GITHUB
+  GITLAB
+  DEMO
+  DOCUMENTATION
+  FIGMA
+  DEVPOST
+  DEVFOLIO
+  UNSTOP
+  LINKEDIN
+  TWITTER
+  INSTAGRAM
+  DISCORD
+  YOUTUBE
+  PORTFOLIO
+  OTHER
+}
+
 // =============================================================================
 // Better Auth Models — DO NOT MODIFY unless absolutely necessary
 // =============================================================================
@@ -226,12 +246,11 @@ model Verification {
 // External links (GitHub, LinkedIn, Portfolio, etc.)
 // Uses optional foreign keys instead of polymorphic relations for Prisma compatibility.
 model Link {
-  id    String  @id @default(cuid())
+  id    String   @id @default(cuid())
   url   String
-  label String? // e.g., "GitHub", "Personal Website"
-  type  String // e.g., "github", "discord", "website"
-  icon  String?
-  order Int     @default(0)
+  title String
+  type  LinkType
+  order Int      @default(0)
 
   userId      String?
   user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -248,6 +267,7 @@ model Link {
   @@index([userId])
   @@index([hackathonId])
   @@index([projectId])
+  @@index([hackathonSuggestionId])
   @@map("link")
 }
 
