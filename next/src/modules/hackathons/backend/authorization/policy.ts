@@ -16,11 +16,12 @@ export class HackathonPolicy {
         return AuthorizationEvaluator
             .start(context)
 
-            .platformOverride(
-                ctx =>
-                    ctx.actor.role === "ADMIN" ||
-                    ctx.actor.role === "SUPER_ADMIN",
-            )
+            // .platformOverride(
+            //     ctx =>
+            //         ctx.actor.role === "ADMIN" ||
+            //         ctx.actor.role === "SUPER_ADMIN",
+            // )
+            .platformOverride()
 
             .security(
                 ctx => !ctx.actor.banned,

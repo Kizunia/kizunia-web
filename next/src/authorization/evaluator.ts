@@ -3,31 +3,43 @@ import {
     AuthorizationCode,
     type AuthorizationDecision,
 } from "./types";
-
-export class AuthorizationEvaluator<TContext, TAction, TRole extends string> {
+import { PlatformAccess } from ".";
+import type { AuthorizationContext } from "./types/context";
+export class AuthorizationEvaluator< TContext extends AuthorizationContext, TAction, TRole extends string> {
     private decision: AuthorizationDecision | null = null;
 
     private constructor(private readonly context: TContext) {}
 
-    static start<TContext, TAction, TRole extends string>(
+    static start<TContext  extends AuthorizationContext, TAction, TRole extends string>(
         context: TContext,
     ) {
         return new AuthorizationEvaluator<TContext, TAction, TRole>(context);
     }
 
-    platformOverride(
-        predicate: (context: TContext) => boolean,
-    ) {
-        if (this.decision) {
-            return this;
-        }
+    // platformOverride(
+    //     predicate: (context: TContext) => boolean,
+    // ) {
+    //     if (this.decision) {
+    //         return this;
+    //     }
 
-        if (predicate(this.context)) {
-            this.decision = allow();
-        }
+    //     if (predicate(this.context)) {
+    //         this.decision = allow();
+    //     }
 
+    //     return this;
+    // }
+    platformOverride() {
+    if (this.decision) {
         return this;
     }
+
+    if (PlatformAccess.canBypassAuthorization(this.context.actor)) {
+        this.decision = allow();
+    }
+
+    return this;
+}
 
     security(
         predicate: (context: TContext) => boolean,

@@ -3,7 +3,7 @@ import type {
     HackathonMember,
     User,
 } from "@/generated/prisma";
-
+import type { AuthorizationContext } from "@/authorization";
 /**
  * Complete authorization context for a Hackathon.
  *
@@ -13,7 +13,8 @@ import type {
  * Once constructed, no additional database queries should
  * be required by the authorization system.
  */
-export interface HackathonContext {
+export interface HackathonContext
+    extends AuthorizationContext {
     /**
      * The authenticated user performing the action.
      */
