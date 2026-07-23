@@ -1,5 +1,5 @@
 ﻿import prisma from "@/lib/prisma";
-
+import type { CreateHackathonInput } from "../schemas/create-hackathon";
 import type { Prisma } from "@/generated/prisma";
 
 interface FindCompetitionsRepositoryParams {
@@ -100,6 +100,45 @@ export class HackathonRepository {
       take: filters.take,
     });
   }
+
+  static async create(
+        data: CreateHackathonInput,
+    ) {
+        console.log("");
+        console.log("========================================");
+        console.log("🗄️ HACKATHON REPOSITORY");
+        console.log("========================================");
+
+        console.log("Creating database record...");
+
+        const hackathon = await prisma.hackathon.create({
+            data: {
+                title: data.title,
+                slug: data.slug,
+
+                shortDescription:
+                    data.shortDescription || null,
+
+                organizer:
+                    data.organizer || null,
+
+                website:
+                    data.website || null,
+
+                registrationLink:
+                    data.registrationLink || null,
+            },
+        });
+
+        console.log("");
+        console.log("✅ Database insert complete.");
+
+        console.dir(hackathon, {
+            depth: null,
+        });
+
+        return hackathon;
+    }
 
   /**
    * Converts sort options into Prisma orderBy.

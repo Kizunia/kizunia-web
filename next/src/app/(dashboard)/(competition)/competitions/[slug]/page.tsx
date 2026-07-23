@@ -80,8 +80,9 @@ export default async function CompetitionPage({
                   </p>
                 </div>
 
-                <Badge>{competition.status.replaceAll("_", " ")}</Badge>
+               {competition.status &&  <Badge>{competition.status.replaceAll("_", " ")}</Badge>}
               </div>
+              
 
               <p className="text-muted-foreground">
                 {competition.shortDescription}

@@ -56,12 +56,12 @@ export default function CompetitionsCards({
                   {competition.logoUrl ? (
                     <img
                       src={competition.logoUrl}
-                      alt={competition.organizer}
+                      alt={competition.organizer || "Competition Logo"}
                       className="h-12 w-12 rounded-lg border bg-background object-cover"
                     />
                   ) : (
                     <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted text-sm font-semibold">
-                      {competition.organizer.charAt(0)}
+                      {competition.organizer?.charAt(0)}
                     </div>
                   )}
 

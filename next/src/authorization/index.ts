@@ -5,3 +5,4 @@ export * from "./utils/allow";
 export * from "./utils/deny";
 export * from "./platform";
 export * from "./types";
+export * from "./assert";

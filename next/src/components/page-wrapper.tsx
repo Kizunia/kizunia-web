@@ -12,7 +12,7 @@ import { ThemeModeToggle } from "./ui/themeModeToggle";
 
 interface PageWrapperProps {
   children: React.ReactNode;
-  breadcrumbs: {
+  breadcrumbs?: {
     label: string;
     href: string;
   }[];
@@ -38,7 +38,7 @@ export default function PageWrapper({
 
             <Breadcrumb>
               <BreadcrumbList>
-                {breadcrumbs.map((breadcrumb, index) => (
+                {!!breadcrumbs && breadcrumbs.map((breadcrumb, index) => (
                   <Fragment key={breadcrumb.label}>
                     <BreadcrumbItem>
                       <BreadcrumbLink href={breadcrumb.href}>

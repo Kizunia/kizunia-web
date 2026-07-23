@@ -74,5 +74,10 @@ export enum AuthorizationCode {
     /**
      * A fallback code for unexpected authorization failures.
      */
+    UNAUTHORIZED = "UNAUTHORIZED",
+
+    /**
+     * A fallback code for unexpected authorization failures.
+     */
     UNKNOWN = "UNKNOWN",
 }

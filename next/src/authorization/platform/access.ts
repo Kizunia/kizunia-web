@@ -1,6 +1,7 @@
-import type { User } from "@/generated/prisma";
+
 import { PlatformRole } from "./roles";
-type PlatformActor = Pick<User, "role">;
+import { AuthorizationActor } from "../types";
+type PlatformActor = Pick<AuthorizationActor, "role">;
 
 export class PlatformAccess {
     static canBypassAuthorization(actor: PlatformActor): boolean {

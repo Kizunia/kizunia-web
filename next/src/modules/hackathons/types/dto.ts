@@ -10,10 +10,10 @@ export interface HackathonCardDTO {
   id: string;
   slug: string;
   title: string;
-  shortDescription: string;
-  organizer: string;
+  shortDescription: string | null ;
+  organizer: string | null;
   location: string | null;
-  mode: HackathonMode;
+  mode: HackathonMode | null;
   startDate: Date | null;
   registrationDeadline: Date | null;
   minTeamSize: number  | null;

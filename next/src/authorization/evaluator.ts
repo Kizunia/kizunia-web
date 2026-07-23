@@ -59,7 +59,7 @@ export class AuthorizationEvaluator< TContext extends AuthorizationContext, TAct
 
     permission(
         permissionSet: Readonly<Record<TRole, ReadonlySet<TAction>>>,
-        role: TRole | null,
+        role: TRole | null | undefined,
         action: TAction,
     ) {
         if (this.decision) {
