@@ -12,7 +12,10 @@ import type { PlatformContext } from "@/authorization/platform/context";
 import type { CompetitionContext } from "./authorization";
 
 import { DuplicateSlugError } from "../errors";
-
+import { CompetitionSearchBuilder } from "../search/builder";
+import type { CompetitionSearchResult } from "../search/types";
+import type { CompetitionSearchInput } from "../search/schema";
+import type { HackathonCardDTO } from "../types/dto";
 /**
  * ============================================================================
  * Create
@@ -60,33 +63,103 @@ export class CompetitionService {
   // Queries
   // ==========================================================================
 
-  static async findPublic(filters: SearchCompetitionsInput) {
-    const skip = (filters.page - 1) * COMPETITIONS_PAGE_SIZE;
+  // static async findPublic(filters: SearchCompetitionsInput) {
+  //   const skip = (filters.page - 1) * COMPETITIONS_PAGE_SIZE;
 
-    const competitions = await CompetitionRepository.findMany({
-      // TODO: add more filters here as needed
-      // open to all, payment, team size, location, user type, location
-      search: filters.search,
+  //   const competitions = await CompetitionRepository.findMany({
+  //     // TODO: add more filters here as needed
+  //     // open to all, payment, team size, location, user type, location
+  //     search: filters.search,
 
-      mode: filters.mode,
+  //     mode: filters.mode,
 
-      status: filters.status,
+  //     status: filters.status,
 
-      category: filters.category,
+  //     category: filters.category,
 
-      technology: filters.technology,
+  //     technology: filters.technology,
 
-      
+  //     sort: filters.sort,
 
-      sort: filters.sort,
+  //     skip,
 
-      skip,
+  //     take: COMPETITIONS_PAGE_SIZE,
+  //   });
 
-      take: COMPETITIONS_PAGE_SIZE,
-    });
+  //   return competitionMapper.toCardDTOs(competitions);
+  // }
+  // ==========================================================================
+// Queries
+// ==========================================================================
 
-    return competitionMapper.toCardDTOs(competitions);
-  }
+static async search(
+  filters: CompetitionSearchInput,
+): Promise<CompetitionSearchResult<HackathonCardDTO>> {
+
+  // ------------------------------------------------------------
+  // Build Prisma Query
+  // ------------------------------------------------------------
+
+  // const where =
+  //   CompetitionSearchBuilder.buildWhere(filters);
+
+  // const orderBy =
+  //   CompetitionSearchBuilder.buildOrderBy(
+  //     filters.sort,
+  //   );
+
+  // const { skip, take } =
+  //   CompetitionSearchBuilder.buildPagination(
+  //     filters,
+  //   );
+
+  // ------------------------------------------------------------
+  // Execute Queries
+  // ------------------------------------------------------------
+  console.log(filters);
+
+  const [competitions, total] = await Promise.all([
+    CompetitionRepository.findMany(filters),
+    CompetitionRepository.count(filters),
+]);
+
+
+  // ------------------------------------------------------------
+  // Mapping
+  // ------------------------------------------------------------
+
+  const items =
+    competitionMapper.toCardDTOs(
+      competitions,
+    );
+
+  // ------------------------------------------------------------
+  // Pagination
+  // ------------------------------------------------------------
+
+  const totalPages =
+    Math.ceil(total / filters.limit);
+
+  return {
+    items,
+
+    pagination: {
+      page: filters.page,
+
+      limit: filters.limit,
+
+      total,
+
+      totalPages,
+
+      hasNextPage:
+        filters.page < totalPages,
+
+      hasPreviousPage:
+        filters.page > 1,
+    },
+  };
+}
 
   // Mutations
 

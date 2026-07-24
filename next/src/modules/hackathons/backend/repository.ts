@@ -3,24 +3,27 @@ import type { CreateHackathonInput } from "../schemas/create-hackathon";
 import type { Prisma } from "@/generated/prisma";
 import { UpdateHackathonInput } from "../schemas/update-hackathon";
 import { NotFoundError } from "@/lib/errors";
+import type { CompetitionSearchOptions } from "../search/types";
+import { CompetitionSearchInput } from "../search/schema";
+import { CompetitionSearchBuilder } from "../search/builder";
 
-interface FindCompetitionsOptions {
-  search?: string;
+// interface FindCompetitionsOptions {
+//   search?: string;
 
-  mode?: Prisma.HackathonWhereInput["mode"];
+//   mode?: Prisma.HackathonWhereInput["mode"];
 
-  status?: Prisma.HackathonWhereInput["status"];
+//   status?: Prisma.HackathonWhereInput["status"];
 
-  category?: string;
+//   category?: string;
 
-  technology?: string;
+//   technology?: string;
 
-  sort?: "start-date" | "deadline" | "newest";
+//   sort?: "start-date" | "deadline" | "newest";
 
-  skip: number;
+//   skip: number;
 
-  take: number;
-}
+//   take: number;
+// }
 
 export class CompetitionRepository {
   /**
@@ -39,70 +42,86 @@ export class CompetitionRepository {
    * ✗ Authorization
    * ✗ DTO Mapping
    */
-  static async findMany(filters: FindCompetitionsOptions) {
-    const where: Prisma.HackathonWhereInput = {
-      deletedAt: null,
-      ...(filters.search && {
-        OR: [
-          {
-            title: {
-              contains: filters.search,
-              mode: "insensitive",
-            },
-          },
-          {
-            organizer: {
-              contains: filters.search,
-              mode: "insensitive",
-            },
-          },
-        ],
-      }),
+  // static async findMany(filters: FindCompetitionsOptions) {
+  //   const where: Prisma.HackathonWhereInput = {
+  //     deletedAt: null,
+  //     ...(filters.search && {
+  //       OR: [
+  //         {
+  //           title: {
+  //             contains: filters.search,
+  //             mode: "insensitive",
+  //           },
+  //         },
+  //         {
+  //           organizer: {
+  //             contains: filters.search,
+  //             mode: "insensitive",
+  //           },
+  //         },
+  //       ],
+  //     }),
 
-      ...(filters.mode && {
-        mode: filters.mode,
-      }),
+  //     ...(filters.mode && {
+  //       mode: filters.mode,
+  //     }),
 
-      ...(filters.status && {
-        status: filters.status,
-      }),
+  //     ...(filters.status && {
+  //       status: filters.status,
+  //     }),
 
-      ...(filters.category && {
-        categories: {
-          some: {
-            category: {
-              slug: filters.category,
-            },
-          },
-        },
-      }),
+  //     ...(filters.category && {
+  //       categories: {
+  //         some: {
+  //           category: {
+  //             slug: filters.category,
+  //           },
+  //         },
+  //       },
+  //     }),
 
-      ...(filters.technology && {
-        technologies: {
-          some: {
-            technology: {
-              slug: filters.technology,
-            },
-          },
-        },
-      }),
-    };
+  //     ...(filters.technology && {
+  //       technologies: {
+  //         some: {
+  //           technology: {
+  //             slug: filters.technology,
+  //           },
+  //         },
+  //       },
+  //     }),
+  //   };
+
+  //   return prisma.hackathon.findMany({
+  //     where,
+
+  //     include: {
+  //       logoAsset: true,
+  //       coverAsset: true,
+  //     },
+
+  //     orderBy: this.getOrderBy(filters.sort),
+
+  //     skip: filters.skip,
+
+  //     take: filters.take,
+  //   });
+  // }
+
+  static async findMany(
+    filters: CompetitionSearchInput,
+) {
+    const query =
+        CompetitionSearchBuilder.build(filters);
 
     return prisma.hackathon.findMany({
-      where,
+        ...query,
 
-      include: {
-        logoAsset: true,
-        coverAsset: true,
-      },
-
-      orderBy: this.getOrderBy(filters.sort),
-
-      skip: filters.skip,
-
-      take: filters.take,
+        include: {
+            logoAsset: true,
+            coverAsset: true,
+        },
     });
-  }
+}
 
   static async findBySlug(slug: string) {
     return prisma.hackathon.findFirst({
@@ -269,12 +288,20 @@ export class CompetitionRepository {
     });
   }
 
-  static async count(where?: Prisma.HackathonWhereInput): Promise<number> {
+  static async count(
+    filters: CompetitionSearchInput,
+) {
+    const { where } =
+        CompetitionSearchBuilder.build(filters);
+
     return prisma.hackathon.count({
-      where: {
-        deletedAt: null,
-        ...where,
-      },
+        where,
+    });
+}
+
+  static async searchCount(where: Prisma.HackathonWhereInput) {
+    return prisma.hackathon.count({
+      where,
     });
   }
 
@@ -301,27 +328,27 @@ export class CompetitionRepository {
   /**
    * Converts sort options into Prisma orderBy.
    */
-  private static getOrderBy(
-    sort: FindCompetitionsOptions["sort"],
-  ): Prisma.HackathonOrderByWithRelationInput {
-    switch (sort) {
-      case "deadline":
-        return {
-          registrationDeadline: "asc",
-        };
+  // private static getOrderBy(
+  //   sort: FindCompetitionsOptions["sort"],
+  // ): Prisma.HackathonOrderByWithRelationInput {
+  //   switch (sort) {
+  //     case "deadline":
+  //       return {
+  //         registrationDeadline: "asc",
+  //       };
 
-      case "newest":
-        return {
-          createdAt: "desc",
-        };
+  //     case "newest":
+  //       return {
+  //         createdAt: "desc",
+  //       };
 
-      case "start-date":
-      default:
-        return {
-          startDate: "asc",
-        };
-    }
-  }
+  //     case "start-date":
+  //     default:
+  //       return {
+  //         startDate: "asc",
+  //       };
+  //   }
+  // }
 }
 
 // export const hackathonRepository = new HackathonRepository();

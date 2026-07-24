@@ -88,5 +88,8 @@
       "prisma",
       "@prisma/client"
     ]
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

@@ -18,6 +18,7 @@ import { ApiResponse, Route } from "@/lib/http";
 import { SessionService } from "@/lib/auth/index";
 import { UpdateHackathonSchema } from "../schemas/update-hackathon";
 import { CompetitionContextResolver } from "./authorization";
+import { CompetitionSearchSchema } from "../search/schema";
 export class CompetitionController {
   static async create(request: NextRequest) {
     return Route.execute(async () => {
@@ -43,6 +44,22 @@ export class CompetitionController {
      return ApiResponse.created(competition);
     });
   }
+
+ static async search(request: NextRequest) {
+  return Route.execute(async () => {
+    const query = Object.fromEntries(
+      request.nextUrl.searchParams.entries(),
+    );
+
+    const filters =
+      CompetitionSearchSchema.parse(query);
+
+    const competitions =
+      await CompetitionService.search(filters);
+
+    return ApiResponse.ok(competitions);
+  });
+}
 
   static async update(request: NextRequest, hackathonId: string) {
     return Route.execute(async () => {
