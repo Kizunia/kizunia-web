@@ -77,6 +77,88 @@ enum HackathonMemberRole {
   MAINTAINER
 }
 
+enum RegistrationPlatform {
+  KIZUNIA
+
+  UNSTOP
+  DEVPOST
+  DEVFOLIO
+  DORAHACKS
+  HACK2SKILL
+  HACKEREARTH
+  TAIKAI
+  LUMA
+
+  GOOGLE_FORM
+  TYPEFORM
+
+  CUSTOM
+  OFFLINE
+  OTHER
+}
+
+enum RegistrationType {
+  INDIVIDUAL
+  TEAM
+  BOTH
+}
+
+enum RegistrationFeeType {
+  FREE
+  PAID
+  CONDITIONAL
+}
+
+enum OrganizerType {
+  COLLEGE
+  COMPANY
+  COMMUNITY
+  GOVERNMENT
+  NON_PROFIT
+  STARTUP
+  INDIVIDUAL
+  OPEN_SOURCE
+}
+
+enum DifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  OPEN
+}
+
+enum CertificateType {
+  NONE
+  PARTICIPATION
+  WINNER
+}
+
+enum EligibilityType {
+  // Education
+  SCHOOL
+  UNDERGRADUATE
+  POSTGRADUATE
+  PHD
+
+  // Experience
+  FRESHER
+  PROFESSIONAL
+
+  // Academic Stream
+  ENGINEERING
+  MANAGEMENT
+  DESIGN
+  SCIENCE
+  COMMERCE
+  ARTS
+  MEDICAL
+  LAW
+
+  // General
+  OPEN
+  OTHER
+}
+
 // =============================================================================
 // Enums — Project
 // =============================================================================
@@ -416,9 +498,9 @@ model NotificationPreference {
 // =============================================================================
 
 model Hackathon {
-  id               String @id @default(cuid())
+  id               String  @id @default(cuid())
   title            String
-  slug             String @unique
+  slug             String  @unique
   shortDescription String?
 
   organizer            String?
@@ -433,7 +515,7 @@ model Hackathon {
   registrationDeadline DateTime?
   prizePool            String?
   logoAssetId          String?
-  logoAsset            Asset?        @relation("hackathonLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
+  logoAsset            Asset?         @relation("hackathonLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
 
   bannerAssetId String?
   bannerAsset   Asset?  @relation("hackathonBanner", fields: [bannerAssetId], references: [id], onDelete: SetNull)
@@ -445,7 +527,7 @@ model Hackathon {
 
   visibility HackathonVisibility @default(UNLISTED)
   // Lifecycle-only. Moderation status belongs to a future Proposal model.
-  status     HackathonStatus?     
+  status     HackathonStatus?
 
   // Audit — tracks who created and last updated this hackathon.
   // Uses SetNull so audit history survives user deletion.
@@ -470,7 +552,23 @@ model Hackathon {
   // Suggestions
   // ---------------------------------------------------------------------------
 
-  suggestions HackathonSuggestion[] @relation("hackathonSuggestionTarget")
+  suggestions   HackathonSuggestion[]  @relation("hackathonSuggestionTarget")
+  // hackathonEligibilities HackathonEligibility[]
+  eligibilities HackathonEligibility[]
+
+  registrationPlatform RegistrationPlatform?
+
+  registrationType RegistrationType?
+
+  registrationFeeType RegistrationFeeType @default(FREE)
+
+  registrationFee String?
+
+  organizerType OrganizerType?
+
+  difficulty DifficultyLevel?
+
+  certificateType CertificateType?
 
   @@index([status])
   @@index([visibility])
@@ -609,6 +707,17 @@ model HackathonTechnology {
 
   @@id([hackathonId, technologyId])
   @@map("hackathon_technology")
+}
+
+model HackathonEligibility {
+  hackathonId String
+  type        EligibilityType
+
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  @@id([hackathonId, type])
+  @@index([type])
+  @@map("hackathon_eligibility")
 }
 
 model HackathonBookmark {
