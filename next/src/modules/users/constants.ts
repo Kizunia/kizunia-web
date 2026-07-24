@@ -2,10 +2,9 @@
  * Users Module — Constants
  */
 
-export const USER_ROLES = {
-  ADMIN: "admin",
-  USER: "user",
-} as const;
+import { PlatformRole } from "@/authorization";
+
+export const USER_ROLES = PlatformRole
 
 export const USER_LIMITS = {
   MAX_NAME_LENGTH: 100,
