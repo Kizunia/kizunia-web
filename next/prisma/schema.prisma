@@ -424,13 +424,13 @@ model Hackathon {
   organizer            String
   mode                 HackathonMode @default(ONLINE)
   location             String?
+  minTeamSize          Int?
+  maxTeamSize          Int?
   registrationLink     String?
   website              String?
   startDate            DateTime?
   endDate              DateTime?
   registrationDeadline DateTime?
-  minTeamSize          Int?
-  maxTeamSize          Int?
   prizePool            String?
   logoAssetId          String?
   logoAsset            Asset?        @relation("hackathonLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
