@@ -2,8 +2,9 @@
 import type { CreateHackathonInput } from "../schemas/create-hackathon";
 import type { Prisma } from "@/generated/prisma";
 import { UpdateHackathonInput } from "../schemas/update-hackathon";
+import { NotFoundError } from "@/lib/errors";
 
-interface FindCompetitionsRepositoryParams {
+interface FindCompetitionsOptions {
   search?: string;
 
   mode?: Prisma.HackathonWhereInput["mode"];
@@ -21,7 +22,7 @@ interface FindCompetitionsRepositoryParams {
   take: number;
 }
 
-export class HackathonRepository {
+export class CompetitionRepository {
   /**
    * Database Layer
    *
@@ -38,8 +39,9 @@ export class HackathonRepository {
    * ✗ Authorization
    * ✗ DTO Mapping
    */
-  static async findMany(filters: FindCompetitionsRepositoryParams) {
+  static async findMany(filters: FindCompetitionsOptions) {
     const where: Prisma.HackathonWhereInput = {
+      deletedAt: null,
       ...(filters.search && {
         OR: [
           {
@@ -103,25 +105,41 @@ export class HackathonRepository {
   }
 
   static async findBySlug(slug: string) {
-    return await prisma.hackathon.findUnique({
+    return prisma.hackathon.findFirst({
       where: {
         slug,
+        deletedAt: null,
       },
     });
   }
 
   static async findById(id: string) {
-    return prisma.hackathon.findUnique({
+    return prisma.hackathon.findFirst({
       where: {
         id,
+        deletedAt: null,
       },
     });
   }
 
-  static async isSlugTaken(slug: string): Promise<boolean> {
+  static async findByIdOrThrow(id: string) {
+    const competition = await this.findById(id);
+
+    if (!competition) {
+      throw new NotFoundError({
+        code: "competition_not_found",
+        message: `Competition with given id not found.`,
+      });
+    }
+
+    return competition;
+  }
+
+  static async existsBySlug(slug: string): Promise<boolean> {
     const exists = await prisma.hackathon.findUnique({
       where: {
         slug,
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -131,14 +149,20 @@ export class HackathonRepository {
     return exists !== null;
   }
 
-  static async create(data: CreateHackathonInput) {
-    console.log("");
-    console.log("========================================");
-    console.log("🗄️ HACKATHON REPOSITORY");
-    console.log("========================================");
+  static async existsById(id: string): Promise<boolean> {
+    const exists = await prisma.hackathon.findUnique({
+      where: {
+        id,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
 
-    console.log("Creating database record...");
-
+    return exists !== null;
+  }
+  static async create({ data }: { data: CreateHackathonInput }) {
     const hackathon = await prisma.hackathon.create({
       data: {
         title: data.title,
@@ -152,13 +176,6 @@ export class HackathonRepository {
 
         registrationLink: data.registrationLink || null,
       },
-    });
-
-    console.log("");
-    console.log("✅ Database insert complete.");
-
-    console.dir(hackathon, {
-      depth: null,
     });
 
     return hackathon;
@@ -179,6 +196,29 @@ export class HackathonRepository {
     });
   }
 
+  static async delete(id: string) {
+    // TODO: Soft delete is not fully implemented yet.
+    return prisma.hackathon.update({
+      where: {
+        id,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+  }
+
+  static async restore(id: string) {
+    return prisma.hackathon.update({
+      where: {
+        id,
+      },
+      data: {
+        deletedAt: null,
+      },
+    });
+  }
+
   static async findMembership(hackathonId: string, userId: string) {
     return prisma.hackathonMember.findUnique({
       where: {
@@ -190,11 +230,42 @@ export class HackathonRepository {
     });
   }
 
+  static async search(query: string) {
+    return prisma.hackathon.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          {
+            title: {
+              contains: query,
+              mode: "insensitive",
+            },
+          },
+          {
+            organizer: {
+              contains: query,
+              mode: "insensitive",
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  static async count(where?: Prisma.HackathonWhereInput): Promise<number> {
+    return prisma.hackathon.count({
+      where: {
+        deletedAt: null,
+        ...where,
+      },
+    });
+  }
+
   /**
    * Converts sort options into Prisma orderBy.
    */
   private static getOrderBy(
-    sort: FindCompetitionsRepositoryParams["sort"],
+    sort: FindCompetitionsOptions["sort"],
   ): Prisma.HackathonOrderByWithRelationInput {
     switch (sort) {
       case "deadline":

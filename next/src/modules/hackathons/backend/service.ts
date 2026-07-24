@@ -1,6 +1,6 @@
 ﻿import { hackathonMapper } from "./mapper";
 import type { CreateHackathonInput } from "../schemas/create-hackathon";
-import { HackathonRepository } from "./repository";
+import { CompetitionRepository } from "./repository";
 import type { SearchCompetitionsInput } from "../schemas/search.schema";
 
 import { COMPETITIONS_PAGE_SIZE } from "../constants";
@@ -38,7 +38,7 @@ export class HackathonService {
      */
     const skip = (filters.page - 1) * COMPETITIONS_PAGE_SIZE;
 
-    const competitions = await HackathonRepository.findMany({
+    const competitions = await CompetitionRepository.findMany({
       search: filters.search,
 
       mode: filters.mode,
@@ -61,14 +61,9 @@ export class HackathonService {
 
   static async create(data: CreateHackathonInput, context: PlatformContext,) {
 
-    console.dir(data, {
-      depth: null,
-    });
+   
 
-    console.log("");
-    console.log("Creating hackathon...");
-
-    const hackathon = await HackathonRepository.create(data);
+    const hackathon = await CompetitionRepository.create({data});
 
     console.log("");
     console.log("✅ Hackathon created.");
@@ -85,7 +80,7 @@ export class HackathonService {
     options.data.slug !== options.context.hackathon.slug
 ) {
     const taken =
-        await HackathonRepository.isSlugTaken(
+        await CompetitionRepository.existsBySlug(
             options.data.slug,
         );
 
@@ -96,7 +91,7 @@ export class HackathonService {
     }
 }
 
-    return HackathonRepository.update({
+    return CompetitionRepository.update({
     id: options.context.hackathon.id,
     data: options.data,
 });
