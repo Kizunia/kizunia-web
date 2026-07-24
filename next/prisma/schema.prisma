@@ -419,18 +419,18 @@ model Hackathon {
   id               String @id @default(cuid())
   title            String
   slug             String @unique
-  shortDescription String
+  shortDescription String?
 
-  organizer            String
-  mode                 HackathonMode @default(ONLINE)
+  organizer            String?
+  mode                 HackathonMode?
   location             String?
+  minTeamSize          Int?
+  maxTeamSize          Int?
   registrationLink     String?
   website              String?
   startDate            DateTime?
   endDate              DateTime?
   registrationDeadline DateTime?
-  minTeamSize          Int?
-  maxTeamSize          Int?
   prizePool            String?
   logoAssetId          String?
   logoAsset            Asset?        @relation("hackathonLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
@@ -445,7 +445,7 @@ model Hackathon {
 
   visibility HackathonVisibility @default(UNLISTED)
   // Lifecycle-only. Moderation status belongs to a future Proposal model.
-  status     HackathonStatus     @default(UPCOMING)
+  status     HackathonStatus?     
 
   // Audit — tracks who created and last updated this hackathon.
   // Uses SetNull so audit history survives user deletion.
@@ -516,13 +516,13 @@ model HackathonSuggestion {
   // Contributor Editable Fields
   // ===========================================================================
 
-  title String
+  title String?
 
-  shortDescription String
+  shortDescription String?
 
-  organizer String
+  organizer String?
 
-  mode HackathonMode @default(ONLINE)
+  mode HackathonMode?
 
   location String?
 

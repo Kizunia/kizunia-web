@@ -1,0 +1,14 @@
+-- AlterTable
+ALTER TABLE "public"."hackathon" ALTER COLUMN "shortDescription" DROP NOT NULL,
+ALTER COLUMN "organizer" DROP NOT NULL,
+ALTER COLUMN "mode" DROP NOT NULL,
+ALTER COLUMN "mode" DROP DEFAULT,
+ALTER COLUMN "status" DROP NOT NULL,
+ALTER COLUMN "status" DROP DEFAULT;
+
+-- AlterTable
+ALTER TABLE "public"."hackathon_suggestion" ALTER COLUMN "title" DROP NOT NULL,
+ALTER COLUMN "shortDescription" DROP NOT NULL,
+ALTER COLUMN "organizer" DROP NOT NULL,
+ALTER COLUMN "mode" DROP NOT NULL,
+ALTER COLUMN "mode" DROP DEFAULT;
