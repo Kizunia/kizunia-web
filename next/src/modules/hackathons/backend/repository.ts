@@ -1,6 +1,7 @@
 ﻿import prisma from "@/lib/prisma";
 import type { CreateHackathonInput } from "../schemas/create-hackathon";
 import type { Prisma } from "@/generated/prisma";
+import { UpdateHackathonInput } from "../schemas/update-hackathon";
 
 interface FindCompetitionsRepositoryParams {
   search?: string;
@@ -37,7 +38,7 @@ export class HackathonRepository {
    * ✗ Authorization
    * ✗ DTO Mapping
    */
-  async findMany(filters: FindCompetitionsRepositoryParams) {
+  static async findMany(filters: FindCompetitionsRepositoryParams) {
     const where: Prisma.HackathonWhereInput = {
       ...(filters.search && {
         OR: [
@@ -101,49 +102,98 @@ export class HackathonRepository {
     });
   }
 
-  static async create(
-        data: CreateHackathonInput,
-    ) {
-        console.log("");
-        console.log("========================================");
-        console.log("🗄️ HACKATHON REPOSITORY");
-        console.log("========================================");
+  static async findBySlug(slug: string) {
+    return await prisma.hackathon.findUnique({
+      where: {
+        slug,
+      },
+    });
+  }
 
-        console.log("Creating database record...");
+  static async findById(id: string) {
+    return prisma.hackathon.findUnique({
+      where: {
+        id,
+      },
+    });
+  }
 
-        const hackathon = await prisma.hackathon.create({
-            data: {
-                title: data.title,
-                slug: data.slug,
+  static async isSlugTaken(slug: string): Promise<boolean> {
+    const exists = await prisma.hackathon.findUnique({
+      where: {
+        slug,
+      },
+      select: {
+        id: true,
+      },
+    });
 
-                shortDescription:
-                    data.shortDescription || null,
+    return exists !== null;
+  }
 
-                organizer:
-                    data.organizer || null,
+  static async create(data: CreateHackathonInput) {
+    console.log("");
+    console.log("========================================");
+    console.log("🗄️ HACKATHON REPOSITORY");
+    console.log("========================================");
 
-                website:
-                    data.website || null,
+    console.log("Creating database record...");
 
-                registrationLink:
-                    data.registrationLink || null,
-            },
-        });
+    const hackathon = await prisma.hackathon.create({
+      data: {
+        title: data.title,
+        slug: data.slug,
 
-        console.log("");
-        console.log("✅ Database insert complete.");
+        shortDescription: data.shortDescription || null,
 
-        console.dir(hackathon, {
-            depth: null,
-        });
+        organizer: data.organizer || null,
 
-        return hackathon;
-    }
+        website: data.website || null,
+
+        registrationLink: data.registrationLink || null,
+      },
+    });
+
+    console.log("");
+    console.log("✅ Database insert complete.");
+
+    console.dir(hackathon, {
+      depth: null,
+    });
+
+    return hackathon;
+  }
+
+  static async update({
+    id,
+    data,
+  }: {
+    id: string;
+    data: UpdateHackathonInput;
+  }) {
+    return prisma.hackathon.update({
+      where: {
+        id,
+      },
+      data,
+    });
+  }
+
+  static async findMembership(hackathonId: string, userId: string) {
+    return prisma.hackathonMember.findUnique({
+      where: {
+        hackathonId_userId: {
+          hackathonId,
+          userId,
+        },
+      },
+    });
+  }
 
   /**
    * Converts sort options into Prisma orderBy.
    */
-  private getOrderBy(
+  private static getOrderBy(
     sort: FindCompetitionsRepositoryParams["sort"],
   ): Prisma.HackathonOrderByWithRelationInput {
     switch (sort) {
@@ -166,5 +216,4 @@ export class HackathonRepository {
   }
 }
 
-export const hackathonRepository =
-  new HackathonRepository();
+// export const hackathonRepository = new HackathonRepository();

@@ -1,11 +1,18 @@
-﻿import { hackathonRepository } from "./repository";
-import { hackathonMapper } from "./mapper";
+﻿import { hackathonMapper } from "./mapper";
 import type { CreateHackathonInput } from "../schemas/create-hackathon";
 import { HackathonRepository } from "./repository";
 import type { SearchCompetitionsInput } from "../schemas/search.schema";
 
 import { COMPETITIONS_PAGE_SIZE } from "../constants";
 import { PlatformContext } from "@/authorization/platform/context";
+import { UpdateHackathonInput } from '../schemas/update-hackathon';
+import { HackathonContext } from "./authorization";
+import { DuplicateSlugError } from "../errors";
+
+export interface UpdateHackathonOptions {
+    context: HackathonContext;
+    data: UpdateHackathonInput;
+}
 
 export class HackathonService {
   /**
@@ -31,7 +38,7 @@ export class HackathonService {
      */
     const skip = (filters.page - 1) * COMPETITIONS_PAGE_SIZE;
 
-    const competitions = await hackathonRepository.findMany({
+    const competitions = await HackathonRepository.findMany({
       search: filters.search,
 
       mode: filters.mode,
@@ -68,6 +75,34 @@ export class HackathonService {
 
     return hackathon;
   }
+
+  static async update(
+    options: UpdateHackathonOptions,
+) {
+
+    if (
+    options.data.slug &&
+    options.data.slug !== options.context.hackathon.slug
+) {
+    const taken =
+        await HackathonRepository.isSlugTaken(
+            options.data.slug,
+        );
+
+    if (taken) {
+        throw new DuplicateSlugError(
+            options.data.slug,
+        );
+    }
+}
+
+    return HackathonRepository.update({
+    id: options.context.hackathon.id,
+    data: options.data,
+});
+}
+
+
 }
 
 export const hackathonService = new HackathonService();

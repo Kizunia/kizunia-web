@@ -1,9 +1,9 @@
 import type {
     Hackathon,
     HackathonMember,
-    User,
+    
 } from "@/generated/prisma";
-import type { AuthorizationContext } from "@/authorization";
+import type { AuthorizationActor, AuthorizationContext } from "@/authorization";
 /**
  * Complete authorization context for a Hackathon.
  *
@@ -18,7 +18,7 @@ export interface HackathonContext
     /**
      * The authenticated user performing the action.
      */
-    actor: User;
+    actor: AuthorizationActor;
 
     /**
      * The target hackathon.

@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 
-import type { AuthorizationActor } from "@/authorization";
+import { AuthorizationCode, type AuthorizationActor } from "@/authorization";
 import type { NextRequest } from "next/server";
+import { AuthenticationError } from "../errors";
 
 export class SessionService {
     static async getActor(
@@ -14,7 +15,7 @@ export class SessionService {
         });
 
         if (!session || !session.user) {
-            throw new Error("Unauthenticated.");
+            throw new AuthenticationError({status: 401, message: "User is not authenticated.", code: "UNAUTHORIZED"});
         }
 
         console.log("Session loaded.");

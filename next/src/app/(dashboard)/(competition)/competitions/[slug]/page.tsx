@@ -7,13 +7,19 @@ import PageWrapper from "@/components/page-wrapper";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { ForwardRefEditor } from "@/components/shared/mdx/ForwardRefEditor";
+import { Suspense } from "react";
 
 export default async function CompetitionPage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ location?: string; organizer?: string; minTeamSize?: string }>;
+  searchParams: Promise<{
+    location?: string;
+    organizer?: string;
+    minTeamSize?: string;
+  }>;
 }) {
   const { slug } = await params;
 
@@ -80,9 +86,10 @@ export default async function CompetitionPage({
                   </p>
                 </div>
 
-               {competition.status &&  <Badge>{competition.status.replaceAll("_", " ")}</Badge>}
+                {competition.status && (
+                  <Badge>{competition.status.replaceAll("_", " ")}</Badge>
+                )}
               </div>
-              
 
               <p className="text-muted-foreground">
                 {competition.shortDescription}
@@ -112,7 +119,14 @@ export default async function CompetitionPage({
               <Separator />
 
               <div className="prose prose-neutral dark:prose-invert max-w-none whitespace-pre-wrap">
-                {competition.documentation ?? "Documentation coming soon."}
+                {competition.documentation ?? "Documentation coming soon."}{" "}
+                <Suspense fallback={null}>
+                  <ForwardRefEditor
+                    markdown={
+                      competition.documentation ?? "Documentation coming soon."
+                    }
+                  />
+                </Suspense>
               </div>
             </Card>
 
