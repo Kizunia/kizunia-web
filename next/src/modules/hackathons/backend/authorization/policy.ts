@@ -4,14 +4,14 @@ import {
     AuthorizationEvaluator,
 } from "@/authorization";
 
-import { HackathonAction } from "./actions";
-import { HackathonContext } from "./context";
+import { CompetitionAction } from "./actions";
+import { CompetitionContext } from "./context";
 import { HackathonPermissionSet } from "./permission-set";
 
-export class HackathonPolicy {
+export class CompetitionPolicy {
     static can(
-        context: HackathonContext,
-        action: HackathonAction,
+        context: CompetitionContext,
+        action: CompetitionAction,
     ): AuthorizationDecision {
         return AuthorizationEvaluator
             .start(context)

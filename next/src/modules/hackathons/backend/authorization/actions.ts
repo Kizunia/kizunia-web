@@ -1,4 +1,4 @@
-export enum HackathonAction {
+export enum CompetitionAction {
 
     VIEW = "VIEW",
 

@@ -230,6 +230,23 @@ export class CompetitionRepository {
     });
   }
 
+  static async findMembers(hackathonId: string) {
+    return prisma.hackathonMember.findMany({
+      where: {
+        hackathonId,
+      },
+    });
+  }
+
+  static async findOwners(hackathonId: string) {
+    return prisma.hackathonMember.findMany({
+      where: {
+        hackathonId,
+        role: "OWNER",
+      },
+    });
+  }
+
   static async search(query: string) {
     return prisma.hackathon.findMany({
       where: {
@@ -257,6 +274,26 @@ export class CompetitionRepository {
       where: {
         deletedAt: null,
         ...where,
+      },
+    });
+  }
+
+  static async countByStatus(status: Prisma.HackathonWhereInput["status"]) {
+    return prisma.hackathon.count({
+      where: {
+        status,
+        deletedAt: null,
+      },
+    });
+  }
+
+  static async countByVisibility(
+    visibility: Prisma.HackathonWhereInput["visibility"],
+  ) {
+    return prisma.hackathon.count({
+      where: {
+        visibility,
+        deletedAt: null,
       },
     });
   }

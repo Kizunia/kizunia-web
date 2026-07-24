@@ -13,7 +13,7 @@ import type { AuthorizationActor, AuthorizationContext } from "@/authorization";
  * Once constructed, no additional database queries should
  * be required by the authorization system.
  */
-export interface HackathonContext
+export interface CompetitionContext
     extends AuthorizationContext {
     /**
      * The authenticated user performing the action.

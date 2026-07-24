@@ -20,7 +20,7 @@ type HackathonWithAssets = Prisma.HackathonGetPayload<{
   };
 }>;
 
-export class HackathonMapper {
+export class CompetitionMapper {
   /**
    * Converts a Prisma Hackathon model into a UI-friendly public DTO.\
    */
@@ -58,4 +58,4 @@ export class HackathonMapper {
   }
 }
 
-export const hackathonMapper = new HackathonMapper();
+export const competitionMapper = new CompetitionMapper();

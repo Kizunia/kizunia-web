@@ -1,14 +1,14 @@
 import { Authorization } from "@/authorization";
 
-import { HackathonAction } from "./actions";
-import type { HackathonContext } from "./context";
-import { HackathonPolicy } from "./policy";
+import { CompetitionAction } from "./actions";
+import type { CompetitionContext } from "./context";
+import { CompetitionPolicy } from "./policy";
 
 import { PlatformAction } from "@/authorization/platform/actions";
 import type { PlatformContext } from "@/authorization/platform/context";
 import { PlatformPolicy } from "@/authorization/platform/policy";
 
-export class HackathonAuthorizer {
+export class CompetitionAuthorizer {
     static create(
         context: PlatformContext,
     ): void {
@@ -21,33 +21,33 @@ export class HackathonAuthorizer {
     }
 
     static edit(
-        context: HackathonContext,
+        context: CompetitionContext,
     ): void {
         Authorization.assert(
-            HackathonPolicy.can(
+            CompetitionPolicy.can(
                 context,
-                HackathonAction.EDIT,
+                CompetitionAction.EDIT,
             ),
         );
     }
 
     static delete(
-        context: HackathonContext,
+        context: CompetitionContext,
     ): void {
         Authorization.assert(
-            HackathonPolicy.can(
+            CompetitionPolicy.can(
                 context,
-                HackathonAction.DELETE,
+                CompetitionAction.DELETE,
             ),
         );
     }
 
     static can(
-        context: HackathonContext,
-        action: HackathonAction,
+        context: CompetitionContext,
+        action: CompetitionAction,
     ): void {
         Authorization.assert(
-            HackathonPolicy.can(
+            CompetitionPolicy.can(
                 context,
                 action,
             ),

@@ -1,4 +1,4 @@
-import { HackathonController } from "@/modules/hackathons/backend/controller";
+import { CompetitionController } from "@/modules/hackathons/backend/controller";
 import { NextRequest } from "next/server";
 
 export async function PATCH(
@@ -13,7 +13,7 @@ export async function PATCH(
 ) {
     const { id } = await params;
 
-    return HackathonController.update(
+    return CompetitionController.update(
         request,
         id,
     );

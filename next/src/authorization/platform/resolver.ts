@@ -1,55 +1,46 @@
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
+import type { AuthorizationActor } from "@/authorization";
 import type { PlatformContext } from "./context";
+import { InternalError } from "@/lib/errors";
+import { UserNotFoundError } from "@/modules/users/backend/errors";
 
-import type { NextRequest } from "next/server";
 
 export class PlatformContextResolver {
-    static async resolve(
-        request: NextRequest,
-    ): Promise<PlatformContext> {
+  static async resolve(
+    actor: AuthorizationActor,
+  ): Promise<PlatformContext> {
 
-        console.log("");
-        console.log("========================================");
-        console.log("🧩 PLATFORM CONTEXT RESOLVER");
-        console.log("========================================");
-
-        console.log("Loading session...");
-
-        const session = await auth.api.getSession({
-            headers: request.headers,
-        });
-
-        if (!session) {
-            throw new Error("Unauthenticated.");
-        }
-
-        console.log("Loading actor...");
-
-        const actor = await prisma.user.findUnique({
-            where: {
-                id: session.user.id,
-            },
-            select: {
-                id: true,
-                role: true,
-                banned: true,
-            },
-        });
-
-        if (!actor) {
-            throw new Error("User not found.");
-        }
-
-        console.log("Context resolved.");
-
-        console.dir(actor, {
-            depth: null,
-        });
-
-        return {
-            actor,
-        };
+    if (!actor.id) {
+      throw new InternalError({
+        message: "Actor ID is required to resolve the platform context.",
+        code: "PLATFORM_CONTEXT_RESOLUTION_ERROR",
+        status: 500,
+        details: "The actor ID is missing or undefined. Cannot resolve platform context without a valid actor ID.",
+      });
     }
+     
+    
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: actor.id,
+      },
+      select: {
+        id: true,
+        role: true,
+        banned: true,
+      },
+    });
+
+    if (!user) {
+      throw new UserNotFoundError( 
+        actor.id,
+      );
+    }
+
+    return {
+      actor: user,
+    };
+  }
 }

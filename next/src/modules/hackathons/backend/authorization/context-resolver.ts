@@ -1,14 +1,14 @@
 import prisma from "@/lib/prisma";
 
-import type { HackathonContext } from "./context";
+import type { CompetitionContext } from "./context";
 import { AuthorizationActor } from "@/authorization";
 import { ValidationError } from "@/lib/errors";
 
-export class HackathonContextResolver {
+export class CompetitionContextResolver {
   static async resolve(params: {
     actor: AuthorizationActor;
     hackathonId: string;
-  }): Promise<HackathonContext> {
+  }): Promise<CompetitionContext> {
     const { actor, hackathonId } = params;
 
     if (!actor.id) {

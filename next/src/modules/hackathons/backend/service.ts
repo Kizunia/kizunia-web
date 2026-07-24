@@ -1,44 +1,71 @@
-﻿import { hackathonMapper } from "./mapper";
+﻿import { competitionMapper } from "./mapper";
+
 import type { CreateHackathonInput } from "../schemas/create-hackathon";
-import { CompetitionRepository } from "./repository";
 import type { SearchCompetitionsInput } from "../schemas/search.schema";
+import type { UpdateHackathonInput } from "../schemas/update-hackathon";
+
+import { CompetitionRepository } from "./repository";
 
 import { COMPETITIONS_PAGE_SIZE } from "../constants";
-import { PlatformContext } from "@/authorization/platform/context";
-import { UpdateHackathonInput } from '../schemas/update-hackathon';
-import { HackathonContext } from "./authorization";
+
+import type { PlatformContext } from "@/authorization/platform/context";
+import type { CompetitionContext } from "./authorization";
+
 import { DuplicateSlugError } from "../errors";
 
-export interface UpdateHackathonOptions {
-    context: HackathonContext;
-    data: UpdateHackathonInput;
+/**
+ * ============================================================================
+ * Create
+ * ============================================================================
+ */
+
+export interface CreateCompetitionOptions {
+  context: PlatformContext;
+  data: CreateHackathonInput;
 }
 
-export class HackathonService {
+/**
+ * ============================================================================
+ * Update
+ * ============================================================================
+ */
+
+export interface UpdateCompetitionOptions {
+  context: CompetitionContext;
+  data: UpdateHackathonInput;
+}
+
+export class CompetitionService {
   /**
-   * Returns public competitions.
+   * Business Layer
    *
    * Responsibilities
    * ----------------
    * ✓ Business rules
-   * ✓ Pagination
    * ✓ Repository orchestration
-   * ✓ Mapping Prisma models -> DTOs
+   * ✓ Domain validation
+   * ✓ Pagination
+   * ✓ Mapping database models
    *
    * Does NOT
    * ----------------
-   * ✗ Parse URLs
-   * ✗ Know about React
-   * ✗ Know about Next.js
+   * ✗ Parse HTTP requests
+   * ✗ Authenticate users
+   * ✗ Authorize users
    * ✗ Query Prisma directly
+   * ✗ Return NextResponse
    */
-  async findPublic(filters: SearchCompetitionsInput) {
-    /**
-     * Business Pagination
-     */
+
+  // ==========================================================================
+  // Queries
+  // ==========================================================================
+
+  static async findPublic(filters: SearchCompetitionsInput) {
     const skip = (filters.page - 1) * COMPETITIONS_PAGE_SIZE;
 
     const competitions = await CompetitionRepository.findMany({
+      // TODO: add more filters here as needed
+      // open to all, payment, team size, location, user type, location
       search: filters.search,
 
       mode: filters.mode,
@@ -49,6 +76,8 @@ export class HackathonService {
 
       technology: filters.technology,
 
+      
+
       sort: filters.sort,
 
       skip,
@@ -56,48 +85,96 @@ export class HackathonService {
       take: COMPETITIONS_PAGE_SIZE,
     });
 
-    return hackathonMapper.toCardDTOs(competitions);
+    return competitionMapper.toCardDTOs(competitions);
   }
 
-  static async create(data: CreateHackathonInput, context: PlatformContext,) {
+  // Mutations
 
-   
+  static async create(options: CreateCompetitionOptions) {
+    await this.normalizeCreate(options);
+    await this.validateCreate(options.data);
 
-    const hackathon = await CompetitionRepository.create({data});
-
-    console.log("");
-    console.log("✅ Hackathon created.");
-
-    return hackathon;
+    return CompetitionRepository.create({
+      data: options.data,
+    });
   }
 
-  static async update(
-    options: UpdateHackathonOptions,
-) {
+  static async update(options: UpdateCompetitionOptions) {
+    await this.validateSlug(options.context, options.data);
 
-    if (
-    options.data.slug &&
-    options.data.slug !== options.context.hackathon.slug
-) {
-    const taken =
-        await CompetitionRepository.existsBySlug(
-            options.data.slug,
-        );
-
-    if (taken) {
-        throw new DuplicateSlugError(
-            options.data.slug,
-        );
-    }
-}
+    // Future business rules
+    // --------------------------------
+    //
+    // await this.validateDates(...)
+    //
+    // await this.validateVisibility(...)
+    //
+    // await this.validateStatus(...)
+    //
+    // await this.validateRegistration(...)
+    //
+    // await this.validateTeamSize(...)
+    //
 
     return CompetitionRepository.update({
-    id: options.context.hackathon.id,
-    data: options.data,
-});
+      id: options.context.hackathon.id,
+      data: options.data,
+    });
+  }
+
+  static async delete(context: CompetitionContext) {
+    return CompetitionRepository.delete(context.hackathon.id);
+  }
+
+  static async restore(context: CompetitionContext) {
+    return CompetitionRepository.restore(context.hackathon.id);
+  }
+
+  // ==========================================================================
+  // Business Validation
+  // ==========================================================================
+
+  private static async validateCreate(data: CreateHackathonInput) {
+    /**
+     * TODO: Implement business validation rules for creating a hackathon.
+     * Future
+     *
+     * - Validate slug
+     * - Validate dates
+     * - Validate registration
+     * - Validate organizer
+     */
+    const exists = await CompetitionRepository.existsBySlug(data.slug);
+
+    if (exists) {
+      throw new DuplicateSlugError(data.slug);
+    }
+  }
+
+  private static async validateSlug(
+    context: CompetitionContext,
+    data: UpdateHackathonInput,
+  ) {
+    if (!data.slug || data.slug === context.hackathon.slug) {
+      return;
+    }
+
+    const exists = await CompetitionRepository.existsBySlug(data.slug);
+
+    if (exists) {
+      throw new DuplicateSlugError(data.slug);
+    }
+  }
+
+  private static normalizeCreate(
+    //TODO: Implement normalization logic for creating a hackathon.
+    options: CreateCompetitionOptions,
+  ) {}
+
+  private static normalizeUpdate(
+    // TODO: Implement normalization logic for updating a hackathon.
+    options: UpdateCompetitionOptions,
+  ) {}
 }
 
-
-}
-
-export const hackathonService = new HackathonService();
+export const competitionService = new CompetitionService();

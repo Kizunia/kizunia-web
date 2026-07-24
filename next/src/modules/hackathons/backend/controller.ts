@@ -10,52 +10,37 @@
  * Controllers should never contain business logic.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { CreateHackathonSchema } from "../schemas/create-hackathon";
-import { HackathonService } from "./service";
-import { HackathonAuthorizer } from "./authorization/authorizer";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { UnauthorizedError } from "@/lib/errors";
-import { AuthorizationCode } from "@/authorization";
+import { CompetitionService } from "./service";
+import { CompetitionAuthorizer } from "./authorization/authorizer";
 import { ApiResponse, Route } from "@/lib/http";
 import { SessionService } from "@/lib/auth/index";
 import { UpdateHackathonSchema } from "../schemas/update-hackathon";
-import { HackathonContextResolver } from "./authorization";
-export class HackathonController {
+import { CompetitionContextResolver } from "./authorization";
+export class CompetitionController {
   static async create(request: NextRequest) {
-    const body = await request.json();
+    return Route.execute(async () => {
+      const body = await request.json();
 
-    console.dir(body, {
-      depth: null,
-    });
-
-    const session = await auth.api.getSession({
-      headers: await headers(), // you need to pass the headers object.
-    });
-    if (!session || !session.user) {
-      throw new UnauthorizedError({
-        code: AuthorizationCode.UNAUTHORIZED,
-        message: "User is not authenticated.",
+      console.dir(body, {
+        depth: null,
       });
-    }
+      const actor = await SessionService.getActor(request);
 
-    const data = CreateHackathonSchema.parse(body);
+      const data = CreateHackathonSchema.parse(body);
 
-    const context = {
-      actor: {
-        id: session.user.id,
-        role: session.user.role,
-        banned: session.user.banned,
-      },
-    };
+      const context = {
+        actor,
+      };
 
-    HackathonAuthorizer.create(context);
+      
 
-    const hackathon = await HackathonService.create(data, context);
+      CompetitionAuthorizer.create(context);
 
-    return NextResponse.json(hackathon, {
-      status: 201,
+      const competition = await CompetitionService.create({ data, context });
+
+     return ApiResponse.created(competition);
     });
   }
 
@@ -79,7 +64,7 @@ export class HackathonController {
       // Context
       // -----------------------------------------------------------------
 
-      const context = await HackathonContextResolver.resolve({
+      const context = await CompetitionContextResolver.resolve({
         actor,
         hackathonId,
       });
@@ -88,13 +73,13 @@ export class HackathonController {
       // Authorization
       // -----------------------------------------------------------------
 
-      HackathonAuthorizer.edit(context);
+      CompetitionAuthorizer.edit(context);
 
       // -----------------------------------------------------------------
       // Business Logic
       // -----------------------------------------------------------------
 
-      const hackathon = await HackathonService.update({
+      const hackathon = await CompetitionService.update({
         context,
         data,
       });

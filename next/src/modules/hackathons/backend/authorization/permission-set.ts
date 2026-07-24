@@ -1,4 +1,4 @@
-import { HackathonAction } from "./actions";
+import { CompetitionAction } from "./actions";
 import { HackathonMemberRole } from "@/generated/prisma";
 
 /**
@@ -16,33 +16,33 @@ import { HackathonMemberRole } from "@/generated/prisma";
  * Those rules belong in the Policy.
  */
 export const HackathonPermissionSet: Readonly<
-  Record<HackathonMemberRole, ReadonlySet<HackathonAction>>
+  Record<HackathonMemberRole, ReadonlySet<CompetitionAction>>
 > = {
   OWNER: new Set([
-    HackathonAction.VIEW,
-    HackathonAction.EDIT,
-    HackathonAction.DELETE,
-    HackathonAction.PUBLISH,
-    HackathonAction.UNPUBLISH,
-    HackathonAction.MANAGE_MEMBERS,
-    HackathonAction.MANAGE_MEDIA,
-    HackathonAction.MANAGE_LINKS,
+    CompetitionAction.VIEW,
+    CompetitionAction.EDIT,
+    CompetitionAction.DELETE,
+    CompetitionAction.PUBLISH,
+    CompetitionAction.UNPUBLISH,
+    CompetitionAction.MANAGE_MEMBERS,
+    CompetitionAction.MANAGE_MEDIA,
+    CompetitionAction.MANAGE_LINKS,
   ]),
   ORGANIZER: new Set([
-    HackathonAction.VIEW,
-    HackathonAction.EDIT,
-    HackathonAction.DELETE,
-    HackathonAction.PUBLISH,
-    HackathonAction.UNPUBLISH,
-    HackathonAction.MANAGE_MEMBERS,
-    HackathonAction.MANAGE_MEDIA,
-    HackathonAction.MANAGE_LINKS,
+    CompetitionAction.VIEW,
+    CompetitionAction.EDIT,
+    CompetitionAction.DELETE,
+    CompetitionAction.PUBLISH,
+    CompetitionAction.UNPUBLISH,
+    CompetitionAction.MANAGE_MEMBERS,
+    CompetitionAction.MANAGE_MEDIA,
+    CompetitionAction.MANAGE_LINKS,
   ]), //todo
 
   MAINTAINER: new Set([
-    HackathonAction.VIEW,
-    HackathonAction.EDIT,
-    HackathonAction.MANAGE_MEDIA,
-    HackathonAction.MANAGE_LINKS,
+    CompetitionAction.VIEW,
+    CompetitionAction.EDIT,
+    CompetitionAction.MANAGE_MEDIA,
+    CompetitionAction.MANAGE_LINKS,
   ]),
 };

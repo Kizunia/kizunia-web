@@ -3,7 +3,7 @@
 import PageWrapper from "@/components/page-wrapper";
 
 
-import { hackathonService } from "@/modules/hackathons/backend/service";
+import { CompetitionService } from "@/modules/hackathons/backend/service";
 import CompetitionsCards from "@/modules/hackathons/components/allCompititions/CompetitionsCards";
 import { searchCompetitionsSchema } from "@/modules/hackathons/schemas/search.schema";
 
@@ -23,7 +23,7 @@ export default async function CompetitionsPage({ searchParams }: Props) {
 
     const filters = searchCompetitionsSchema.parse(rawSearchParams);
 
-     competitions = await hackathonService.findPublic({
+     competitions = await CompetitionService.findPublic({
       sort: "start-date",
       page: 1,
       mode: filters.mode,
