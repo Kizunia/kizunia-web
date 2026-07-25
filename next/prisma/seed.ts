@@ -1,211 +1,117 @@
 // prisma/seed.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// Kizunia Seed — Main Orchestrator
+//
+// Structure:
+//   prisma/
+//   ├── seed.ts                    ← this file (entry point)
+//   └── seed/
+//       ├── data/
+//       │   ├── users.ts           ← 8 diverse user profiles
+//       │   ├── technologies.ts    ← 43 technologies across all stacks
+//       │   ├── categories.ts      ← 20 hackathon theme categories
+//       │   ├── badges.ts          ← 10 achievement badges
+//       │   ├── hackathons.ts      ← 25 hackathons (real-inspired + fictional)
+//       │   └── projects.ts        ← 6 projects submitted to hackathons
+//       └── seeders/
+//           ├── users.seeder.ts
+//           ├── taxonomy.seeder.ts
+//           ├── user-enrichment.seeder.ts
+//           ├── hackathons.seeder.ts
+//           ├── projects.seeder.ts
+//           └── suggestions.seeder.ts
+//
+// Run:  pnpm prisma db seed
+//       (or: npx prisma db seed)
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { PrismaClient } from "../src/generated/prisma";
+import { users } from "./seed/data/users";
+import { seedUsers } from "./seed/seeders/users.seeder";
+import { seedTaxonomy } from "./seed/seeders/taxonomy.seeder";
+import { seedUserEnrichment } from "./seed/seeders/user-enrichment.seeder";
+import { seedHackathons } from "./seed/seeders/hackathons.seeder";
+import { seedProjects } from "./seed/seeders/projects.seeder";
+import { seedSuggestions } from "./seed/seeders/suggestions.seeder";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Users
-  const alice = await prisma.user.upsert({
-    where: { email: "alice@kizunia.dev" },
-    update: {},
-    create: {
-      name: "Alice",
-      email: "alice@kizunia.dev",
-      username: "alice",
-      displayUsername: "alice",
-      role: "user",
-    },
+  console.log("\n🌱 Kizunia Seed Starting...\n");
+
+  // ── Step 1: Users ──────────────────────────────────────────
+  await seedUsers(prisma);
+
+  // Build ordered ID list matching the users array index order
+  // (fetched from DB so we get the actual persisted IDs)
+  const userRecords = await prisma.user.findMany({
+    where: { email: { in: users.map((u) => u.email) } },
+    select: { id: true, email: true },
+  });
+  const emailToId = Object.fromEntries(userRecords.map((u) => [u.email, u.id]));
+  const userIdList = users.map((u) => emailToId[u.email]!);
+
+  // ── Step 2: Taxonomy (tech, categories, badges) ────────────
+  const { techMap, catMap, badgeMap } = await seedTaxonomy(prisma);
+
+  // ── Step 3: User enrichment (interests, badges, prefs) ─────
+  await seedUserEnrichment(prisma, { techMap, catMap, badgeMap, userIdList });
+
+  // ── Step 4: Hackathons ─────────────────────────────────────
+  const hackathonMap = await seedHackathons(prisma, {
+    techMap,
+    catMap,
+    userIdList,
   });
 
-  const bob = await prisma.user.upsert({
-    where: { email: "bob@kizunia.dev" },
-    update: {},
-    create: {
-      name: "Bob",
-      email: "bob@kizunia.dev",
-      username: "bob",
-      displayUsername: "bob",
-      role: "user",
-    },
+  // ── Step 5: Projects ───────────────────────────────────────
+  await seedProjects(prisma, {
+    techMap,
+    catMap,
+    badgeMap,
+    userIdList,
+    hackathonMap,
   });
 
-  // Categories
-  const ai = await prisma.category.upsert({
-    where: { slug: "ai" },
-    update: {},
-    create: { name: "AI", slug: "ai" },
+  // ── Step 6: Suggestions ────────────────────────────────────
+  await seedSuggestions(prisma, {
+    catMap,
+    techMap,
+    userIdList,
+    hackathonMap,
   });
 
-  const web3 = await prisma.category.upsert({
-    where: { slug: "web3" },
-    update: {},
-    create: { name: "Web3", slug: "web3" },
-  });
+  // ── Summary ────────────────────────────────────────────────
+  const counts = await Promise.all([
+    prisma.user.count(),
+    prisma.hackathon.count(),
+    prisma.project.count(),
+    prisma.technology.count(),
+    prisma.category.count(),
+    prisma.badge.count(),
+    prisma.hackathonSuggestion.count(),
+    prisma.hackathonBookmark.count(),
+  ]);
 
-  // Technologies
-  const react = await prisma.technology.upsert({
-    where: { slug: "react" },
-    update: {},
-    create: { name: "React", slug: "react" },
-  });
-
-  const flutter = await prisma.technology.upsert({
-    where: { slug: "flutter" },
-    update: {},
-    create: { name: "Flutter", slug: "flutter" },
-  });
-
-  const competitions = [
-    {
-      title: "AI React Challenge",
-      slug: "ai-react-challenge",
-      mode: "OFFLINE",
-      registrationFeeType: "FREE",
-      registrationPlatform: "UNSTOP",
-      difficulty: "BEGINNER",
-      organizerType: "COMPANY",
-      organizer: "Google",
-      minTeamSize: 2,
-      maxTeamSize: 5,
-      registrationDeadline: new Date("2026-09-15"),
-      owner: alice.id,
-      categories: [ai.id, web3.id],
-      technologies: [react.id, flutter.id],
-      eligibilities: ["UNDERGRADUATE"],
-    },
-    {
-      title: "Flutter Buildathon",
-      slug: "flutter-buildathon",
-      mode: "OFFLINE",
-      registrationFeeType: "FREE",
-      registrationPlatform: "DEVFOLIO",
-      difficulty: "INTERMEDIATE",
-      organizerType: "COLLEGE",
-      organizer: "VIT Pune",
-      minTeamSize: 2,
-      maxTeamSize: 4,
-      registrationDeadline: new Date("2026-09-10"),
-      owner: bob.id,
-      categories: [ai.id],
-      technologies: [flutter.id],
-      eligibilities: ["UNDERGRADUATE"],
-    },
-    {
-      title: "Web3 Online Sprint",
-      slug: "web3-online-sprint",
-      mode: "ONLINE",
-      registrationFeeType: "FREE",
-      registrationPlatform: "DEVPOST",
-      difficulty: "BEGINNER",
-      organizerType: "COMMUNITY",
-      organizer: "ETH India",
-      minTeamSize: 1,
-      maxTeamSize: 6,
-      registrationDeadline: new Date("2026-09-25"),
-      owner: alice.id,
-      categories: [web3.id],
-      technologies: [react.id],
-      eligibilities: ["POSTGRADUATE"],
-    },
-    {
-      title: "Cyber Cup",
-      slug: "cyber-cup",
-      mode: "HYBRID",
-      registrationFeeType: "PAID",
-      registrationPlatform: "LUMA",
-      difficulty: "ADVANCED",
-      organizerType: "COMPANY",
-      organizer: "Microsoft",
-      minTeamSize: 3,
-      maxTeamSize: 5,
-      registrationDeadline: new Date("2026-08-20"),
-      owner: bob.id,
-      categories: [ai.id],
-      technologies: [react.id],
-      eligibilities: ["UNDERGRADUATE","POSTGRADUATE"],
-    },
-    {
-      title: "NextGen AI Hack",
-      slug: "nextgen-ai-hack",
-      mode: "OFFLINE",
-      registrationFeeType: "FREE",
-      registrationPlatform: "UNSTOP",
-      difficulty: "INTERMEDIATE",
-      organizerType: "COMPANY",
-      organizer: "OpenAI",
-      minTeamSize: 2,
-      maxTeamSize: 5,
-      registrationDeadline: new Date("2026-09-18"),
-      owner: alice.id,
-      categories: [ai.id],
-      technologies: [react.id, flutter.id],
-      eligibilities: ["UNDERGRADUATE"],
-    }
-  ];
-
-  for (const c of competitions) {
-    const comp = await prisma.hackathon.upsert({
-      where: { slug: c.slug },
-      update: {},
-      create: {
-        title: c.title,
-        slug: c.slug,
-        mode: c.mode as any,
-        registrationFeeType: c.registrationFeeType as any,
-        registrationPlatform: c.registrationPlatform as any,
-        difficulty: c.difficulty as any,
-        organizerType: c.organizerType as any,
-        organizer: c.organizer,
-        minTeamSize: c.minTeamSize,
-        maxTeamSize: c.maxTeamSize,
-        registrationDeadline: c.registrationDeadline,
-      },
-    });
-
-    await prisma.hackathonMember.upsert({
-      where: {
-        hackathonId_userId: {
-          hackathonId: comp.id,
-          userId: c.owner,
-        },
-      },
-      update: {},
-      create: {
-        hackathonId: comp.id,
-        userId: c.owner,
-        role: "OWNER",
-      },
-    });
-
-    for (const catId of c.categories) {
-      await prisma.hackathonCategory.create({
-        data: { hackathonId: comp.id, categoryId: catId },
-      }).catch(()=>{});
-    }
-
-    for (const techId of c.technologies) {
-      await prisma.hackathonTechnology.create({
-        data: { hackathonId: comp.id, technologyId: techId },
-      }).catch(()=>{});
-    }
-
-    for (const type of c.eligibilities) {
-      await prisma.hackathonEligibility.create({
-        data: {
-          hackathonId: comp.id,
-          type: type as any,
-        },
-      }).catch(()=>{});
-    }
-  }
-
-  console.log("Seed complete");
+  console.log("\n✅ Seed Complete!\n");
+  console.log("📊 Database Summary:");
+  console.log(`   Users              : ${counts[0]}`);
+  console.log(`   Hackathons         : ${counts[1]}`);
+  console.log(`   Projects           : ${counts[2]}`);
+  console.log(`   Technologies       : ${counts[3]}`);
+  console.log(`   Categories         : ${counts[4]}`);
+  console.log(`   Badges             : ${counts[5]}`);
+  console.log(`   Suggestions        : ${counts[6]}`);
+  console.log(`   Bookmarks          : ${counts[7]}`);
+  console.log("");
 }
 
 main()
-.finally(()=>prisma.$disconnect())
-.catch(async(e)=>{
-  console.error(e);
-  await prisma.$disconnect();
-  process.exit(1);
-});
+  .catch(async (e) => {
+    console.error("\n❌ Seed failed:", e);
+    await prisma.$disconnect();
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

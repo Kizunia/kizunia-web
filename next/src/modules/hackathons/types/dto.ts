@@ -1,4 +1,4 @@
-import type { HackathonMode } from "@/generated/prisma";
+import type { HackathonMode, RegistrationPlatform, RegistrationFeeType, Hackathon } from "@/generated/prisma";
 
 /**
  * Data required by the Hackathon Card.
@@ -12,12 +12,19 @@ export interface HackathonCardDTO {
   title: string;
   shortDescription: string | null ;
   organizer: string | null;
+  registrationPlatform: RegistrationPlatform | null;
   location: string | null;
   mode: HackathonMode | null;
+  status: string | null;
   startDate: Date | null;
   registrationDeadline: Date | null;
+  registrationFeeType: RegistrationFeeType | null;
   minTeamSize: number  | null;
   maxTeamSize: number  | null;
   logoUrl: string | null;
   coverUrl: string | null;
+}
+
+export interface CompetitionDetailDTO extends Hackathon {
+ //TODO: remove some of these fields that are not needed in the UI, and add any additional fields that are needed for the UI.
 }

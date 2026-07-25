@@ -27,26 +27,21 @@ export class CompetitionMapper {
   toCardDTO(hackathon: HackathonWithAssets): HackathonCardDTO {
     return {
       id: hackathon.id,
-
       slug: hackathon.slug,
-
       title: hackathon.title,
-
       shortDescription: hackathon.shortDescription,
-
       organizer: hackathon.organizer,
-
+      registrationPlatform: hackathon.registrationPlatform,
       mode: hackathon.mode,
-
       startDate: hackathon.startDate,
-
       logoUrl: hackathon.logoAsset?.secureUrl ?? null,
-
       coverUrl: hackathon.coverAsset?.secureUrl ?? null,
-      location: hackathon.location ?? null,
-      registrationDeadline: hackathon.registrationDeadline ?? null,
-      minTeamSize: hackathon.minTeamSize ?? null,
-      maxTeamSize: hackathon.maxTeamSize ?? null,
+      location: hackathon.location,
+      registrationDeadline: hackathon.registrationDeadline,
+      minTeamSize: hackathon.minTeamSize,
+      maxTeamSize: hackathon.maxTeamSize,
+      status: hackathon.status,
+      registrationFeeType: hackathon.registrationFeeType,
     };
   }
 

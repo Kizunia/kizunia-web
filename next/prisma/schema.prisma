@@ -56,6 +56,7 @@ enum HackathonMode {
 enum HackathonVisibility {
   PUBLIC
   UNLISTED
+  PRIVATE
   ARCHIVED
 }
 
@@ -560,7 +561,7 @@ model Hackathon {
 
   registrationType RegistrationType?
 
-  registrationFeeType RegistrationFeeType @default(FREE)
+  registrationFeeType RegistrationFeeType?
 
   registrationFee String?
 

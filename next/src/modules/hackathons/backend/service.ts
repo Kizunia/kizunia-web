@@ -15,7 +15,7 @@ import { DuplicateSlugError } from "../errors";
 import { CompetitionSearchBuilder } from "../search/builder";
 import type { CompetitionSearchResult } from "../search/types";
 import type { CompetitionSearchInput } from "../search/schema";
-import type { HackathonCardDTO } from "../types/dto";
+import type { CompetitionDetailDTO, HackathonCardDTO } from "../types/dto";
 /**
  * ============================================================================
  * Create
@@ -89,78 +89,78 @@ export class CompetitionService {
   //   return competitionMapper.toCardDTOs(competitions);
   // }
   // ==========================================================================
-// Queries
-// ==========================================================================
+  // Queries
+  // ==========================================================================
 
-static async search(
-  filters: CompetitionSearchInput,
-): Promise<CompetitionSearchResult<HackathonCardDTO>> {
+  static async search(
+    filters: CompetitionSearchInput,
+  ): Promise<CompetitionSearchResult<HackathonCardDTO>> {
+    // ------------------------------------------------------------
+    // Build Prisma Query
+    // ------------------------------------------------------------
 
-  // ------------------------------------------------------------
-  // Build Prisma Query
-  // ------------------------------------------------------------
+    // const where =
+    //   CompetitionSearchBuilder.buildWhere(filters);
 
-  // const where =
-  //   CompetitionSearchBuilder.buildWhere(filters);
+    // const orderBy =
+    //   CompetitionSearchBuilder.buildOrderBy(
+    //     filters.sort,
+    //   );
 
-  // const orderBy =
-  //   CompetitionSearchBuilder.buildOrderBy(
-  //     filters.sort,
-  //   );
+    // const { skip, take } =
+    //   CompetitionSearchBuilder.buildPagination(
+    //     filters,
+    //   );
 
-  // const { skip, take } =
-  //   CompetitionSearchBuilder.buildPagination(
-  //     filters,
-  //   );
+    // ------------------------------------------------------------
+    // Execute Queries
+    // ------------------------------------------------------------
+    console.log(filters);
 
-  // ------------------------------------------------------------
-  // Execute Queries
-  // ------------------------------------------------------------
-  console.log(filters);
+    const [competitions, total] = await Promise.all([
+      CompetitionRepository.findMany(filters),
+      CompetitionRepository.count(filters),
+    ]);
 
-  const [competitions, total] = await Promise.all([
-    CompetitionRepository.findMany(filters),
-    CompetitionRepository.count(filters),
-]);
+    // ------------------------------------------------------------
+    // Mapping
+    // ------------------------------------------------------------
 
+    const items = competitionMapper.toCardDTOs(competitions);
 
-  // ------------------------------------------------------------
-  // Mapping
-  // ------------------------------------------------------------
+    // ------------------------------------------------------------
+    // Pagination
+    // ------------------------------------------------------------
 
-  const items =
-    competitionMapper.toCardDTOs(
-      competitions,
-    );
+    const totalPages = Math.ceil(total / filters.limit);
 
-  // ------------------------------------------------------------
-  // Pagination
-  // ------------------------------------------------------------
+    return {
+      items,
 
-  const totalPages =
-    Math.ceil(total / filters.limit);
+      pagination: {
+        page: filters.page,
 
-  return {
-    items,
+        limit: filters.limit,
 
-    pagination: {
-      page: filters.page,
+        total,
 
-      limit: filters.limit,
+        totalPages,
 
-      total,
+        hasNextPage: filters.page < totalPages,
 
-      totalPages,
+        hasPreviousPage: filters.page > 1,
+      },
+    };
+  }
 
-      hasNextPage:
-        filters.page < totalPages,
+  static async findBySlug(slug: string): Promise< CompetitionDetailDTO | null> {
+    const competition = await CompetitionRepository.findBySlug(slug);
 
-      hasPreviousPage:
-        filters.page > 1,
-    },
-  };
-}
-
+    if (!competition) {
+      return null;
+    }
+    return competitionMapper.toDetailDTO(competition);
+  }
   // Mutations
 
   static async create(options: CreateCompetitionOptions) {

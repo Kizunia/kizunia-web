@@ -107,27 +107,28 @@ export class CompetitionRepository {
   //   });
   // }
 
-  static async findMany(
-    filters: CompetitionSearchInput,
-) {
-    const query =
-        CompetitionSearchBuilder.build(filters);
+  static async findMany(filters: CompetitionSearchInput) {
+    const query = CompetitionSearchBuilder.build(filters);
 
     return prisma.hackathon.findMany({
-        ...query,
+      ...query,
 
-        include: {
-            logoAsset: true,
-            coverAsset: true,
-        },
+      include: {
+        logoAsset: true,
+        coverAsset: true,
+      },
     });
-}
+  }
 
   static async findBySlug(slug: string) {
     return prisma.hackathon.findFirst({
       where: {
         slug,
         deletedAt: null,
+      },
+      include: {
+        logoAsset: true,
+        coverAsset: true,
       },
     });
   }
@@ -288,16 +289,13 @@ export class CompetitionRepository {
     });
   }
 
-  static async count(
-    filters: CompetitionSearchInput,
-) {
-    const { where } =
-        CompetitionSearchBuilder.build(filters);
+  static async count(filters: CompetitionSearchInput) {
+    const { where } = CompetitionSearchBuilder.build(filters);
 
     return prisma.hackathon.count({
-        where,
+      where,
     });
-}
+  }
 
   static async searchCount(where: Prisma.HackathonWhereInput) {
     return prisma.hackathon.count({
