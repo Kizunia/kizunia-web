@@ -26,7 +26,7 @@ import type {
   RegistrationType,
   EligibilityType,
   HackathonMemberRole,
-} from "../../src/generated/prisma";
+} from "../../../src/generated/prisma";
 
 interface HackathonSeed {
   title: string;

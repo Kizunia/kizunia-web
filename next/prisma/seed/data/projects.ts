@@ -5,7 +5,7 @@ import type {
   ProjectVisibility,
   ProjectStatus,
   ProjectRole,
-} from "../../src/generated/prisma";
+} from "../../../src/generated/prisma";
 
 interface ProjectSeed {
   title: string;
