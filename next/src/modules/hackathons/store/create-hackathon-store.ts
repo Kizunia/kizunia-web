@@ -1,7 +1,7 @@
 import {create}  from "zustand";
 
 import type { CreateHackathonInput } from "../schemas/create-hackathon";
-import { HackathonApi } from "../api/hackathon-api";
+import { CompetitionApi } from "../api/hackathon-api";
 
 interface CreateHackathonStore {
     loading: boolean;
@@ -26,7 +26,7 @@ export const useCreateHackathonStore =
                 });
 
                 // TODO:
-                await HackathonApi.create(data);
+                await CompetitionApi.create(data);
 
             } finally {
                 set({

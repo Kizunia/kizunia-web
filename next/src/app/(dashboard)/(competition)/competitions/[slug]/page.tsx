@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ForwardRefEditor } from "@/components/shared/mdx/ForwardRefEditor";
 import { Suspense } from "react";
+import { CompetitionApi } from "@/modules/hackathons/api/hackathon-api";
 
 export default async function CompetitionPage({
   params,
@@ -22,33 +23,14 @@ export default async function CompetitionPage({
   }>;
 }) {
   const { slug } = await params;
+  console.log("slug", slug);
+  const response = await CompetitionApi.getPublic(slug);
 
-  const competition = await prisma.hackathon.findUnique({
-    where: {
-      slug,
-    },
-    include: {
-      logoAsset: true,
-      categories: {
-        include: {
-          category: true,
-        },
-      },
-      technologies: {
-        include: {
-          technology: true,
-        },
-      },
-    },
-  });
-
-  if (
-    !competition ||
-    competition.deletedAt ||
-    competition.visibility !== "PUBLIC"
-  ) {
+  if (!response.success) {
     notFound();
   }
+
+  const competition = response.data;
 
   return (
     <PageWrapper
@@ -175,7 +157,9 @@ export default async function CompetitionPage({
                   <div>
                     <p className="font-medium">Registration Ends</p>
                     <p className="text-sm text-muted-foreground">
-                      {competition.registrationDeadline.toLocaleDateString()}
+                      {new Date(
+                        competition.registrationDeadline,
+                      ).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -187,7 +171,9 @@ export default async function CompetitionPage({
                   <div>
                     <p className="font-medium">Starts</p>
                     <p className="text-sm text-muted-foreground">
-                      {competition.startDate.toLocaleDateString()}
+                      {new Date(
+                        competition.startDate,
+                      ).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -199,7 +185,9 @@ export default async function CompetitionPage({
                   <div>
                     <p className="font-medium">Ends</p>
                     <p className="text-sm text-muted-foreground">
-                      {competition.endDate.toLocaleDateString()}
+                      {new Date(
+                        competition.endDate,
+                      ).toLocaleDateString()}
                     </p>
                   </div>
                 </div>

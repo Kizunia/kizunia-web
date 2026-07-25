@@ -17,29 +17,10 @@ export default function CompetitionsCards({
   competitions: HackathonCardDTO[];
 }) {
   return (
-    <div className="space-y-8 border-2 border-amber-300 ">
+    <div className="space-y-8">
       {/* Header */}
 
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold tracking-tight">
-          Competitions {competitions.length}+
-        </h1>
-
-        <p className="max-w-2xl text-muted-foreground">
-          Discover hackathons, coding competitions, innovation challenges, and
-          open opportunities from colleges and organizations.
-        </p>
-      </div>
-
-      {/* Empty State */}
-
-      {competitions.length === 0 && (
-        <Card>
-          <CardContent className="flex h-48 items-center justify-center">
-            <p className="text-muted-foreground">No competitions available.</p>
-          </CardContent>
-        </Card>
-      )}
+      
 
       {/* Grid */}
 

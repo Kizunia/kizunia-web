@@ -14,3 +14,4 @@ export interface ErrorResponse {
         details?: unknown;
     };
 }
+
