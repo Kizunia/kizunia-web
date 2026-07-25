@@ -153,7 +153,7 @@ export class CompetitionService {
     };
   }
 
-  static async findBySlug(slug: string): Promise< CompetitionDetailDTO | null> {
+  static async findBySlug(slug: string): Promise< CompetitionDetailDTO | null> { // PUBLIC
     const competition = await CompetitionRepository.findBySlug(slug);
 
     if (!competition) {

@@ -129,8 +129,40 @@ export class CompetitionRepository {
       include: {
         logoAsset: true,
         coverAsset: true,
+        bannerAsset: true,
+
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+
+        technologies: {
+          include: {
+            technology: true,
+          },
+        },
+
+        eligibilities: true,
       },
     });
+  }
+  static async findBySlugOrThrow(
+    slug: string,
+  ): Promise<
+    Prisma.HackathonGetPayload<{
+      include: { logoAsset: true; coverAsset: true };
+    }>
+  > {
+    const competition = await this.findBySlug(slug);
+
+    if (!competition) {
+      throw new NotFoundError({
+        code: "competition_not_found",
+        message: `Competition with given slug not found.`,
+      });
+    }
+    return competition;
   }
 
   static async findById(id: string) {

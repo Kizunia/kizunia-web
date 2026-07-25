@@ -19,6 +19,7 @@ import { SessionService } from "@/lib/auth/index";
 import { UpdateHackathonSchema } from "../schemas/update-hackathon";
 import { CompetitionContextResolver } from "./authorization";
 import { CompetitionSearchSchema } from "../search/schema";
+import { Slug } from "@/lib/validation/index";
 export class CompetitionController {
   static async create(request: NextRequest) {
     return Route.execute(async () => {
@@ -35,31 +36,42 @@ export class CompetitionController {
         actor,
       };
 
-      
-
       CompetitionAuthorizer.create(context);
 
       const competition = await CompetitionService.create({ data, context });
 
-     return ApiResponse.created(competition);
+      return ApiResponse.created(competition);
     });
   }
 
- static async search(request: NextRequest) {
-  return Route.execute(async () => {
-    const query = Object.fromEntries(
-      request.nextUrl.searchParams.entries(),
-    );
+  static async search(request: NextRequest) {
+    return Route.execute(async () => {
+      const query = Object.fromEntries(request.nextUrl.searchParams.entries());
 
-    const filters =
-      CompetitionSearchSchema.parse(query);
+      const filters = CompetitionSearchSchema.parse(query);
 
-    const competitions =
-      await CompetitionService.search(filters);
+      const competitions = await CompetitionService.search(filters);
 
-    return ApiResponse.ok(competitions);
-  });
-}
+      return ApiResponse.ok(competitions);
+    });
+  }
+
+  static async findBySlug(request: NextRequest, slug: string) {
+    return Route.execute(async () => {
+      const parsedSlug = Slug.parse(slug);
+      const actor = await SessionService.getOptionalActor(request);
+
+      const context = await CompetitionContextResolver.resolveBySlug({
+        actor: {id: actor?.id ?? null, role: actor?.role ?? null, banned: actor?.banned ?? null},
+        slug: parsedSlug,
+      });
+      CompetitionAuthorizer.read(context);
+      
+      const competition = await CompetitionService.findBySlug(parsedSlug);
+
+      return ApiResponse.ok(competition);
+    });
+  }
 
   static async update(request: NextRequest, hackathonId: string) {
     return Route.execute(async () => {

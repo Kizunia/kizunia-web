@@ -5,7 +5,7 @@ import {
 } from "@/authorization";
 
 import { CompetitionAction } from "./actions";
-import { CompetitionContext } from "./context";
+import type { CompetitionContext } from "./context";
 import { HackathonPermissionSet } from "./permission-set";
 import { HackathonVisibility } from "@/generated/prisma";
 
@@ -14,46 +14,99 @@ export class CompetitionPolicy {
     context: CompetitionContext,
     action: CompetitionAction,
   ): AuthorizationDecision {
-    return (
-      AuthorizationEvaluator.start(context)
+    switch (action) {
+      case CompetitionAction.VIEW:
+        return this.canView(context);
 
-        // .platformOverride(
-        //     ctx =>
-        //         ctx.actor.role === "ADMIN" ||
-        //         ctx.actor.role === "SUPER_ADMIN",
-        // )
-        .platformOverride()
+      default:
+        return this.canManage(context, action);
+    }
+  }
 
-        .security(
-          (ctx) => !ctx.actor.banned,
-          AuthorizationCode.ACCOUNT_BANNED,
-          "Your account has been banned.",
-        )
-        // view public hackathon is allowed for all users, even non-members
-        .require(
-          (ctx) => ctx.hackathon.visibility === HackathonVisibility.PUBLIC,
-          AuthorizationCode.RESOURCE_PRIVATE,
-          "Not found for you.",
-        )
-        .require(
-          (ctx) => ctx.membership !== null,
-          AuthorizationCode.ROLE_PERMISSION_DENIED,
-          "You are not a maintainer.",
-        )
+  /**
+   * ===========================================================================
+   * Public View
+   * ===========================================================================
+   */
+  private static canView(
+    context: CompetitionContext,
+  ): AuthorizationDecision {
+    return AuthorizationEvaluator.start(context)
 
-        .permission(
-          HackathonPermissionSet,
-          context.membership?.role ?? null,
-          action,
-        )
+      // Platform admins can always access
+      .platformOverride()
 
-        .require(
-          (ctx) => !ctx.hackathon.deletedAt,
-          AuthorizationCode.RESOURCE_DELETED,
-          "This compitition has been deleted.",
-        )
+      // Banned users cannot access anything
+      .security(
+        (ctx) => !ctx.actor.banned,
+        AuthorizationCode.ACCOUNT_BANNED,
+        "Your account has been banned.",
+      )
 
-        .allow()
-    );
+      // Deleted competitions are not visible
+      .require(
+        (ctx) => !ctx.hackathon.deletedAt,
+        AuthorizationCode.RESOURCE_DELETED,
+        "Competition has been deleted.",
+      )
+
+      // Only public competitions
+      .require(
+        (ctx) =>
+          ctx.hackathon.visibility ===
+          HackathonVisibility.PUBLIC,
+        AuthorizationCode.RESOURCE_PRIVATE,
+        "Competition is private.",
+      )
+
+      // Explicitly allow
+      .grant()
+
+      .evaluate();
+  }
+
+  /**
+   * ===========================================================================
+   * Management
+   * ===========================================================================
+   */
+  private static canManage(
+    context: CompetitionContext,
+    action: CompetitionAction,
+  ): AuthorizationDecision {
+    return AuthorizationEvaluator.start(context)
+
+      // Platform admins bypass everything
+      .platformOverride()
+
+      // Banned users cannot access anything
+      .security(
+        (ctx) => !ctx.actor.banned,
+        AuthorizationCode.ACCOUNT_BANNED,
+        "Your account has been banned.",
+      )
+
+      // Deleted competitions cannot be managed
+      .require(
+        (ctx) => !ctx.hackathon.deletedAt,
+        AuthorizationCode.RESOURCE_DELETED,
+        "Competition has been deleted.",
+      )
+
+      // Must be a member
+      .require(
+        (ctx) => ctx.membership !== null,
+        AuthorizationCode.ROLE_PERMISSION_DENIED,
+        "You are not a maintainer.",
+      )
+
+      // Must have permission
+      .permission(
+        HackathonPermissionSet,
+        context.membership?.role ?? null,
+        action,
+      )
+
+      .evaluate();
   }
 }

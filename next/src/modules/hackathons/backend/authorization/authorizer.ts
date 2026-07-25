@@ -9,6 +9,18 @@ import type { PlatformContext } from "@/authorization/platform/context";
 import { PlatformPolicy } from "@/authorization/platform/policy";
 
 export class CompetitionAuthorizer {
+
+    static read(
+        context: CompetitionContext,
+    ): void {
+        Authorization.assert(
+            CompetitionPolicy.can(
+                context,
+                CompetitionAction.VIEW,
+            ),
+        );
+    }
+    
     static create(
         context: PlatformContext,
     ): void {
@@ -41,6 +53,7 @@ export class CompetitionAuthorizer {
             ),
         );
     }
+
 
     static can(
         context: CompetitionContext,

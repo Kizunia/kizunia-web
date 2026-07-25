@@ -6,7 +6,7 @@
  */
 import type { Prisma } from "@/generated/prisma";
 
-import type { HackathonCardDTO } from "../types/dto";
+import type { CompetitionDetailDTO, CompetitionWithRelations, HackathonCardDTO } from "../types/dto";
 
 /**
  * Prisma payload used when loading Hackathon cards.
@@ -42,6 +42,12 @@ export class CompetitionMapper {
       maxTeamSize: hackathon.maxTeamSize,
       status: hackathon.status,
       registrationFeeType: hackathon.registrationFeeType,
+    };
+  }
+
+  toDetailDTO(hackathon: CompetitionWithRelations): CompetitionDetailDTO { // public DTO for competition details
+    return {
+      ...hackathon,
     };
   }
 

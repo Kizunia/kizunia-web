@@ -5,29 +5,50 @@ import type { NextRequest } from "next/server";
 import { AuthenticationError } from "../errors";
 
 export class SessionService {
-    static async getActor(
-        request: NextRequest,
-    ): Promise<AuthorizationActor> {
-        console.log("Loading session...");
+  static async getActor(request: NextRequest): Promise<AuthorizationActor> {
+    console.log("Loading session...");
 
-        const session = await auth.api.getSession({
-            headers: request.headers,
-        });
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
 
-        if (!session || !session.user) {
-            throw new AuthenticationError({status: 401, message: "User is not authenticated.", code: "UNAUTHORIZED"});
-        }
-
-        console.log("Session loaded.");
-
-        // console.dir(session.user, {
-        //     depth: null,
-        // });
-
-        return {
-            id: session.user.id,
-            role: session.user.role,
-            banned: session.user.banned,
-        };
+    if (!session || !session.user) {
+      throw new AuthenticationError({
+        status: 401,
+        message: "User is not authenticated.",
+        code: "UNAUTHORIZED",
+      });
     }
+
+    console.log("Session loaded.");
+
+    // console.dir(session.user, {
+    //     depth: null,
+    // });
+
+    return {
+      id: session.user.id,
+      role: session.user.role,
+      banned: session.user.banned,
+    };
+  }
+
+  static async getOptionalActor(
+    request: NextRequest,
+  ): Promise<AuthorizationActor | null> {
+
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+
+    if (!session || !session.user) {
+      return null;
+    }
+
+    return {
+      id: session.user.id,
+      role: session.user.role,
+      banned: session.user.banned,
+    };
+  }
 }
