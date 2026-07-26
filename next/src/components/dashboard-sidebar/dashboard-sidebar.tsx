@@ -16,6 +16,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { OrgSwitcher } from "./org-switcher";
+import Link from "next/link";
 
 export function DashboardSidebar({
   ...props
@@ -31,10 +32,10 @@ export function DashboardSidebar({
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="#">
+              <Link href="#">
                 <ArrowUpCircleIcon />
-                <span className="text-base font-semibold">Better Auth</span>
-              </a>
+                <span className="text-base font-semibold">Kizunia</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

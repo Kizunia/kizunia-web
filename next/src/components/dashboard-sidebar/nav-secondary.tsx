@@ -10,6 +10,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { dashboardSidebarLinks } from "@/constants/dashboard-sidebar-links";
+import Link from "next/link";
 
 export function NavSecondary({
   
@@ -24,10 +25,10 @@ export function NavSecondary({
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild>
-                <a href={item.url}>
+                <Link href={item.url}>
                   <item.icon />
                   <span>{item.title}</span>
-                </a>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
