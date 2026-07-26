@@ -9,12 +9,15 @@ export class AuthorizationEvaluator<
   TRole extends string,
 > {
   /**
-   * First deny wins.
+   * A terminal decision.
+   *
+   * Once set, no further rules are evaluated.
    */
-  private decision: AuthorizationDecision | null = null;
+  private terminalDecision: AuthorizationDecision | null = null;
 
   /**
-   * At least one rule explicitly allowed.
+   * Indicates that at least one authorization rule
+   * explicitly granted access.
    */
   private allowed = false;
 
@@ -33,12 +36,12 @@ export class AuthorizationEvaluator<
   // ===========================================================================
 
   platformOverride() {
-    if (this.decision) {
+    if (this.terminalDecision) {
       return this;
     }
 
     if (PlatformAccess.canBypassAuthorization(this.context.actor)) {
-      this.allowed = true;
+      this.terminalDecision = allow();
     }
 
     return this;
@@ -53,12 +56,12 @@ export class AuthorizationEvaluator<
     code: AuthorizationCode,
     message: string,
   ) {
-    if (this.decision) {
+    if (this.terminalDecision) {
       return this;
     }
 
     if (!predicate(this.context)) {
-      this.decision = deny(code, message);
+      this.terminalDecision = deny(code, message);
     }
 
     return this;
@@ -73,12 +76,12 @@ export class AuthorizationEvaluator<
     role: TRole | null | undefined,
     action: TAction,
   ) {
-    if (this.decision) {
+    if (this.terminalDecision) {
       return this;
     }
 
     if (!role) {
-      this.decision = deny(
+      this.terminalDecision = deny(
         AuthorizationCode.ROLE_PERMISSION_DENIED,
         "You do not have permission to perform this action.",
       );
@@ -88,14 +91,16 @@ export class AuthorizationEvaluator<
 
     const permissions = permissionSet[role];
 
-    if (permissions.has(action)) {
-      this.allowed = true;
-    } else {
-      this.decision = deny(
+    if (!permissions.has(action)) {
+      this.terminalDecision = deny(
         AuthorizationCode.ROLE_PERMISSION_DENIED,
         "You do not have permission to perform this action.",
       );
+
+      return this;
     }
+
+    this.allowed = true;
 
     return this;
   }
@@ -109,35 +114,23 @@ export class AuthorizationEvaluator<
     code: AuthorizationCode,
     message: string,
   ) {
-    if (this.decision) {
+    if (this.terminalDecision) {
       return this;
     }
 
     if (!predicate(this.context)) {
-      this.decision = deny(code, message);
+      this.terminalDecision = deny(code, message);
     }
 
     return this;
   }
 
   // ===========================================================================
-  // Final Decision
+  // Explicit Allow
   // ===========================================================================
 
-  allow(): AuthorizationDecision {
-    if (this.decision) {
-      return this.decision;
-    }
-
-    if (this.allowed) {
-      return allow();
-    }
-
-    return deny(AuthorizationCode.ROLE_PERMISSION_DENIED, "Access denied.");
-  }
-
   grant() {
-    if (this.decision) {
+    if (this.terminalDecision) {
       return this;
     }
 
@@ -146,15 +139,29 @@ export class AuthorizationEvaluator<
     return this;
   }
 
+  // ===========================================================================
+  // Final Decision
+  // ===========================================================================
+
   evaluate(): AuthorizationDecision {
-    if (this.decision) {
-      return this.decision;
+    if (this.terminalDecision) {
+      return this.terminalDecision;
     }
 
     if (this.allowed) {
       return allow();
     }
 
-    return deny(AuthorizationCode.ROLE_PERMISSION_DENIED, "Access denied.");
+    return deny(
+      AuthorizationCode.ROLE_PERMISSION_DENIED,
+      "Access denied.",
+    );
+  }
+
+  /**
+   * Alias for evaluate()
+   */
+  allow(): AuthorizationDecision {
+    return this.evaluate();
   }
 }
