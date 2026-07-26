@@ -22,9 +22,12 @@ export const ShortDescriptionSchema = z
   .min(3, "Short description must be at least 3 characters.")
   .max(500, "Short description cannot exceed 500 characters.");
 
+  export const ContentSchema = z
+  .string()
+
 export const OrganizerSchema = z
   .string()
   .trim()
   .max(150, "Organizer cannot exceed 150 characters.");
 
-export const DocumentationSchema = z.string().trim();
+// export const DocumentationSchema = z.string().trim();

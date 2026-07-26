@@ -1,14 +1,7 @@
 import {
   AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
   GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
+  Command,
   BarChartIcon,
   CameraIcon,
   ClipboardListIcon,
@@ -23,15 +16,65 @@ import {
   SearchIcon,
   SettingsIcon,
   UsersIcon,
-  Trophy
+  Trophy,
 } from "lucide-react";
+import type { ComponentType } from "react";
 
-export const sidebarData = {
+type SidebarIcon = ComponentType<any>;
+
+export interface SidebarUser {
+  name: string;
+  email: string;
+  avatar: string;
+}
+
+export interface SidebarTeam {
+  name: string;
+  logo: SidebarIcon;
+  plan: string;
+}
+
+export interface SidebarNavItem {
+  title: string;
+  url: string;
+}
+
+export interface SidebarNavSection {
+  title: string;
+  url: string;
+  icon: SidebarIcon;
+  isActive?: boolean;
+  items?: SidebarNavItem[];
+}
+
+export interface SidebarDocument {
+  name: string;
+  url: string;
+  icon: SidebarIcon;
+}
+
+export interface SidebarData {
+  user: SidebarUser;
+
+  teams?: SidebarTeam[];
+
+  navMain: SidebarNavSection[];
+
+  // Optional for sidebars that don't use them.
+  navClouds?: SidebarNavSection[];
+
+  navSecondary?: SidebarNavSection[];
+
+  documents?: SidebarDocument[];
+}
+
+export const sidebarData: SidebarData = {
   user: {
     name: "shadcn",
     email: "m@example.com",
     avatar: "/avatars/shadcn.jpg",
   },
+
   teams: [
     {
       name: "Acme Inc",
@@ -49,44 +92,48 @@ export const sidebarData = {
       plan: "Free",
     },
   ],
-  navMain: [ // if url is not provided, then it will be a collapsible menu with sub-items
+
+  navMain: [
     {
       title: "Competitions",
       url: "/competitions",
-      icon:Trophy ,
+      icon: Trophy,
       isActive: true,
     },
-    
-    {
-      title: "User",
-      // url: "/dashboard/User",
-      icon: Bot,
-      items: [
-        {
-          title: "Profile",
-          url: "/dashboard/user/profile",
-        },
-        {
-          title: "Account",
-          url: "/dashboard/user/account",
-        },
-        {
-          title: "2FA",
-          url: "/dashboard/user/account/2fa",
-        },
-      ],
-    },
-    
+
+    // {
+    //   title: "User",
+    //   // url: "/dashboard/user",
+    //   icon: Bot,
+    //   items: [
+    //     {
+    //       title: "Profile",
+    //       url: "/dashboard/user/profile",
+    //     },
+    //     {
+    //       title: "Account",
+    //       url: "/dashboard/user/account",
+    //     },
+    //     {
+    //       title: "2FA",
+    //       url: "/dashboard/user/account/2fa",
+    //     },
+    //   ],
+    // },
   ],
- 
+
+  // navClouds: [],
+  // navSecondary: [],
+  // documents: [],
 };
 
-export const dashboardSidebarLinks = {
+export const dashboardSidebarLinks: SidebarData = {
   user: {
     name: "shadcn",
     email: "m@example.com",
     avatar: "/avatars/shadcn.jpg",
   },
+
   navMain: [
     {
       title: "Dashboard",
@@ -104,7 +151,7 @@ export const dashboardSidebarLinks = {
       icon: BarChartIcon,
     },
     {
-      title: "css-varaibles",
+      title: "css-variables",
       url: "/temp/css-variables",
       icon: FolderIcon,
     },
@@ -114,6 +161,7 @@ export const dashboardSidebarLinks = {
       icon: UsersIcon,
     },
   ],
+
   navClouds: [
     {
       title: "Capture",
@@ -162,23 +210,25 @@ export const dashboardSidebarLinks = {
       ],
     },
   ],
+
   navSecondary: [
-    {
-      title: "Settings",
-      url: "/settings",
-      icon: SettingsIcon,
-    },
-    {
-      title: "Get Help",
-      url: "/help",
-      icon: HelpCircleIcon,
-    },
-    {
-      title: "Upgrade Plan",
-      url: "/dashboard/user/upgrade-plan",
-      icon: SearchIcon,
-    },
+    // {
+    //   title: "Settings",
+    //   url: "/settings",
+    //   icon: SettingsIcon,
+    // },
+    // {
+    //   title: "Get Help",
+    //   url: "/help",
+    //   icon: HelpCircleIcon,
+    // },
+    // {
+    //   title: "Upgrade Plan",
+    //   url: "/dashboard/user/upgrade-plan",
+    //   icon: SearchIcon,
+    // },
   ],
+
   documents: [
     {
       name: "Data Library",

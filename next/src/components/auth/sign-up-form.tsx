@@ -83,7 +83,7 @@ export function SignUpForm() {
         },
         onSuccess() {
           toast.success("Signed up successfully");
-          router.push("/dashboard");
+          router.push("/competitions");
         },
         onError(context) {
           setError(context.error.message || "Something went wrong");

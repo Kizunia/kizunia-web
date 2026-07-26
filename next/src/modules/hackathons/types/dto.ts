@@ -34,20 +34,16 @@ export interface HackathonCardDTO {
   coverUrl: string | null;
 }
 
-// export interface CompetitionDetailDTO extends Hackathon {
-//   //TODO: remove some of these fields that are not needed in the UI, and add any additional fields that are needed for the UI.
-//   logoAsset: Asset | null;
-//   coverAsset: Asset | null;
-//   technologies: Technology[];
-//   categories: Category[];
-// }
 
-export type CompetitionDetailDTO = Prisma.HackathonGetPayload<{
+
+
+//TODO: remove some of these fields that are not needed in the UI, and add any additional fields that are needed for the UI.
+export type CompetitionDetailDTO = Prisma.HackathonGetPayload<{ //Public DTO for competition details
   include: {
     logoAsset: true;
     coverAsset: true;
     bannerAsset: true;
-
+    content: true,
     categories: {
       include: {
         category: true;

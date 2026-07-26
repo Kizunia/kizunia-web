@@ -1,19 +1,26 @@
 "use client";
 
 import { useState } from "react";
-
+import { useRef } from "react";
+import {
+  ForwardRefEditor,
+} from "@/components/shared/mdx/ForwardRefEditor";
+import type {
+  MDXEditorMethods,
+} from "@mdxeditor/editor";
 export default function UpdateHackathonForm({
   hackathonId,
 }: {
   hackathonId: string;
 }) {
+  const editorRef = useRef<MDXEditorMethods>(null);
   const [loading, setLoading] = useState(false);
 
-  const [title, setTitle] = useState("");
-  const [shortDescription, setShortDescription] = useState("");
-  const [organizer, setOrganizer] = useState("");
-  const [website, setWebsite] = useState("");
-  const [registrationLink, setRegistrationLink] = useState("");
+  const [title, setTitle] = useState<string>();
+  const [shortDescription, setShortDescription] = useState<string>();
+  const [organizer, setOrganizer] = useState<string>();
+  const [website, setWebsite] = useState<string>();
+  const [registrationLink, setRegistrationLink] = useState<string>();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,12 +41,7 @@ export default function UpdateHackathonForm({
             organizer,
             website,
             registrationLink,
-            documentation: `
-            # Welcome to **HackX**
-
-This is the <u>official </u>==documentation==...
-this \~\~documentation \~\~is a placeholder and **should be replaced with actual content** from the admin user.
-            `,
+            content:  editorRef.current?.getMarkdown() ?? "no content from editor",
           }),
         },
       );
@@ -98,6 +100,16 @@ this \~\~documentation \~\~is a placeholder and **should be replaced with actual
         onChange={(e) => setRegistrationLink(e.target.value)}
         className="rounded border p-2"
       />
+
+      <div className="space-y-2">
+        <label className="font-medium">Content</label>
+
+        <ForwardRefEditor
+          ref={editorRef}
+          markdown=""
+          className="min-h-[700px] rounded-md border z-0 "
+        />
+      </div>
 
       <button
         type="submit"
