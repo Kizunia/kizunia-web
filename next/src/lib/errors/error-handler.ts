@@ -7,13 +7,14 @@ import { convertZodError } from "./zod";
 
 export class ErrorHandler {
   static handle(error: unknown) {
+    console.error("ErrorHandler.handle() called with error");
     if (error instanceof ZodError) {
       error = convertZodError(error);
     }
 
     if (isAppError(error)) {
       console.error(error);
-
+      console.error("ErrorHandler.handle() called with AppError");
       return NextResponse.json(createErrorResponse(error), {
         status: error.status,
       });

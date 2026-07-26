@@ -77,14 +77,14 @@ export class CompetitionPolicy {
     return AuthorizationEvaluator.start(context)
 
       // Platform admins bypass everything
-      .platformOverride()
-
+      
       // Banned users cannot access anything
       .security(
         (ctx) => !ctx.actor.banned,
         AuthorizationCode.ACCOUNT_BANNED,
         "Your account has been banned.",
       )
+      .platformOverride()
 
       // Deleted competitions cannot be managed
       .require(

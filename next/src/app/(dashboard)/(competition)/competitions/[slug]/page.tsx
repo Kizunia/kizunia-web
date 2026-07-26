@@ -32,8 +32,6 @@ export default async function CompetitionPage({
 
   const competition = response.data;
 
-  console.log("content", competition.content?.content);
-
   return (
     <PageWrapper
       breadcrumbs={[
