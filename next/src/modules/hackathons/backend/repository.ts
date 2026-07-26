@@ -130,7 +130,7 @@ export class CompetitionRepository {
         logoAsset: true,
         coverAsset: true,
         bannerAsset: true,
-
+        content: true,
         categories: {
           include: {
             category: true,
@@ -147,11 +147,27 @@ export class CompetitionRepository {
       },
     });
   }
-  static async findBySlugOrThrow(
-    slug: string,
-  ): Promise<
+  static async findBySlugOrThrow(slug: string): Promise<
     Prisma.HackathonGetPayload<{
-      include: { logoAsset: true; coverAsset: true };
+      include: {
+        logoAsset: true;
+        coverAsset: true;
+        bannerAsset: true;
+        content: true;
+        categories: {
+          include: {
+            category: true;
+          };
+        };
+
+        technologies: {
+          include: {
+            technology: true;
+          };
+        };
+
+        eligibilities: true;
+      };
     }>
   > {
     const competition = await this.findBySlug(slug);
@@ -227,6 +243,12 @@ export class CompetitionRepository {
         website: data.website || null,
 
         registrationLink: data.registrationLink || null,
+
+        content: {
+          create: {
+            content: data.content ?? "",
+          },
+        },
       },
     });
 
@@ -240,11 +262,31 @@ export class CompetitionRepository {
     id: string;
     data: UpdateHackathonInput;
   }) {
+    const {
+      content,
+
+      ...rest
+    } = data;
+
     return prisma.hackathon.update({
       where: {
         id,
       },
-      data,
+      data: {
+        ...rest,
+        content:
+          content !== undefined
+            ? {
+                update: {
+                  content: content,
+
+                  version: {
+                    increment: 1,
+                  },
+                },
+              }
+            : undefined,
+      },
     });
   }
 

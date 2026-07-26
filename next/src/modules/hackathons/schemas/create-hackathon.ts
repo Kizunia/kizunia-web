@@ -40,6 +40,10 @@ export const CreateHackathonSchema = z.object({
         .url("Please enter a valid registration URL.")
         .optional()
         .or(z.literal("")),
+
+    content: z
+        .string()
+        .optional()
 });
 
 export type CreateHackathonInput =

@@ -60,7 +60,7 @@ export default function InitializedMDXEditor({
                 directivesPlugin({ directiveDescriptors: [AdmonitionDirectiveDescriptor] }),
                 diffSourcePlugin({ viewMode: 'rich-text' }),
                 markdownShortcutPlugin(),
-                linkPlugin(), linkDialogPlugin(), imagePlugin({ imageUploadHandler }),
+               
                 toolbarPlugin({
                     toolbarClassName: 'my-classname',
                     toolbarContents: () => (

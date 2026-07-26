@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import '@mdxeditor/editor/style.css'
 import "./globals.css";
+import "./mdx.css";
+// import "@mdxeditor/editor/style.css";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "sonner";
 

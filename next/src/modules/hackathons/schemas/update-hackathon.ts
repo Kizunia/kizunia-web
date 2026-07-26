@@ -5,7 +5,7 @@ import {
     HackathonStatus,
     HackathonVisibility,
 } from "@/generated/prisma";
-import { DocumentationSchema, OrganizerSchema, ShortDescriptionSchema, Slug, TitleSchema, UrlSchema } from "@/lib/validation/index";
+import { ContentSchema, OrganizerSchema, ShortDescriptionSchema, Slug, TitleSchema, UrlSchema } from "@/lib/validation/index";
 
 
 export const UpdateHackathonSchema = z
@@ -20,7 +20,7 @@ export const UpdateHackathonSchema = z
 
         organizer: OrganizerSchema.optional(),
 
-        documentation: DocumentationSchema.optional(),
+        content: ContentSchema.optional(),
 
         // ---------------------------------------------------------------------
         // Registration
