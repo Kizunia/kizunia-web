@@ -524,7 +524,9 @@ model Hackathon {
   coverAssetId String?
   coverAsset   Asset?  @relation("hackathonCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
-  documentation String? @db.Text
+  // documentation String? @db.Text
+  contentId String?  @unique
+  content   Content? @relation("HackathonContent", fields: [contentId], references: [id], onDelete: SetNull)
 
   visibility HackathonVisibility @default(PRIVATE)
   // Lifecycle-only. Moderation status belongs to a future Proposal model.
@@ -764,7 +766,9 @@ model Project {
   slug             String @unique
   shortDescription String
 
-  documentation String? @db.Text
+  // documentation String? @db.Text
+  contentId String?  @unique
+  content   Content? @relation("ProjectContent", fields: [contentId], references: [id], onDelete: SetNull)
 
   visibility ProjectVisibility @default(PUBLIC)
   status     ProjectStatus     @default(DRAFT)
@@ -848,4 +852,20 @@ model HackathonProject {
 
   @@id([hackathonId, projectId])
   @@map("hackathon_project")
+}
+
+model Content {
+  id String @id @default(cuid())
+
+  content String @db.Text
+
+  version Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hackathon Hackathon? @relation("HackathonContent")
+  project   Project?   @relation("ProjectContent")
+  // team      Team?      @relation("TeamContent")
+  // blog      Blog?      @relation("BlogContent")
 }
