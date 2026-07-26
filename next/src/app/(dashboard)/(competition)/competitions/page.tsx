@@ -81,20 +81,20 @@ export default async function CompetitionsPage({ searchParams }: Props) {
 
       {/* <div className="flex justify-center space-x-2">
         {pagination.hasPreviousPage && (
-          <a
+          <Link
             href={`/competitions?page=${pagination.page - 1}`}
            
           >
             Previous
-          </a>
+          </Link>
         )}
         {pagination.hasNextPage && (
-          <a
+          <Link
             href={`/competitions?page=${pagination.page + 1}`}
             className="rounded bg-primary px-4 py-2 text-white hover:bg-primary/80"
           >
             Next
-          </a>
+          </Link>
         )}
       </div> */}
 
