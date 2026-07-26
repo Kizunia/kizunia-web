@@ -40,7 +40,7 @@ export function NavUser() {
 
   const currentSessionData = authClient.useSession();
   const currentSession = currentSessionData.data
-
+  const isUserNotLoggedIn = !currentSessionData.isPending && !currentSessionData.isRefetching && !currentSession;
   // functions
   async function handleSignOut() {
     // setLoading(true);
@@ -66,7 +66,7 @@ export function NavUser() {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
+           { (!isUserNotLoggedIn) && <SidebarMenuButton
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
@@ -81,7 +81,7 @@ export function NavUser() {
                       }
                       alt={currentSession.user.name}
                     />
-                    <AvatarFallback className="rounded-lg">User</AvatarFallback>
+                    <AvatarFallback className="rounded-lg">User {currentSessionData.error?.message}</AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">
@@ -96,7 +96,7 @@ export function NavUser() {
               ) : (
                 <Skeleton className="w-full h-9" />
               )}
-            </SidebarMenuButton>
+            </SidebarMenuButton>}
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
@@ -105,7 +105,7 @@ export function NavUser() {
             sideOffset={4}
           >
             <DropdownMenuLabel>
-              {(currentSession && !currentSessionData.isPending)? (
+              {(currentSession && !currentSessionData.isPending && !currentSessionData.isRefetching)? (
                 <AccountSwitcher
                   currentSessionData={currentSession}
                   // sessions={sessions}
@@ -118,7 +118,7 @@ export function NavUser() {
               )}
             </DropdownMenuLabel>
 
-            <DropdownMenuSeparator />
+            {/* <DropdownMenuSeparator /> */}
 
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>

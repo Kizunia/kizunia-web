@@ -57,25 +57,25 @@ export const sidebarData = {
       isActive: true,
     },
     
-    {
-      title: "User",
-      // url: "/dashboard/User",
-      icon: Bot,
-      items: [
-        {
-          title: "Profile",
-          url: "/dashboard/user/profile",
-        },
-        {
-          title: "Account",
-          url: "/dashboard/user/account",
-        },
-        {
-          title: "2FA",
-          url: "/dashboard/user/account/2fa",
-        },
-      ],
-    },
+    // {
+    //   title: "User",
+    //   // url: "/dashboard/User",
+    //   icon: Bot,
+    //   items: [
+    //     {
+    //       title: "Profile",
+    //       url: "/dashboard/user/profile",
+    //     },
+    //     {
+    //       title: "Account",
+    //       url: "/dashboard/user/account",
+    //     },
+    //     {
+    //       title: "2FA",
+    //       url: "/dashboard/user/account/2fa",
+    //     },
+    //   ],
+    // },
     
   ],
  
@@ -163,21 +163,21 @@ export const dashboardSidebarLinks = {
     },
   ],
   navSecondary: [
-    {
-      title: "Settings",
-      url: "/settings",
-      icon: SettingsIcon,
-    },
-    {
-      title: "Get Help",
-      url: "/help",
-      icon: HelpCircleIcon,
-    },
-    {
-      title: "Upgrade Plan",
-      url: "/dashboard/user/upgrade-plan",
-      icon: SearchIcon,
-    },
+    // {
+    //   title: "Settings",
+    //   url: "/settings",
+    //   icon: SettingsIcon,
+    // },
+    // {
+    //   title: "Get Help",
+    //   url: "/help",
+    //   icon: HelpCircleIcon,
+    // },
+    // {
+    //   title: "Upgrade Plan",
+    //   url: "/dashboard/user/upgrade-plan",
+    //   icon: SearchIcon,
+    // },
   ],
   documents: [
     {
