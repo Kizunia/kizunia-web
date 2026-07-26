@@ -161,6 +161,13 @@ export class CompetitionService {
     }
     return competitionMapper.toDetailDTO(competition);
   }
+
+  static async findForEdit(id: string) { // for admin edit
+  const competition =
+    await CompetitionRepository.findByIdForEdit(id);
+
+  return competitionMapper.toEditDTO(competition);
+}
   // Mutations
 
   static async create(options: CreateCompetitionOptions) {

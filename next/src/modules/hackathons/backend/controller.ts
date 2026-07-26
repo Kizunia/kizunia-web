@@ -73,6 +73,28 @@ export class CompetitionController {
     });
   }
 
+  static async findForEdit(
+  request: NextRequest,
+  hackathonId: string,
+) {
+  return Route.execute(async () => {
+    const actor = await SessionService.getActor(request);
+
+    const context =
+      await CompetitionContextResolver.resolve({
+        actor,
+        hackathonId,
+      });
+
+    CompetitionAuthorizer.edit(context);
+
+    const competition =
+      await CompetitionService.findForEdit(hackathonId);
+
+    return ApiResponse.ok(competition);
+  });
+}
+
   static async update(request: NextRequest, hackathonId: string) {
     return Route.execute(async () => {
       // -----------------------------------------------------------------

@@ -203,6 +203,43 @@ export class CompetitionRepository {
     return competition;
   }
 
+  static async findByIdForEdit(id: string) {
+    const competition = await prisma.hackathon.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+      include: {
+        logoAsset: true,
+        coverAsset: true,
+        bannerAsset: true,
+
+        content: true,
+
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+
+        technologies: {
+          include: {
+            technology: true,
+          },
+        },
+      },
+    });
+
+    if (!competition) {
+      throw new NotFoundError({
+        code: "competition_not_found",
+        message: "Competition not found.",
+      });
+    }
+
+    return competition;
+  }
+
   static async existsBySlug(slug: string): Promise<boolean> {
     const exists = await prisma.hackathon.findUnique({
       where: {

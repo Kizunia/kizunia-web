@@ -1,11 +1,13 @@
-import { CompetitionController } from "@/modules/hackathons/backend/controller";
 import { NextRequest } from "next/server";
+
+import { CompetitionController } from "@/modules/hackathons/backend/controller";
 
 interface RouteParams {
   params: Promise<{
     id: string;
   }>;
 }
+
 export async function GET(
   request: NextRequest,
   { params }: RouteParams,
@@ -16,22 +18,18 @@ export async function GET(
     request,
     id,
   );
+
+  
 }
 
 export async function PATCH(
-    request: NextRequest,
-    {
-        params,
-    }: {
-        params: Promise<{
-            id: string;
-        }>;
-    },
+  request: NextRequest,
+  { params }: RouteParams,
 ) {
-    const { id } = await params;
+  const { id } = await params;
 
-    return CompetitionController.update(
-        request,
-        id,
-    );
+  return CompetitionController.update(
+    request,
+    id,
+  );
 }
