@@ -1,10 +1,10 @@
 import { HackathonMode, HackathonStatus, HackathonVisibility } from "@/generated/prisma";
 
 export interface CompetitionEditDTO {
-  id: string;
+  id: string ;
 
-  title: string;
-  slug: string;
+  title: string  | null;
+  slug: string | null;
 
   shortDescription: string | null;
 
@@ -14,13 +14,13 @@ export interface CompetitionEditDTO {
 
   registrationLink: string | null;
 
-  content: string;
+  content: string | null;
 
-  mode: HackathonMode;
+  mode: HackathonMode | null;
 
-  visibility: HackathonVisibility;
+  visibility: HackathonVisibility | null;
 
-  status: HackathonStatus;
+  status: HackathonStatus | null;
 
   location: string | null;
 

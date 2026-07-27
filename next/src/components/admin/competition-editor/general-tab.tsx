@@ -26,7 +26,7 @@ export function GeneralTab() {
 
         <Input
           id="title"
-          value={competition.title}
+          value={competition.title ?? ""}
           onChange={(e) =>
             updateCompetition({
               title: e.target.value,
@@ -40,7 +40,7 @@ export function GeneralTab() {
 
         <Input
           id="slug"
-          value={competition.slug}
+          value={competition.slug ?? ""}
           onChange={(e) =>
             updateCompetition({
               slug: e.target.value,

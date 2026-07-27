@@ -293,39 +293,83 @@ export class CompetitionRepository {
   }
 
   static async update({
-    id,
-    data,
-  }: {
-    id: string;
-    data: UpdateHackathonInput;
-  }) {
-    const {
-      content,
+  id,
+  data,
+}: {
+  id: string;
+  data: UpdateHackathonInput;
+}) {
+  const { content, ...rest } = data;
 
-      ...rest
-    } = data;
+  return prisma.$transaction(async (tx) => {
+    const hackathon = await tx.hackathon.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        contentId: true,
+      },
+    });
 
-    return prisma.hackathon.update({
+    if (!hackathon) {
+      throw new NotFoundError({
+        code: "competition_not_found",
+        message: "Competition not found.",
+      });
+    }
+
+    let contentId = hackathon.contentId;
+
+    // ------------------------------------------------------------
+    // Update or create documentation
+    // ------------------------------------------------------------
+
+    if (content !== undefined) {
+      if (contentId) {
+        await tx.content.update({
+          where: {
+            id: contentId,
+          },
+          data: {
+            content,
+            version: {
+              increment: 1,
+            },
+          },
+        });
+      } else {
+        const createdContent = await tx.content.create({
+          data: {
+            content,
+          },
+        });
+
+        contentId = createdContent.id;
+      }
+    }
+
+    // ------------------------------------------------------------
+    // Update hackathon
+    // ------------------------------------------------------------
+
+    return tx.hackathon.update({
       where: {
         id,
       },
       data: {
         ...rest,
-        content:
-          content !== undefined
-            ? {
-                update: {
-                  content: content,
 
-                  version: {
-                    increment: 1,
-                  },
-                },
-              }
-            : undefined,
+        ...(contentId !== hackathon.contentId && {
+          content: {
+            connect: {
+              id: contentId!,
+            },
+          },
+        }),
       },
     });
-  }
+  });
+}
 
   static async delete(id: string) {
     // TODO: Soft delete is not fully implemented yet.

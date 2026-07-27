@@ -82,11 +82,11 @@ export class CompetitionMapper {
 
     content: hackathon.content?.content ?? "",
 
-    mode: hackathon.mode ?? "",
+    mode: hackathon.mode ,
 
-    visibility: hackathon.visibility ?? "",
+    visibility: hackathon.visibility ,
 
-    status: hackathon.status ?? "",
+    status: hackathon.status,
 
     location: hackathon.location,
 

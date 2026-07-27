@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import type { CompetitionEditDTO } from "../types/edit-dto";
 import { CompetitionApi } from "../api/hackathon-api";
+import { ApiError } from "@/lib/http";
 
 interface CompetitionEditorStore {
   competition: CompetitionEditDTO | null;
@@ -62,7 +63,25 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
           saving: true,
         });
 
-        await CompetitionApi.update(state.competition.id, state.competition);
+        await CompetitionApi.update(state.competition.id, {
+          title: state.competition.title ?? undefined,
+          shortDescription: state.competition.shortDescription,
+          organizer: state.competition.organizer,
+          website: state.competition.website,
+          registrationLink: state.competition.registrationLink,
+          content: state.competition.content,
+          mode: state.competition.mode,
+          visibility: state.competition.visibility,
+          status: state.competition.status,
+          location: state.competition.location,
+          prizePool: state.competition.prizePool,
+          minTeamSize: state.competition.minTeamSize,
+          maxTeamSize: state.competition.maxTeamSize,
+          registrationOpen: state.competition.registrationOpen,
+          registrationDeadline: state.competition.registrationDeadline,
+          startDate: state.competition.startDate,
+          endDate: state.competition.endDate,
+        });
 
         useCompetitionEditorStore.setState({
           original: structuredClone(state.competition),
@@ -71,15 +90,26 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
         });
 
         toast.success("Competition updated successfully.");
-      } catch (error) {
-        console.error(error);
+      } 
+     catch (error) {
+  console.log("STORE CAUGHT", error);
 
-        useCompetitionEditorStore.setState({
-          saving: false,
-        });
+  useCompetitionEditorStore.setState({
+    saving: false,
+  });
 
-        toast.error("Failed to update competition.");
-      }
+  if (error instanceof ApiError) {
+    if (error.code === "VALIDATION_FAILED") {
+      // console.log("ApiError", error.details.fields as any);
+      toast.error("Validation failed. Please check your input.", {description: "error.details"});
+      return;
+    }
+    toast.error(error.message);
+    return;
+  }
+
+  toast.error("Unexpected error");
+}
     },
 
     reset: () =>

@@ -15,13 +15,13 @@ export interface UpdateCompetitionRequestDTO {
 
   registrationLink?: string | null;
 
-  content?: string;
+  content?: string | null;
 
-  mode?: HackathonMode;
+  mode?: HackathonMode | null;
 
-  visibility?: HackathonVisibility;
+  visibility?: HackathonVisibility | null;
 
-  status?: HackathonStatus;
+  status?: HackathonStatus | null;
 
   location?: string | null;
 

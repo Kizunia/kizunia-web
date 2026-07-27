@@ -19,7 +19,7 @@ export function DocumentationTab() {
   return (
     <div className="pt-6">
       <ForwardRefEditor
-        markdown={competition.content}
+        markdown={competition.content ?? "No documentation yet."}
         onChange={(markdown) =>
           updateCompetition({
             content: markdown,
