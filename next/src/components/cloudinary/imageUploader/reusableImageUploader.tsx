@@ -1,11 +1,6 @@
 "use client";
 
-import React, {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { useDropzone, Accept } from "react-dropzone";
 import { toast } from "sonner";
@@ -28,6 +23,7 @@ import {
   Search,
 } from "lucide-react";
 import { getErrorMessage } from "@/utils/error";
+import Image from "next/image";
 
 /* ---------- Types ---------- */
 export interface GalleryImage {
@@ -64,7 +60,7 @@ interface ReusableImageUploaderProps {
   gallery?: GalleryImage[];
   onUpload?: (
     url: string,
-    info?: CloudinaryUploadResult
+    info?: CloudinaryUploadResult,
   ) => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
   title?: string;
@@ -92,8 +88,7 @@ function BackHeader({ onBack, label = "Back" }: HeaderBackProps) {
   );
 }
 
-interface OptionButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface OptionButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon: React.ReactNode;
   children: React.ReactNode;
 }
@@ -367,9 +362,9 @@ function ReusableImageUploader({
       gallery.filter(
         (img) =>
           img.name.toLowerCase().includes(search.toLowerCase()) ||
-          img.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
+          img.tags.some((t) => t.toLowerCase().includes(search.toLowerCase())),
       ),
-    [gallery, search]
+    [gallery, search],
   );
 
   /* ----- Dropzone ----- */
@@ -396,7 +391,7 @@ function ReusableImageUploader({
   /* ----- Crop Complete ----- */
   const handleCropComplete = useCallback(
     (_: Area, pixels: Area) => setCroppedAreaPixels(pixels),
-    []
+    [],
   );
 
   /* ----- Confirm Crop & Upload ----- */
@@ -404,7 +399,11 @@ function ReusableImageUploader({
     if (!imageSrc || !croppedAreaPixels) return;
     try {
       toast.loading("Uploading image...", { id: "image-upload" });
-      const blob: Blob = await getCroppedImg(imageSrc, croppedAreaPixels, rotation);
+      const blob: Blob = await getCroppedImg(
+        imageSrc,
+        croppedAreaPixels,
+        rotation,
+      );
       const { url, info } = (await upload(blob)) as {
         url: string;
         info: CloudinaryUploadResult;
@@ -451,11 +450,10 @@ function ReusableImageUploader({
   /* ----- Render Views ----- */
   return (
     <div className="flex flex-col gap-3 w-full">
-      {/* {title && (
-        <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-          {title}
+      {title && (
+        <div className="text-lg font-semibold tracking-tight flex items-center gap-2">
           {initialImage && view === "main" && (
-            <span className="ml-auto relative inline-block h-12 w-12 rounded-full overflow-hidden ring-2 ring-primary/30">
+            <span className=" relative inline-block h-12 w-12 rounded-full overflow-hidden ring-2 ring-primary/30">
               <Image
                 src={initialImage}
                 alt="Current image"
@@ -465,79 +463,92 @@ function ReusableImageUploader({
               />
             </span>
           )}
-        </h3>
-      )} */}
+          <h1 className="mr-auto">{title}</h1>
+        </div>
+      )}
 
-      <BackHeader onBack={onBack} />
+      {/* <BackHeader onBack={onBack} /> */}
 
       {view === "main" && (
         <MainOptionsView onSelect={setView}>{children}</MainOptionsView>
       )}
 
       {view === "upload" && (
-        <div className="flex flex-col gap-4">
-          {showCropper && imageSrc ? (
-            <CropperSection
-              imageSrc={imageSrc}
-              crop={crop}
-              zoom={zoom}
-              rotation={rotation}
-              shape={customCropShape}
-              uploading={uploading}
-              progress={progress}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onRotationChange={setRotation}
-              onConfirm={handleCropConfirm}
-              onCancel={handleCancelCrop}
-              onCropComplete={handleCropComplete}
-            />
-          ) : (
-            <div className="flex flex-col items-center gap-6">
-              <div
-                {...getRootProps()}
-                className={`w-full rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition
+        <>
+          <BackHeader onBack={onBack} />
+          <div className="flex flex-col gap-4">
+            {showCropper && imageSrc ? (
+              <CropperSection
+                imageSrc={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                rotation={rotation}
+                shape={customCropShape}
+                uploading={uploading}
+                progress={progress}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onRotationChange={setRotation}
+                onConfirm={handleCropConfirm}
+                onCancel={handleCancelCrop}
+                onCropComplete={handleCropComplete}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-6">
+                <div
+                  {...getRootProps()}
+                  className={`w-full rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition
                   bg-muted/40 hover:bg-muted/60 border-primary/60
                   ${isDragActive ? "ring-2 ring-primary" : ""}`}
-              >
-                <input
-                  {...getInputProps()}
-                  ref={inputRef}
-                  accept={typeof accept === "string" ? accept : undefined}
-                />
-                {isDragActive ? (
-                  <p className="text-sm font-medium text-primary">
-                    Drop the image here...
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Drag & drop an image here, or{" "}
-                    <button
-                      type="button"
-                      onClick={() => inputRef.current?.click()}
-                      className="underline text-primary font-semibold"
-                    >
-                      Browse
-                    </button>
-                  </p>
-                )}
+                >
+                  <input
+                    {...getInputProps()}
+                    ref={inputRef}
+                    accept={typeof accept === "string" ? accept : undefined}
+                  />
+                  {isDragActive ? (
+                    <p className="text-sm font-medium text-primary">
+                      Drop the image here...
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Drag & drop an image here, or{" "}
+                      <button
+                        type="button"
+                        onClick={() => inputRef.current?.click()}
+                        className="underline text-primary font-semibold"
+                      >
+                        Browse
+                      </button>
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </>
       )}
 
       {view === "gallery" && (
-        <GalleryView
-          images={filteredGallery}
-          search={search}
-          setSearch={setSearch}
-          selectedId={selectedGalleryImage}
-          onSelect={handleGallerySelect}
-        />
+        <>
+          {" "}
+          <BackHeader onBack={onBack} />
+          <GalleryView
+            images={filteredGallery}
+            search={search}
+            setSearch={setSearch}
+            selectedId={selectedGalleryImage}
+            onSelect={handleGallerySelect}
+          />
+        </>
       )}
 
-      {view === "delete" && <DeleteView onDelete={handleDelete} />}
+      {view === "delete" && (
+        <>
+          <BackHeader onBack={onBack} />
+          <DeleteView onDelete={handleDelete} />
+        </>
+      )}
     </div>
   );
 }

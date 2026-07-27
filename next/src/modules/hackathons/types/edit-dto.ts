@@ -1,7 +1,11 @@
 import {
+  CertificateType,
+  DifficultyLevel,
   HackathonMode,
   HackathonStatus,
   HackathonVisibility,
+  OrganizerType,
+  RegistrationFeeType,
   RegistrationPlatform,
 } from "@/generated/prisma";
 

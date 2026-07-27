@@ -15,6 +15,7 @@ import {
 } from "@/modules/hackathons/constants";
 import { useCompetitionEditorStore } from "@/modules/hackathons/store/editor-store";
 import { SelectField } from "./select-field";
+import { AssetsTab } from "./assets-tab";
 
 export function GeneralTab() {
   const competition = useCompetitionEditorStore((state) => state.competition);
@@ -29,6 +30,10 @@ export function GeneralTab() {
 
   return (
     <div className="grid gap-6 pt-6">
+      <div className="space-y-2">
+        <Label htmlFor="assets">Assets</Label>
+        <AssetsTab />
+      </div>
       <div className="space-y-2">
         <Label htmlFor="title">Title</Label>
 
@@ -262,8 +267,6 @@ export function GeneralTab() {
           }
         />
       </div>
-
-     
     </div>
   );
 }

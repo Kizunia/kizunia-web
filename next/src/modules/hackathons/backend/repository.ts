@@ -6,6 +6,7 @@ import { NotFoundError } from "@/lib/errors";
 import type { CompetitionSearchOptions } from "../search/types";
 import { CompetitionSearchInput } from "../search/schema";
 import { CompetitionSearchBuilder } from "../search/builder";
+import { HackathonAssetSlot } from "../types/asset-slot";
 
 // interface FindCompetitionsOptions {
 //   search?: string;
@@ -203,8 +204,11 @@ export class CompetitionRepository {
     return competition;
   }
 
-  static async findByIdForEdit(id: string) {
-    const competition = await prisma.hackathon.findFirst({
+  static async findByIdForEdit(
+  id: string,
+  db: Prisma.TransactionClient | Prisma.DefaultPrismaClient = prisma,
+) {
+   const competition = await db.hackathon.findFirst({
       where: {
         id,
         deletedAt: null,
@@ -293,81 +297,126 @@ export class CompetitionRepository {
   }
 
   static async update({
-  id,
-  data,
-}: {
-  id: string;
-  data: UpdateHackathonInput;
-}) {
-  const { content, ...rest } = data;
+    id,
+    data,
+  }: {
+    id: string;
+    data: UpdateHackathonInput;
+  }) {
+    const { content, ...rest } = data;
 
-  return prisma.$transaction(async (tx) => {
-    const hackathon = await tx.hackathon.findUnique({
-      where: {
-        id,
-      },
-      select: {
-        contentId: true,
-      },
-    });
-
-    if (!hackathon) {
-      throw new NotFoundError({
-        code: "competition_not_found",
-        message: "Competition not found.",
+    return prisma.$transaction(async (tx) => {
+      const hackathon = await tx.hackathon.findUnique({
+        where: {
+          id,
+        },
+        select: {
+          contentId: true,
+        },
       });
-    }
 
-    let contentId = hackathon.contentId;
-
-    // ------------------------------------------------------------
-    // Update or create documentation
-    // ------------------------------------------------------------
-
-    if (content !== undefined) {
-      if (contentId) {
-        await tx.content.update({
-          where: {
-            id: contentId,
-          },
-          data: {
-            content,
-            version: {
-              increment: 1,
-            },
-          },
+      if (!hackathon) {
+        throw new NotFoundError({
+          code: "competition_not_found",
+          message: "Competition not found.",
         });
-      } else {
-        const createdContent = await tx.content.create({
-          data: {
-            content,
-          },
-        });
-
-        contentId = createdContent.id;
       }
-    }
 
-    // ------------------------------------------------------------
-    // Update hackathon
-    // ------------------------------------------------------------
+      let contentId = hackathon.contentId;
 
+      // ------------------------------------------------------------
+      // Update or create documentation
+      // ------------------------------------------------------------
+
+      if (content !== undefined) {
+        if (contentId) {
+          await tx.content.update({
+            where: {
+              id: contentId,
+            },
+            data: {
+              content,
+              version: {
+                increment: 1,
+              },
+            },
+          });
+        } else {
+          const createdContent = await tx.content.create({
+            data: {
+              content,
+            },
+          });
+
+          contentId = createdContent.id;
+        }
+      }
+
+      // ------------------------------------------------------------
+      // Update hackathon
+      // ------------------------------------------------------------
+
+      return tx.hackathon.update({
+        where: {
+          id,
+        },
+        data: {
+          ...rest,
+
+          ...(contentId !== hackathon.contentId && {
+            content: {
+              connect: {
+                id: contentId!,
+              },
+            },
+          }),
+        },
+      });
+    });
+  }
+
+  static async setLogoAsset(
+    tx: Prisma.TransactionClient,
+    hackathonId: string,
+    assetId: string,
+  ) {
     return tx.hackathon.update({
       where: {
-        id,
+        id: hackathonId,
       },
       data: {
-        ...rest,
-
-        ...(contentId !== hackathon.contentId && {
-          content: {
-            connect: {
-              id: contentId!,
-            },
+        logoAsset: {
+          connect: {
+            id: assetId,
           },
-        }),
+        },
       },
     });
+  }
+
+  static async setAsset(
+  tx: Prisma.TransactionClient,
+  hackathonId: string,
+  slot: HackathonAssetSlot,
+  assetId: string,
+) {
+  const relationField = {
+    logo: "logoAsset",
+    banner: "bannerAsset",
+    cover: "coverAsset",
+  } as const;
+
+  return tx.hackathon.update({
+    where: {
+      id: hackathonId,
+    },
+    data: {
+      [relationField[slot]]: {
+        connect: {
+          id: assetId,
+        },
+      },
+    },
   });
 }
 

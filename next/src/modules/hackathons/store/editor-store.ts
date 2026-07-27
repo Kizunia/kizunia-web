@@ -17,7 +17,7 @@ interface CompetitionEditorStore {
   save: () => Promise<void>;
 
   updateCompetition(partial: Partial<CompetitionEditDTO>): void;
-
+  setCompetition(competition: CompetitionEditDTO): void;
   reset(): void;
 }
 
@@ -49,6 +49,15 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
           },
           dirty: true,
         };
+      }),
+
+    setCompetition: (competition) =>
+      set({
+        competition,
+
+        original: structuredClone(competition),
+
+        dirty: false,
       }),
 
     save: async () => {
