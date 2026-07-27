@@ -27,7 +27,7 @@ export const UpdateHackathonSchema = z
 
     title: TitleSchema.optional(),
     slug: Slug.optional(),
-    shortDescription: ShortDescriptionSchema.optional(),
+    shortDescription: ShortDescriptionSchema.nullable().optional(),
     organizer: OrganizerSchema.nullable().optional(),
 
     visibility: z.nativeEnum(HackathonVisibility).optional(),

@@ -47,7 +47,7 @@ if (!editedCompetition) {
 }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6">
+    <div className="mx-auto max-w-7xl w-full space-y-6 p-6">
 
       {/* Header */}
 

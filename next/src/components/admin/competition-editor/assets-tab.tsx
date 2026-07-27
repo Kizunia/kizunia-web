@@ -91,6 +91,7 @@ export function AssetsTab() {
             initialImage={competition.logoAsset?.secureUrl ?? ""}
             cloudinaryFolder={`kizunia/hackathons/${competition.id}/banner`}
             customCropShape="rect"
+            aspectRatio={16 / 9}
             accept="image/*"
             onUpload={async (_, info) => {
               if (!info) return;

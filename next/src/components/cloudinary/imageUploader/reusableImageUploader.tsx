@@ -67,6 +67,7 @@ interface ReusableImageUploaderProps {
   initialImage?: string;
   accept?: Accept | string;
   customCropShape?: "round" | "rect";
+  aspectRatio?: number;
   children?: React.ReactNode;
   setOpen?: (open: boolean) => void;
 }
@@ -227,6 +228,7 @@ interface CropperSectionProps {
   rotation: number;
   crop: { x: number; y: number };
   shape: "round" | "rect";
+  aspectRatio: number;
   uploading: boolean;
   progress: number;
   onCropChange(c: { x: number; y: number }): void;
@@ -242,6 +244,7 @@ function CropperSection({
   zoom,
   rotation,
   shape,
+  aspectRatio,
   uploading,
   progress,
   onCropChange,
@@ -259,7 +262,7 @@ function CropperSection({
           crop={crop}
           zoom={zoom}
           rotation={rotation}
-          aspect={1}
+          aspect={aspectRatio}
           onCropChange={onCropChange}
           onZoomChange={(z) => onZoomChange(z)}
           onRotationChange={(r) => onRotationChange(r)}
@@ -336,6 +339,7 @@ function ReusableImageUploader({
   initialImage = "",
   accept = "image/*",
   customCropShape = "rect",
+  aspectRatio = 1,
   children,
   setOpen,
 }: ReusableImageUploaderProps) {
@@ -484,6 +488,7 @@ function ReusableImageUploader({
                 zoom={zoom}
                 rotation={rotation}
                 shape={customCropShape}
+                aspectRatio={aspectRatio}
                 uploading={uploading}
                 progress={progress}
                 onCropChange={setCrop}

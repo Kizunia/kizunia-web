@@ -119,7 +119,8 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
 
         if (error instanceof ApiError) {
           if (error.code === "VALIDATION_FAILED") {
-            // console.log("ApiError", error.details.fields as any);
+            const cc= error.details as { fields: Record<string, string[]> };
+            console.log("ApiError", cc.fields);
             toast.error("Validation failed. Please check your input.", {
               description: "error.details",
             });

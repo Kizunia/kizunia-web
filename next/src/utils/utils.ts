@@ -25,3 +25,30 @@ export const IS_VALID_DOMAIN = (domain: string): boolean => {
   }
   return false;
 };
+
+export function getInitials(
+  text: string,
+  minLength = 1,
+  maxLength = 3,
+): string {
+  if (!text.trim()) return "?";
+
+  const words = text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  // Single word -> take first N characters
+  if (words.length === 1) {
+    return words[0]
+      .slice(0, maxLength)
+      .toUpperCase();
+  }
+
+  // Multiple words -> first letter of each word
+  return words
+    .slice(0, maxLength)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
