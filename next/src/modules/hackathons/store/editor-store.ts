@@ -69,6 +69,18 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
           organizer: state.competition.organizer,
           website: state.competition.website,
           registrationLink: state.competition.registrationLink,
+          registrationPlatform: state.competition.registrationPlatform,
+
+          registrationFee: state.competition.registrationFee,
+
+          registrationFeeType: state.competition.registrationFeeType,
+
+          organizerType: state.competition.organizerType,
+
+          difficulty: state.competition.difficulty,
+
+          certificateType: state.competition.certificateType,
+
           content: state.competition.content,
           mode: state.competition.mode,
           visibility: state.competition.visibility,
@@ -77,7 +89,6 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
           prizePool: state.competition.prizePool,
           minTeamSize: state.competition.minTeamSize,
           maxTeamSize: state.competition.maxTeamSize,
-          registrationOpen: state.competition.registrationOpen,
           registrationDeadline: state.competition.registrationDeadline,
           startDate: state.competition.startDate,
           endDate: state.competition.endDate,
@@ -90,26 +101,27 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
         });
 
         toast.success("Competition updated successfully.");
-      } 
-     catch (error) {
-  console.log("STORE CAUGHT", error);
+      } catch (error) {
+        console.log("STORE CAUGHT", error);
 
-  useCompetitionEditorStore.setState({
-    saving: false,
-  });
+        useCompetitionEditorStore.setState({
+          saving: false,
+        });
 
-  if (error instanceof ApiError) {
-    if (error.code === "VALIDATION_FAILED") {
-      // console.log("ApiError", error.details.fields as any);
-      toast.error("Validation failed. Please check your input.", {description: "error.details"});
-      return;
-    }
-    toast.error(error.message);
-    return;
-  }
+        if (error instanceof ApiError) {
+          if (error.code === "VALIDATION_FAILED") {
+            // console.log("ApiError", error.details.fields as any);
+            toast.error("Validation failed. Please check your input.", {
+              description: "error.details",
+            });
+            return;
+          }
+          toast.error(error.message);
+          return;
+        }
 
-  toast.error("Unexpected error");
-}
+        toast.error("Unexpected error");
+      }
     },
 
     reset: () =>

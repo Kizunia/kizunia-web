@@ -1,9 +1,13 @@
 import { z } from "zod";
 
 import {
+  CertificateType,
+  DifficultyLevel,
   HackathonMode,
   HackathonStatus,
   HackathonVisibility,
+  OrganizerType,
+  RegistrationFeeType,
   RegistrationPlatform,
 } from "@/generated/prisma";
 import {
@@ -35,12 +39,40 @@ export const UpdateHackathonSchema = z
     // ---------------------------------------------------------------------
 
     website: UrlSchema.nullable().optional(),
-    location: z.string().trim().max(150, "Location cannot exceed 150 characters.").nullable().optional(),
+    location: z
+      .string()
+      .trim()
+      .max(150, "Location cannot exceed 150 characters.")
+      .nullable()
+      .optional(),
     registrationLink: UrlSchema.nullable().optional(),
-    prizePool: z.string().trim().max(50, "Prize Pool cannot exceed 150 characters.").nullable().optional(),
-    registrationPlatform:  z.nativeEnum(RegistrationPlatform).nullable().optional(),
-    
-    registrationFee: z.string().trim().max(50, "registrationFee cannot exceed 150 characters.").nullable().optional(),
+    prizePool: z
+      .string()
+      .trim()
+      .max(50, "Prize Pool cannot exceed 150 characters.")
+      .nullable()
+      .optional(),
+    registrationPlatform: z
+      .nativeEnum(RegistrationPlatform)
+      .nullable()
+      .optional(),
+    registrationFeeType: z
+      .nativeEnum(RegistrationFeeType)
+      .nullable()
+      .optional(),
+
+    organizerType: z.nativeEnum(OrganizerType).nullable().optional(),
+
+    difficulty: z.nativeEnum(DifficultyLevel).nullable().optional(),
+
+    certificateType: z.nativeEnum(CertificateType).nullable().optional(),
+
+    registrationFee: z
+      .string()
+      .trim()
+      .max(50, "registrationFee cannot exceed 150 characters.")
+      .nullable()
+      .optional(),
     // ---------------------------------------------------------------------
     // Schedule
     // ---------------------------------------------------------------------

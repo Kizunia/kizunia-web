@@ -1,42 +1,81 @@
-import { HackathonMode, HackathonStatus, HackathonVisibility } from "@/generated/prisma";
+import {
+  HackathonMode,
+  HackathonStatus,
+  HackathonVisibility,
+  RegistrationPlatform,
+} from "@/generated/prisma";
 
 export interface CompetitionEditDTO {
-  id: string ;
+  id: string;
 
-  title: string  | null;
-  slug: string | null;
+  // ---------------------------------------------------------------------------
+  // Basic
+  // ---------------------------------------------------------------------------
+
+  title: string;
+  slug: string;
 
   shortDescription: string | null;
 
   organizer: string | null;
 
+  content: string;
+
+  // ---------------------------------------------------------------------------
+  // Registration
+  // ---------------------------------------------------------------------------
+
   website: string | null;
 
   registrationLink: string | null;
 
-  content: string | null;
+  registrationPlatform: RegistrationPlatform | null;
+
+  registrationFee: string | null;
+
+  registrationFeeType: RegistrationFeeType | null;
+
+  // ---------------------------------------------------------------------------
+  // Event
+  // ---------------------------------------------------------------------------
 
   mode: HackathonMode | null;
 
-  visibility: HackathonVisibility | null;
+  visibility: HackathonVisibility;
 
   status: HackathonStatus | null;
 
-  location: string | null;
+  organizerType: OrganizerType | null;
+
+  difficulty: DifficultyLevel | null;
+
+  certificateType: CertificateType | null;
 
   prizePool: string | null;
 
-  minTeamSize: number | null;
+  location: string | null;
 
-  maxTeamSize: number | null;
-
-  registrationOpen: string | null;
+  // ---------------------------------------------------------------------------
+  // Schedule
+  // ---------------------------------------------------------------------------
 
   registrationDeadline: string | null;
 
   startDate: string | null;
 
   endDate: string | null;
+
+  // ---------------------------------------------------------------------------
+  // Team
+  // ---------------------------------------------------------------------------
+
+  minTeamSize: number | null;
+
+  maxTeamSize: number | null;
+
+  // ---------------------------------------------------------------------------
+  // Assets
+  // ---------------------------------------------------------------------------
 
   logoAsset: {
     secureUrl: string;
@@ -49,6 +88,10 @@ export interface CompetitionEditDTO {
   bannerAsset: {
     secureUrl: string;
   } | null;
+
+  // ---------------------------------------------------------------------------
+  // Relations
+  // ---------------------------------------------------------------------------
 
   categories: {
     id: string;
