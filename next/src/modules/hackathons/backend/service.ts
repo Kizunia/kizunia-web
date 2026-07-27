@@ -16,6 +16,9 @@ import { CompetitionSearchBuilder } from "../search/builder";
 import type { CompetitionSearchResult } from "../search/types";
 import type { CompetitionSearchInput } from "../search/schema";
 import type { CompetitionDetailDTO, HackathonCardDTO } from "../types/dto";
+import { CreateAssetInput } from "@/modules/assets/schemas/create-asset";
+import { HackathonAssetSlot } from "../types/asset-slot";
+import { HackathonAssetService } from "./hackathon-asset.service";
 /**
  * ============================================================================
  * Create
@@ -161,6 +164,13 @@ export class CompetitionService {
     }
     return competitionMapper.toDetailDTO(competition);
   }
+
+  static async findForEdit(id: string) { // for admin edit
+  const competition =
+    await CompetitionRepository.findByIdForEdit(id);
+
+  return competitionMapper.toEditDTO(competition);
+}
   // Mutations
 
   static async create(options: CreateCompetitionOptions) {
@@ -171,6 +181,27 @@ export class CompetitionService {
       data: options.data,
     });
   }
+
+  static async setAsset({
+  context,
+  slot,
+  upload,
+}: {
+  context: CompetitionContext;
+  slot: HackathonAssetSlot;
+  upload: CreateAssetInput;
+}) {
+  // return HackathonAssetService.setAsset(
+  //   hackathonId: context.hackathon.id, 
+  //   {slot,
+  //   upload}
+  // );
+  return HackathonAssetService.setAsset(
+    context.hackathon.id, 
+    {slot,
+    upload}
+  );
+}
 
   static async update(options: UpdateCompetitionOptions) {
     await this.validateSlug(options.context, options.data);

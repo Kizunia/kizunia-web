@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Calendar, Globe, MapPin, Trophy } from "lucide-react";
-
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { HackathonCardDTO } from "../../types/dto";
+import { getInitials } from "@/utils/utils";
 
 export default function CompetitionsCards({
   competitions,
@@ -19,8 +20,6 @@ export default function CompetitionsCards({
   return (
     <div className="space-y-8">
       {/* Header */}
-
-      
 
       {/* Grid */}
 
@@ -32,21 +31,20 @@ export default function CompetitionsCards({
             className="group"
           >
             <Card className="overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:shadow-xl">
-              <CardHeader className="space-y-4">
-                <div className="flex items-start gap-4">
-                  {competition.logoUrl ? (
-                    <img
-                      src={competition.logoUrl}
+              <CardHeader className="space-y-4 ">
+                <div className="flex items-center gap-4">
+                  <Avatar className=" h-12 w-12 ">
+                    <AvatarImage
+                      src={competition.logoUrl ?? undefined}
                       alt={competition.organizer || "Competition Logo"}
-                      className="h-12 w-12 rounded-lg border bg-background object-cover"
+                      className="bg-red-700"
                     />
-                  ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted text-sm font-semibold">
-                      {competition.organizer?.charAt(0)}
-                    </div>
-                  )}
+                    <AvatarFallback>
+                      {getInitials(competition.title)}
+                    </AvatarFallback>
+                  </Avatar>
 
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 items-center  justify-center h-full">
                     <CardTitle className="line-clamp-1">
                       {competition.title}
                     </CardTitle>
@@ -57,16 +55,21 @@ export default function CompetitionsCards({
                   </div>
                 </div>
 
-                <p className="line-clamp-2 text-sm text-muted-foreground">
-                  {competition.shortDescription}
-                </p>
+                {competition.shortDescription?.length &&
+                  competition.shortDescription?.length > 0 && (
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                      {competition.shortDescription}
+                    </p>
+                  )}
 
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{competition.mode}</Badge>
-                </div>
+                {competition.mode && (
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary">{competition.mode}</Badge>
+                  </div>
+                )}
               </CardHeader>
 
-              <CardContent className="space-y-3">
+             {(competition.startDate || competition.location || competition.registrationDeadline) && <CardContent className="space-y-3 ">
                 {competition.startDate && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
@@ -90,7 +93,7 @@ export default function CompetitionsCards({
                     </div>
                   </div>
                 )}
-              </CardContent>
+              </CardContent>}
             </Card>
           </Link>
         ))}

@@ -20,6 +20,8 @@ import { UpdateHackathonSchema } from "../schemas/update-hackathon";
 import { CompetitionContextResolver } from "./authorization";
 import { CompetitionSearchSchema } from "../search/schema";
 import { Slug } from "@/lib/validation/index";
+import { CreateAssetSchema } from "@/modules/assets/schemas/create-asset";
+import { HackathonAssetSlot } from "../types/asset-slot";
 export class CompetitionController {
   static async create(request: NextRequest) {
     return Route.execute(async () => {
@@ -73,6 +75,28 @@ export class CompetitionController {
     });
   }
 
+  static async findForEdit(
+  request: NextRequest,
+  hackathonId: string,
+) {
+  return Route.execute(async () => {
+    const actor = await SessionService.getActor(request);
+
+    const context =
+      await CompetitionContextResolver.resolve({
+        actor,
+        hackathonId,
+      });
+
+    CompetitionAuthorizer.edit(context);
+
+    const competition =
+      await CompetitionService.findForEdit(hackathonId);
+
+    return ApiResponse.ok(competition);
+  });
+}
+
   static async update(request: NextRequest, hackathonId: string) {
     return Route.execute(async () => {
       // -----------------------------------------------------------------
@@ -120,4 +144,59 @@ export class CompetitionController {
       return ApiResponse.ok(hackathon);
     });
   }
+
+  static async setAsset(
+  request: NextRequest,
+  hackathonId: string,
+  slot: HackathonAssetSlot,
+) {
+  return Route.execute(async () => {
+    // -----------------------------------------------------------------
+    // Authentication
+    // -----------------------------------------------------------------
+
+    const actor = await SessionService.getActor(request);
+
+    // -----------------------------------------------------------------
+    // Validation
+    // -----------------------------------------------------------------
+
+    const body = await request.json();
+
+    const upload = CreateAssetSchema.parse(body);
+
+    // -----------------------------------------------------------------
+    // Context
+    // -----------------------------------------------------------------
+
+    const context =
+      await CompetitionContextResolver.resolve({
+        actor,
+        hackathonId,
+      });
+
+    // -----------------------------------------------------------------
+    // Authorization
+    // -----------------------------------------------------------------
+
+    CompetitionAuthorizer.edit(context);
+
+    // -----------------------------------------------------------------
+    // Business Logic
+    // -----------------------------------------------------------------
+
+    const competition =
+      await CompetitionService.setAsset({
+        context,
+        slot,
+        upload,
+      });
+
+    // -----------------------------------------------------------------
+    // Response
+    // -----------------------------------------------------------------
+
+    return ApiResponse.ok(competition);
+  });
+}
 }

@@ -1,46 +1,42 @@
-
-import { SuccessResponse } from ".";
+import { ApiError } from "./api-error";
+import type {
+  ErrorResponse,
+  SuccessResponse,
+} from "./response-body";
 
 export class HttpClient {
-  // private static async getBaseUrl() {
-  //   if (typeof window !== "undefined") {
-  //     return "";
-  //   }
+  private static async parseResponse<T>(
+    response: Response,
+  ): Promise<SuccessResponse<T>> {
+    const body: unknown = await response.json();
 
-  //   const h = await headers();
+    if (!response.ok) {
+      const error = body as ErrorResponse;
 
-  //   const protocol =
-  //     process.env.NODE_ENV === "development"
-  //       ? "http"
-  //       : "https";
+      throw new ApiError(
+        response.status,
+        error.error,
+      );
+    }
 
-  //   const host = h.get("host");
+    return body as SuccessResponse<T>;
+  }
 
-  //   return `${protocol}://${host}`;
-  // }
-  
   static async get<T>(
     url: string,
     init?: RequestInit,
   ): Promise<SuccessResponse<T>> {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL!;
 
-    const response = await fetch(
-      `${baseUrl}${url}`,
-      {
-        ...init,
-        headers: {
-          "Content-Type": "application/json",
-          ...init?.headers,
-        },
+    const response = await fetch(`${baseUrl}${url}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...init?.headers,
       },
-    );
+    });
 
-    if (!response.ok) {
-      throw new Error("Request failed.");
-    }
-
-    return response.json();
+    return this.parseResponse<T>(response);
   }
 
   static async post<TResponse, TBody>(
@@ -58,10 +54,24 @@ export class HttpClient {
       ...init,
     });
 
-    if (!response.ok) {
-      throw new Error("Request failed.");
-    }
+    return this.parseResponse<TResponse>(response);
+  }
 
-    return response.json();
+  static async patch<TResponse, TBody>(
+    url: string,
+    body: TBody,
+    init?: RequestInit,
+  ): Promise<SuccessResponse<TResponse>> {
+    const response = await fetch(url, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+      ...init,
+    });
+
+    return this.parseResponse<TResponse>(response);
   }
 }

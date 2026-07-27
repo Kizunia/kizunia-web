@@ -4,12 +4,16 @@ import { createErrorResponse } from "./error-response";
 import { isAppError } from "./is-app-error";
 import { ZodError } from "zod";
 import { convertZodError } from "./zod";
-
+import { ValidationFailedError } from "./validation-failed-error";
 export class ErrorHandler {
   static handle(error: unknown) {
     console.error("ErrorHandler.handle() called with error");
+    // if (error instanceof ZodError) {
+    //   error = convertZodError(error);
+    // }
+
     if (error instanceof ZodError) {
-      error = convertZodError(error);
+      error = new ValidationFailedError(convertZodError(error));
     }
 
     if (isAppError(error)) {

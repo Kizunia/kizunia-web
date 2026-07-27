@@ -6,6 +6,7 @@ import { NotFoundError } from "@/lib/errors";
 import type { CompetitionSearchOptions } from "../search/types";
 import { CompetitionSearchInput } from "../search/schema";
 import { CompetitionSearchBuilder } from "../search/builder";
+import { HackathonAssetSlot } from "../types/asset-slot";
 
 // interface FindCompetitionsOptions {
 //   search?: string;
@@ -203,6 +204,46 @@ export class CompetitionRepository {
     return competition;
   }
 
+  static async findByIdForEdit(
+  id: string,
+  db: Prisma.TransactionClient | Prisma.DefaultPrismaClient = prisma,
+) {
+   const competition = await db.hackathon.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+      include: {
+        logoAsset: true,
+        coverAsset: true,
+        bannerAsset: true,
+
+        content: true,
+
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+
+        technologies: {
+          include: {
+            technology: true,
+          },
+        },
+      },
+    });
+
+    if (!competition) {
+      throw new NotFoundError({
+        code: "competition_not_found",
+        message: "Competition not found.",
+      });
+    }
+
+    return competition;
+  }
+
   static async existsBySlug(slug: string): Promise<boolean> {
     const exists = await prisma.hackathon.findUnique({
       where: {
@@ -262,33 +303,122 @@ export class CompetitionRepository {
     id: string;
     data: UpdateHackathonInput;
   }) {
-    const {
-      content,
+    const { content, ...rest } = data;
 
-      ...rest
-    } = data;
+    return prisma.$transaction(async (tx) => {
+      const hackathon = await tx.hackathon.findUnique({
+        where: {
+          id,
+        },
+        select: {
+          contentId: true,
+        },
+      });
 
-    return prisma.hackathon.update({
+      if (!hackathon) {
+        throw new NotFoundError({
+          code: "competition_not_found",
+          message: "Competition not found.",
+        });
+      }
+
+      let contentId = hackathon.contentId;
+
+      // ------------------------------------------------------------
+      // Update or create documentation
+      // ------------------------------------------------------------
+
+      if (content !== undefined) {
+        if (contentId) {
+          await tx.content.update({
+            where: {
+              id: contentId,
+            },
+            data: {
+              content,
+              version: {
+                increment: 1,
+              },
+            },
+          });
+        } else {
+          const createdContent = await tx.content.create({
+            data: {
+              content,
+            },
+          });
+
+          contentId = createdContent.id;
+        }
+      }
+
+      // ------------------------------------------------------------
+      // Update hackathon
+      // ------------------------------------------------------------
+
+      return tx.hackathon.update({
+        where: {
+          id,
+        },
+        data: {
+          ...rest,
+
+          ...(contentId !== hackathon.contentId && {
+            content: {
+              connect: {
+                id: contentId!,
+              },
+            },
+          }),
+        },
+      });
+    });
+  }
+
+  static async setLogoAsset(
+    tx: Prisma.TransactionClient,
+    hackathonId: string,
+    assetId: string,
+  ) {
+    return tx.hackathon.update({
       where: {
-        id,
+        id: hackathonId,
       },
       data: {
-        ...rest,
-        content:
-          content !== undefined
-            ? {
-                update: {
-                  content: content,
-
-                  version: {
-                    increment: 1,
-                  },
-                },
-              }
-            : undefined,
+        logoAsset: {
+          connect: {
+            id: assetId,
+          },
+        },
       },
     });
   }
+
+  static async setAsset(
+  tx: Prisma.TransactionClient,
+  hackathonId: string,
+  slot: HackathonAssetSlot,
+  assetId: string,
+) {
+  const relationField = {
+    logo: "logoAsset",
+    banner: "bannerAsset",
+    cover: "coverAsset",
+  } as const;
+
+  return tx.hackathon.update({
+    where: {
+      id: hackathonId,
+    },
+    data: {
+      [relationField[slot]]: {
+        connect: {
+          id: assetId,
+        },
+      },
+    },
+  });
+}
 
   static async delete(id: string) {
     // TODO: Soft delete is not fully implemented yet.
