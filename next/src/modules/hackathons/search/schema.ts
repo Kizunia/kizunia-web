@@ -21,6 +21,10 @@ const csv = z.string().transform((value) =>
     .filter(Boolean),
 );
 
+const csvUppercase = csv.transform((items) =>
+  items.map((item) => item.toUpperCase()),
+);
+
 export const CompetitionSearchSchema = z.object({
   // ---------------------------------------------------------------------------
   // Search
@@ -48,7 +52,7 @@ export const CompetitionSearchSchema = z.object({
   // Competition
   // ---------------------------------------------------------------------------
 
-  modes: csv.pipe(
+  modes: csvUppercase.pipe(
     z.array(z.nativeEnum(HackathonMode)),
   ).optional(),
 

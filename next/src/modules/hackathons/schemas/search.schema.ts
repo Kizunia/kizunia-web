@@ -5,6 +5,9 @@ import { z } from "zod";
 import { HackathonMode, HackathonStatus } from "@/generated/prisma";
 import { OrganizerSchema } from "@/lib/validation/index";
 
+ /**
+   * Depricated, use src\modules\hackathons\search\schema.ts CompetitionSearchSchema
+   */
 export const searchCompetitionsSchema = z.object({
   /**
    * Search query
@@ -64,6 +67,9 @@ export const searchCompetitionsSchema = z.object({
    * Pagination
    */
   page: z.coerce.number().int().positive().default(1),
-});
+}); 
 
+ /**
+   * Depricated, use src\modules\hackathons\search\schema.ts CompetitionSearchSchema
+   */
 export type SearchCompetitionsInput = z.infer<typeof searchCompetitionsSchema>;

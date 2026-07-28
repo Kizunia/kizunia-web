@@ -88,7 +88,7 @@ export function AssetsTab() {
         <DialogContent>
           <ReusableImageUploader
             title="Hackathon Banner"
-            initialImage={competition.logoAsset?.secureUrl ?? ""}
+            initialImage={competition.bannerAsset?.secureUrl ?? ""}
             cloudinaryFolder={`kizunia/hackathons/${competition.id}/banner`}
             customCropShape="rect"
             aspectRatio={16 / 9}
