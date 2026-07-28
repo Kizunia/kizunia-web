@@ -103,10 +103,9 @@ export default async function CompetitionsPage({ searchParams }: Props) {
       </div> */}
 
       <Pagination>
-        <PaginationContent className="gap-4" >
+        <PaginationContent className="gap-4">
           {pagination.hasPreviousPage && (
-
-            <PaginationItem className="bg-primary text-primary-foreground rounded-xl" >
+            <PaginationItem className="bg-primary text-primary-foreground rounded-xl">
               <PaginationPrevious
                 href={`/competitions?page=${pagination.page - 1}`}
               />
@@ -128,7 +127,7 @@ export default async function CompetitionsPage({ searchParams }: Props) {
           </PaginationItem> */}
 
           {pagination.hasNextPage && (
-            <PaginationItem className="bg-primary text-primary-foreground  rounded-xl" >
+            <PaginationItem className="bg-primary text-primary-foreground  rounded-xl">
               <PaginationNext
                 href={`/competitions?page=${pagination.page + 1}`}
               />
