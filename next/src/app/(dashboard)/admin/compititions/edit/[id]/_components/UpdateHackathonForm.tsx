@@ -5,9 +5,10 @@ import { useRef } from "react";
 import {
   ForwardRefEditor,
 } from "@/components/shared/mdx/ForwardRefEditor";
-import type {
-  MDXEditorMethods,
+import {
+  type MDXEditorMethods,
 } from "@mdxeditor/editor";
+
 export default function UpdateHackathonForm({
   hackathonId,
 }: {
@@ -63,6 +64,8 @@ export default function UpdateHackathonForm({
       setLoading(false);
     }
   }
+
+  
 
   return (
     <form onSubmit={onSubmit} className="flex max-w-xl flex-col gap-4 p-8">

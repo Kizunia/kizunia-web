@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Calendar, Globe, MapPin, Trophy, Users } from "lucide-react";
+import { Calendar, Globe, MapPin, SquareArrowOutUpRight, Trophy, Users } from "lucide-react";
 import prisma from "@/lib/prisma";
 import PageWrapper from "@/components/page-wrapper";
 
@@ -11,6 +11,8 @@ import { Suspense } from "react";
 import { CompetitionApi } from "@/modules/hackathons/api/hackathon-api";
 import { ForwardRefMdxViewer } from "@/components/shared/mdx/ForwardRefMdxViewer";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 export default async function CompetitionPage({
   params,
   searchParams,
@@ -113,7 +115,15 @@ export default async function CompetitionPage({
                     {competition.location}
                   </Badge>
                 )}
+
+                 {competition.registrationLink && (
+                    
+                  <Badge asChild>
+                  <Link href={competition.registrationLink}  > <SquareArrowOutUpRight />Regester</Link></Badge>)
+                  }
               </div>}
+
+             
             </div>
           </div>
         </Card>
@@ -135,184 +145,7 @@ export default async function CompetitionPage({
                       markdown={
                         competition.content?.content ?? "No documentation."
                       }
-                      //                     markdown={`
-                      //                       # 🚀 Kizunia AI Hackathon 2026
-
-                      // Welcome to the **largest student hackathon** focused on **AI**, **Open Source**, and **Developer Experience**.
-
-                      // ---
-
-                      // ## 📖 About
-
-                      // Kizunia AI Hackathon is a **48-hour** innovation challenge where developers, designers, and creators collaborate to build impactful software.
-
-                      // ### Goals
-
-                      // - Learn something new
-                      // - Build an amazing project
-                      // - Meet talented people
-                      // - Have fun 🚀
-
-                      // > "The best way to learn is by building."
-
-                      // ---
-
-                      // ## 🏆 Tracks
-
-                      // ### 🤖 Artificial Intelligence
-
-                      // - LLM Applications
-                      // - AI Agents
-                      // - Computer Vision
-                      // - NLP
-                      // - Generative AI
-
-                      // ### 🌐 Web
-
-                      // - Next.js
-                      // - React
-                      // - TypeScript
-                      // - TailwindCSS
-                      // - Prisma
-                      // - Better Auth
-
-                      // ### 📱 Mobile
-
-                      // - Flutter
-                      // - React Native
-                      // - Kotlin
-                      // - Swift
-
-                      // ---
-
-                      // ## 📅 Timeline
-
-                      // | Event | Date |
-                      // |-------|------|
-                      // | Registration Opens | Jan 1 |
-                      // | Registration Ends | Jan 20 |
-                      // | Team Formation | Jan 21 |
-                      // | Submission | Jan 22 |
-                      // | Final Demo | Jan 23 |
-
-                      // ---
-
-                      // ## 👥 Team Rules
-
-                      // 1. Maximum **5** members.
-                      // 2. Minimum **2** members.
-                      // 3. Cross-college teams are allowed.
-                      // 4. AI tools are allowed.
-                      // 5. Judges' decisions are final.
-
-                      // ---
-
-                      // ## ✅ Checklist
-
-                      // it is not working properly, but it is a good start. I will continue to work on it and make sure it is fully functional.
-
-                      // ---
-
-                      // ## 💰 Prize Pool
-
-                      // | Position | Prize |
-                      // |----------|-------|
-                      // | 🥇 First | $2,000 |
-                      // | 🥈 Second | $1,000 |
-                      // | 🥉 Third | $500 |
-
-                      // ---
-
-                      // ## 💻 TypeScript Example
-
-                      // ---
-
-                      // ## 🐍 Python Example
-
-                      // ---
-
-                      // ## 🗄 SQL Example
-
-                      // ---
-
-                      // ## 🌐 JSON
-
-                      // ---
-
-                      // ## ⚙ Bash
-
-                      // ---
-
-                      // ## 📷 Image
-
-                      // ![Kizunia](https://picsum.photos/800/300)
-
-                      // ---
-
-                      // ## 🔗 Useful Links
-
-                      // - GitHub: https://github.com
-                      // - Prisma: https://prisma.io
-                      // - Next.js: https://nextjs.org
-
-                      // ---
-
-                      // ## 📌 Nested Lists
-
-                      // - Frontend
-                      //   - React
-                      //   - Next.js
-                      //     - App Router
-                      //     - Server Components
-                      // - Backend
-                      //   - Node.js
-                      //   - Prisma
-                      //   - PostgreSQL
-
-                      // ---
-
-                      // ## 💡 Blockquote
-
-                      // > Innovation distinguishes between a leader and a follower.
-                      // >
-                      // > — Steve Jobs
-
-                      // ---
-
-                      // ## 📐 Horizontal Rule
-
-                      // ---
-
-                      // ## 😄 Inline Formatting
-
-                      // This is **bold**.
-
-                      // This is *italic*.
-
-                      // This is ***bold italic***.
-
-                      // This is ~~strikethrough~~.
-
-                      // ---
-
-                      // ## 🧪 HTML
-
-                      // <div style="padding:16px;border:2px solid #3b82f6;border-radius:8px;">
-                      // This is raw HTML inside Markdown.
-                      // </div>
-
-                      // ---
-
-                      // ## 📚 Long Paragraph
-
-                      // Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum sed turpis vitae elit faucibus luctus. Integer justo non neque ultricies hendrerit. Donec posuere, mauris ut maximus cursus, lacus arcu dignissim magna, vitae dignissim neque sapien vel augue. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.
-
-                      // ---
-
-                      // # 🎉 Thank You
-
-                      // Happy Hacking ❤️
-                      // `}
+                     
                     />
                   </Suspense>
                 </div>

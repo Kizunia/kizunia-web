@@ -13,6 +13,7 @@ import {
 import { CompetitionService } from "@/modules/hackathons/backend/service";
 import CompetitionsCards from "@/modules/hackathons/components/allCompititions/CompetitionsCards";
 import { searchCompetitionsSchema } from "@/modules/hackathons/schemas/search.schema";
+import { CompetitionSearchSchema } from "@/modules/hackathons/search/schema";
 import { CompetitionSearchResult } from "@/modules/hackathons/search/types";
 
 import { HackathonCardDTO } from "@/modules/hackathons/types/dto";
@@ -29,13 +30,16 @@ export default async function CompetitionsPage({ searchParams }: Props) {
   let pagination: CompetitionSearchResult<HackathonCardDTO>["pagination"];
   try {
     const rawSearchParams = await searchParams;
-    const filters = searchCompetitionsSchema.parse(rawSearchParams);
-
-    const resp = await CompetitionService.search({
-      sort: "start-date-asc",
-      page: filters.page,
-      limit: 10,
-    });
+    const filters = CompetitionSearchSchema.parse(rawSearchParams);
+    // {
+    //   sort: "start-date-asc",
+    //   page: filters.page,
+    //   limit: 10,
+    // }
+    filters.sort = "newest";
+    filters.limit = 10;
+    filters.page = filters.page ?? 1;
+    const resp = await CompetitionService.search(filters);
 
     competitions = resp.items;
     pagination = resp.pagination;
@@ -99,14 +103,15 @@ export default async function CompetitionsPage({ searchParams }: Props) {
       </div> */}
 
       <Pagination>
-        <PaginationContent>
-          <PaginationItem>
-            {pagination.hasPreviousPage && (
-          
-            <PaginationPrevious href={`/competitions?page=${pagination.page - 1}`} />
-        )}
-          </PaginationItem>
-          <PaginationItem>
+        <PaginationContent className="gap-4">
+          {pagination.hasPreviousPage && (
+            <PaginationItem className="bg-primary text-primary-foreground rounded-xl">
+              <PaginationPrevious
+                href={`/competitions?page=${pagination.page - 1}`}
+              />
+            </PaginationItem>
+          )}
+          {/* <PaginationItem>
             <PaginationLink href="#">1</PaginationLink>
           </PaginationItem>
           <PaginationItem>
@@ -119,15 +124,15 @@ export default async function CompetitionsPage({ searchParams }: Props) {
           </PaginationItem>
           <PaginationItem>
             <PaginationEllipsis />
-          </PaginationItem>
-          <PaginationItem>
-            {pagination.hasNextPage && (
+          </PaginationItem> */}
+
+          {pagination.hasNextPage && (
+            <PaginationItem className="bg-primary text-primary-foreground  rounded-xl">
               <PaginationNext
-              
                 href={`/competitions?page=${pagination.page + 1}`}
               />
-            )}
-          </PaginationItem>
+            </PaginationItem>
+          )}
         </PaginationContent>
       </Pagination>
     </PageWrapper>

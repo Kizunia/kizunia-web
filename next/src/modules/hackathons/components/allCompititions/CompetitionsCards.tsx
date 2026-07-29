@@ -30,7 +30,7 @@ export default function CompetitionsCards({
             href={`/competitions/${competition.slug}`}
             className="group"
           >
-            <Card className="overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:shadow-xl">
+            <Card className="overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:shadow-xl flex h-[275px] flex-col">
               <CardHeader className="space-y-4 ">
                 <div className="flex items-center gap-4">
                   <Avatar className=" h-12 w-12 ">
@@ -55,45 +55,50 @@ export default function CompetitionsCards({
                   </div>
                 </div>
 
-                {competition.shortDescription?.length &&
-                  competition.shortDescription?.length > 0 && (
-                    <p className="line-clamp-2 text-sm text-muted-foreground">
-                      {competition.shortDescription}
-                    </p>
-                  )}
-
-                {competition.mode && (
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">{competition.mode}</Badge>
-                  </div>
-                )}
+                <div className="flex-1 space-y-4">
+                  {competition.shortDescription?.length &&
+                    competition.shortDescription?.length > 0 && (
+                      <p className="line-clamp-2 text-sm text-muted-foreground">
+                        {competition.shortDescription}
+                      </p>
+                    )}
+                  {competition.mode && (
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="secondary">{competition.mode}</Badge>
+                    </div>
+                  )}{" "}
+                </div>
               </CardHeader>
 
-             {(competition.startDate || competition.location || competition.registrationDeadline) && <CardContent className="space-y-3 ">
-                {competition.startDate && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    {competition.startDate.toLocaleDateString()}
-                  </div>
-                )}
-
-                {competition.location && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    {competition.location}
-                  </div>
-                )}
-
-                {competition.registrationDeadline && (
-                  <div className="rounded-lg border bg-muted/50 p-3 text-sm">
-                    <span className="font-medium">Registration Deadline</span>
-
-                    <div className="mt-1 text-muted-foreground">
-                      {competition.registrationDeadline.toLocaleDateString()}
+              {(competition.startDate ||
+                competition.location ||
+                competition.registrationDeadline) && (
+                <CardContent className="space-y-3 ">
+                  {competition.startDate && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      {competition.startDate.toLocaleDateString()}
                     </div>
-                  </div>
-                )}
-              </CardContent>}
+                  )}
+
+                  {competition.location && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      {competition.location}
+                    </div>
+                  )}
+
+                  {/* {competition.registrationDeadline && (
+                    <div className="rounded-lg border bg-muted/50 p-3 text-sm">
+                      <span className="font-medium">Registration Deadline</span>
+
+                      <div className="mt-1 text-muted-foreground">
+                        {competition.registrationDeadline.toLocaleDateString()}
+                      </div>
+                    </div>
+                  )} */}
+                </CardContent>
+              )}
             </Card>
           </Link>
         ))}
