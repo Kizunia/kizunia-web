@@ -121,6 +121,48 @@ export class CompetitionRepository {
     });
   }
 
+  static async findManyManageable(
+    actorId: string,
+    filters: CompetitionSearchInput,
+  ) {
+    const query = CompetitionSearchBuilder.buildManagement(actorId, filters);
+
+    return prisma.hackathon.findMany({
+      ...query,
+
+      include: {
+        logoAsset: true,
+        coverAsset: true,
+
+        members: {
+          where: {
+            userId: actorId,
+          },
+          take: 1,
+        },
+
+        _count: {
+          select: {
+            members: true,
+          },
+        },
+      },
+    });
+  }
+
+  static async findManyAdmin(filters: CompetitionSearchInput) {
+    const query = CompetitionSearchBuilder.buildAdmin(filters);
+
+    return prisma.hackathon.findMany({
+      ...query,
+
+      include: {
+        logoAsset: true,
+        coverAsset: true,
+      },
+    });
+  }
+
   static async findBySlug(slug: string) {
     return prisma.hackathon.findFirst({
       where: {
@@ -205,10 +247,10 @@ export class CompetitionRepository {
   }
 
   static async findByIdForEdit(
-  id: string,
-  db: Prisma.TransactionClient | Prisma.DefaultPrismaClient = prisma,
-) {
-   const competition = await db.hackathon.findFirst({
+    id: string,
+    db: Prisma.TransactionClient | Prisma.DefaultPrismaClient = prisma,
+  ) {
+    const competition = await db.hackathon.findFirst({
       where: {
         id,
         deletedAt: null,
@@ -395,30 +437,30 @@ export class CompetitionRepository {
   }
 
   static async setAsset(
-  tx: Prisma.TransactionClient,
-  hackathonId: string,
-  slot: HackathonAssetSlot,
-  assetId: string,
-) {
-  const relationField = {
-    logo: "logoAsset",
-    banner: "bannerAsset",
-    cover: "coverAsset",
-  } as const;
+    tx: Prisma.TransactionClient,
+    hackathonId: string,
+    slot: HackathonAssetSlot,
+    assetId: string,
+  ) {
+    const relationField = {
+      logo: "logoAsset",
+      banner: "bannerAsset",
+      cover: "coverAsset",
+    } as const;
 
-  return tx.hackathon.update({
-    where: {
-      id: hackathonId,
-    },
-    data: {
-      [relationField[slot]]: {
-        connect: {
-          id: assetId,
+    return tx.hackathon.update({
+      where: {
+        id: hackathonId,
+      },
+      data: {
+        [relationField[slot]]: {
+          connect: {
+            id: assetId,
+          },
         },
       },
-    },
-  });
-}
+    });
+  }
 
   static async delete(id: string) {
     // TODO: Soft delete is not fully implemented yet.
@@ -495,6 +537,28 @@ export class CompetitionRepository {
 
   static async count(filters: CompetitionSearchInput) {
     const { where } = CompetitionSearchBuilder.build(filters);
+
+    return prisma.hackathon.count({
+      where,
+    });
+  }
+
+  static async countManageable(
+    actorId: string,
+    filters: CompetitionSearchInput,
+  ) {
+    const { where } = CompetitionSearchBuilder.buildManagement(
+      actorId,
+      filters,
+    );
+
+    return prisma.hackathon.count({
+      where,
+    });
+  }
+
+  static async countAdmin(filters: CompetitionSearchInput) {
+    const { where } = CompetitionSearchBuilder.buildAdmin(filters);
 
     return prisma.hackathon.count({
       where,

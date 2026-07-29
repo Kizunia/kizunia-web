@@ -6,12 +6,14 @@
  */
 import { RegistrationPlatform, type Prisma } from "@/generated/prisma";
 import type { CompetitionEditDTO } from "../types/edit-dto";
+import type { HackathonMemberRole } from "@/generated/prisma";
 import type {
   CompetitionDetailDTO,
   CompetitionWithRelations,
   HackathonCardDTO,
 } from "../types/dto";
 import { CompetitionRepository } from "./repository";
+import { CompetitionPermissionsDTO, CompetitionManagementTableDTO } from "./authorization/dto";
 
 /**
  * Prisma payload used when loading Hackathon cards.
@@ -22,6 +24,21 @@ type HackathonWithAssets = Prisma.HackathonGetPayload<{
   include: {
     logoAsset: true;
     coverAsset: true;
+  };
+}>;
+
+type ManageableHackathon = Prisma.HackathonGetPayload<{
+  include: {
+    logoAsset: true;
+    coverAsset: true;
+
+    members: true;
+
+    _count: {
+      select: {
+        members: true;
+      };
+    };
   };
 }>;
 
@@ -64,6 +81,53 @@ export class CompetitionMapper {
     return hackathons.map((hackathon) => this.toCardDTO(hackathon));
   }
 
+  toManagementTableDTO(params: { // for hackathon management table for hackathon orgs/owner/maintainers
+  competition: ManageableHackathon;
+  role: HackathonMemberRole;
+  permissions: CompetitionPermissionsDTO;
+}): CompetitionManagementTableDTO {
+  const {
+    competition,
+    role,
+    permissions,
+  } = params;
+
+  return {
+    id: competition.id,
+
+    slug: competition.slug,
+
+    title: competition.title,
+
+    organizer: competition.organizer,
+
+    logoUrl:
+      competition.logoAsset?.secureUrl ?? null,
+
+    status: competition.status,
+
+    visibility: competition.visibility,
+
+    role,
+
+    memberCount:
+      competition._count.members,
+
+    registrationDeadline:
+      competition.registrationDeadline,
+
+    updatedAt: competition.updatedAt,
+
+    permissions,
+  };
+}
+toManagementTableDTOs(
+  competitions: ManageableHackathon[],
+): CompetitionManagementTableDTO[] {
+  throw new Error(
+    "Use the service to map management DTOs.",
+  );
+}
   toEditDTO(
     // admin DTO for competition edit
     hackathon: Awaited<
