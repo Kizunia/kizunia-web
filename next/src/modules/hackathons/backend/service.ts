@@ -228,36 +228,63 @@ export class CompetitionService {
    * Search all competitions as a platform administrator.
    */
   static async searchAdmin(
-    filters: CompetitionSearchInput,
-  ): Promise<CompetitionSearchResult<HackathonCardDTO>> {
-    const [competitions, total] = await Promise.all([
-      CompetitionRepository.findManyAdmin(filters),
+  actor: StrictAuthorizationActor,
+  filters: CompetitionSearchInput,
+): Promise<
+  CompetitionSearchResult<CompetitionManagementTableDTO>
+> {
+  const [competitions, total] = await Promise.all([
+    CompetitionRepository.findManyAdmin(
+      actor.id!,
+      filters,
+    ),
 
-      CompetitionRepository.countAdmin(filters),
-    ]);
+    CompetitionRepository.countAdmin(filters),
+  ]);
 
-    const items = competitionMapper.toCardDTOs(competitions);
+  const items = competitions.map((competition) => {
+    const membership =
+      competition.members[0] ?? null;
 
-    const totalPages = Math.ceil(total / filters.limit);
+    const context =
+      CompetitionContextResolver.fromData({
+        actor,
+        hackathon: competition,
+        membership,
+      });
 
-    return {
-      items,
+    const permissions =
+      CompetitionPermissionResolver.resolve(
+        context,
+      );
 
-      pagination: {
-        page: filters.page,
+    return competitionMapper.toManagementTableDTO({
+      competition,
+      role: membership?.role ?? null,
+      permissions,
+    });
+  });
 
-        limit: filters.limit,
+  const totalPages = Math.ceil(total / filters.limit);
 
-        total,
+  return {
+    items,
 
-        totalPages,
+    pagination: {
+      page: filters.page,
 
-        hasNextPage: filters.page < totalPages,
+      limit: filters.limit,
 
-        hasPreviousPage: filters.page > 1,
-      },
-    };
-  }
+      total,
+
+      totalPages,
+
+      hasNextPage: filters.page < totalPages,
+
+      hasPreviousPage: filters.page > 1,
+    },
+  };
+}
 
   static async findBySlug(slug: string): Promise<CompetitionDetailDTO | null> {
     // PUBLIC

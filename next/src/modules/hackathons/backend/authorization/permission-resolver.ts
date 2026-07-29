@@ -23,10 +23,10 @@ export class CompetitionPermissionResolver {
         CompetitionAction.PUBLISH,
       ),
 
-      // canUnpublish: this.can(
-      //   context,
-      //   CompetitionAction.UNPUBLISH,
-      // ),
+      canUnpublish: this.can(
+        context,
+        CompetitionAction.UNPUBLISH,
+      ),
 
       canManageMembers: this.can(
         context,

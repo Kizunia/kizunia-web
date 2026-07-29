@@ -92,6 +92,39 @@ export class CompetitionController {
     });
   }
 
+  static async searchAdminManageable(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+      if(!actor || !actor.id || !actor.role || actor.banned == undefined) {
+        throw new UnauthorizedError({code: "unauthorized", message: "Failed to authenticate the actor or actor is banned."});
+      }
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const query = Object.fromEntries(request.nextUrl.searchParams.entries());
+      const filters = CompetitionSearchSchema.parse(query);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+      const competitions = await CompetitionService.searchAdmin(
+        {id: actor.id, role: actor.role, banned: actor.banned} ,
+        filters,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(competitions);
+    });
+  }
+
   static async findBySlug(request: NextRequest, slug: string) {
     return Route.execute(async () => {
       const parsedSlug = Slug.parse(slug);

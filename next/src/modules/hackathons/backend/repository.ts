@@ -150,18 +150,34 @@ export class CompetitionRepository {
     });
   }
 
-  static async findManyAdmin(filters: CompetitionSearchInput) {
-    const query = CompetitionSearchBuilder.buildAdmin(filters);
+  static async findManyAdmin(
+  actorId: string,
+  filters: CompetitionSearchInput,
+) {
+  const query = CompetitionSearchBuilder.buildAdmin(filters);
 
-    return prisma.hackathon.findMany({
-      ...query,
+  return prisma.hackathon.findMany({
+    ...query,
 
-      include: {
-        logoAsset: true,
-        coverAsset: true,
+    include: {
+      logoAsset: true,
+      coverAsset: true,
+
+      members: {
+        where: {
+          userId: actorId,
+        },
+        take: 1,
       },
-    });
-  }
+
+      _count: {
+        select: {
+          members: true,
+        },
+      },
+    },
+  });
+}
 
   static async findBySlug(slug: string) {
     return prisma.hackathon.findFirst({
