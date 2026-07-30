@@ -157,7 +157,7 @@ export class CompetitionController {
 
       CompetitionAuthorizer.edit(context);
 
-      const competition = await CompetitionService.findForEdit(hackathonId);
+      const competition = await CompetitionService.adminFindForEdit(context);
 
       return ApiResponse.ok(competition);
     });

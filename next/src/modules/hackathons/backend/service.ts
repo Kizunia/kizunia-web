@@ -9,7 +9,11 @@ import { CompetitionRepository } from "./repository";
 import { COMPETITIONS_PAGE_SIZE } from "../constants";
 
 import type { PlatformContext } from "@/authorization/platform/context";
-import { CompetitionContextResolver, CompetitionPermissionResolver, type CompetitionContext } from "./authorization";
+import {
+  CompetitionContextResolver,
+  CompetitionPermissionResolver,
+  type CompetitionContext,
+} from "./authorization";
 
 import { DuplicateSlugError } from "../errors";
 import { CompetitionSearchBuilder } from "../search/builder";
@@ -161,29 +165,24 @@ export class CompetitionService {
   /**
    * Search competitions the actor can manage.
    */
- static async searchManageable(
- actor: StrictAuthorizationActor,
-  filters: CompetitionSearchInput,
-): Promise<
-  CompetitionSearchResult<CompetitionManagementTableDTO>
-> {
-  const [competitions, total] = await Promise.all([
-    CompetitionRepository.findManyManageable(actor.id, filters),
+  static async searchManageable(
+    actor: StrictAuthorizationActor,
+    filters: CompetitionSearchInput,
+  ): Promise<CompetitionSearchResult<CompetitionManagementTableDTO>> {
+    const [competitions, total] = await Promise.all([
+      CompetitionRepository.findManyManageable(actor.id, filters),
 
-    CompetitionRepository.countManageable(actor.id, filters),
-  ]);
+      CompetitionRepository.countManageable(actor.id, filters),
+    ]);
 
-  const items = competitions.map((competition) => {
-    const membership = competition.members[0];
+    const items = competitions.map((competition) => {
+      const membership = competition.members[0];
 
-    if (!membership) {
-      throw new Error(
-        "Competition membership was not loaded.",
-      );
-    }
+      if (!membership) {
+        throw new Error("Competition membership was not loaded.");
+      }
 
-    const context =
-      CompetitionContextResolver.fromData({
+      const context = CompetitionContextResolver.fromData({
         actor: {
           id: actor.id,
           role: actor.role,
@@ -193,98 +192,87 @@ export class CompetitionService {
         membership,
       });
 
-    const permissions =
-      CompetitionPermissionResolver.resolve(context);
+      const permissions = CompetitionPermissionResolver.resolve(context);
 
-    return competitionMapper.toManagementTableDTO({
-      competition,
-      role: membership.role,
-      permissions,
+      return competitionMapper.toManagementTableDTO({
+        competition,
+        role: membership.role,
+        permissions,
+      });
     });
-  });
 
-  const totalPages = Math.ceil(total / filters.limit);
+    const totalPages = Math.ceil(total / filters.limit);
 
-  return {
-    items,
+    return {
+      items,
 
-    pagination: {
-      page: filters.page,
+      pagination: {
+        page: filters.page,
 
-      limit: filters.limit,
+        limit: filters.limit,
 
-      total,
+        total,
 
-      totalPages,
+        totalPages,
 
-      hasNextPage: filters.page < totalPages,
+        hasNextPage: filters.page < totalPages,
 
-      hasPreviousPage: filters.page > 1,
-    },
-  };
-}
+        hasPreviousPage: filters.page > 1,
+      },
+    };
+  }
 
   /**
    * Search all competitions as a platform administrator.
    */
   static async searchAdmin(
-  actor: StrictAuthorizationActor,
-  filters: CompetitionSearchInput,
-): Promise<
-  CompetitionSearchResult<CompetitionManagementTableDTO>
-> {
-  const [competitions, total] = await Promise.all([
-    CompetitionRepository.findManyAdmin(
-      actor.id!,
-      filters,
-    ),
+    actor: StrictAuthorizationActor,
+    filters: CompetitionSearchInput,
+  ): Promise<CompetitionSearchResult<CompetitionManagementTableDTO>> {
+    const [competitions, total] = await Promise.all([
+      CompetitionRepository.findManyAdmin(actor.id!, filters),
 
-    CompetitionRepository.countAdmin(filters),
-  ]);
+      CompetitionRepository.countAdmin(filters),
+    ]);
 
-  const items = competitions.map((competition) => {
-    const membership =
-      competition.members[0] ?? null;
+    const items = competitions.map((competition) => {
+      const membership = competition.members[0] ?? null;
 
-    const context =
-      CompetitionContextResolver.fromData({
+      const context = CompetitionContextResolver.fromData({
         actor,
         hackathon: competition,
         membership,
       });
 
-    const permissions =
-      CompetitionPermissionResolver.resolve(
-        context,
-      );
+      const permissions = CompetitionPermissionResolver.resolve(context);
 
-    return competitionMapper.toManagementTableDTO({
-      competition,
-      role: membership?.role ?? null,
-      permissions,
+      return competitionMapper.toManagementTableDTO({
+        competition,
+        role: membership?.role ?? null,
+        permissions,
+      });
     });
-  });
 
-  const totalPages = Math.ceil(total / filters.limit);
+    const totalPages = Math.ceil(total / filters.limit);
 
-  return {
-    items,
+    return {
+      items,
 
-    pagination: {
-      page: filters.page,
+      pagination: {
+        page: filters.page,
 
-      limit: filters.limit,
+        limit: filters.limit,
 
-      total,
+        total,
 
-      totalPages,
+        totalPages,
 
-      hasNextPage: filters.page < totalPages,
+        hasNextPage: filters.page < totalPages,
 
-      hasPreviousPage: filters.page > 1,
-    },
-  };
-}
+        hasPreviousPage: filters.page > 1,
+      },
+    };
+  }
 
   static async findBySlug(slug: string): Promise<CompetitionDetailDTO | null> {
     // PUBLIC
@@ -296,11 +284,17 @@ export class CompetitionService {
     return competitionMapper.toDetailDTO(competition);
   }
 
-  static async findForEdit(id: string) {
+  static async adminFindForEdit(
+    context: CompetitionContext,
+  ) { //: Promise<CompetitionDetailDTO>
     // for admin edit
-    const competition = await CompetitionRepository.findByIdForEdit(id);
+    const competition = await CompetitionRepository.findByIdForEdit(context.hackathon.id);
 
-    return competitionMapper.toEditDTO(competition);
+    return competitionMapper.toEditDTOWithPermissions({
+      hackathon: competition,
+      role: context.membership?.role ?? null,
+      permissions: CompetitionPermissionResolver.resolve(context),
+    });
   }
   // Mutations
 
@@ -322,11 +316,6 @@ export class CompetitionService {
     slot: HackathonAssetSlot;
     upload: CreateAssetInput;
   }) {
-    // return HackathonAssetService.setAsset(
-    //   hackathonId: context.hackathon.id,
-    //   {slot,
-    //   upload}
-    // );
     return HackathonAssetService.setAsset(context.hackathon.id, {
       slot,
       upload,

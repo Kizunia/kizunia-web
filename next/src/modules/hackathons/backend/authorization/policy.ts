@@ -77,7 +77,6 @@ export class CompetitionPolicy {
     return AuthorizationEvaluator.start(context)
 
       // Platform admins bypass everything
-      
       // Banned users cannot access anything
       .security(
         (ctx) => !ctx.actor.banned,

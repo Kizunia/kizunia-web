@@ -1,23 +1,23 @@
 import { create } from "zustand";
 import { toast } from "sonner";
-import type { CompetitionEditDTO } from "../types/edit-dto";
+import type { CompetitionEditDTOWithPermissions } from "../types/edit-dto";
 import { CompetitionApi } from "../api/hackathon-api";
 import { ApiError } from "@/lib/http";
 
 interface CompetitionEditorStore {
-  competition: CompetitionEditDTO | null;
+  competition: CompetitionEditDTOWithPermissions | null;
 
-  original: CompetitionEditDTO | null;
+  original: CompetitionEditDTOWithPermissions | null;
 
   dirty: boolean;
 
-  initialize: (competition: CompetitionEditDTO) => void;
+  initialize: (competition: CompetitionEditDTOWithPermissions) => void;
   saving: boolean;
 
   save: () => Promise<void>;
 
-  updateCompetition(partial: Partial<CompetitionEditDTO>): void;
-  setCompetition(competition: CompetitionEditDTO): void;
+  updateCompetition(partial: Partial<CompetitionEditDTOWithPermissions>): void;
+  setCompetition(competition: CompetitionEditDTOWithPermissions): void;
   reset(): void;
 }
 

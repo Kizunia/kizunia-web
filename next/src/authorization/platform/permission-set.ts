@@ -6,11 +6,13 @@ export const PlatformPermissionSet = {
 
     [PlatformRole.ADMIN]: new Set<PlatformAction>([
         PlatformAction.CREATE_HACKATHON,
+        PlatformAction.VIEW_ALL_COMPETITIONS,
         PlatformAction.ACCESS_ADMIN_DASHBOARD,
     ]),
 
     [PlatformRole.SUPER_ADMIN]: new Set<PlatformAction>([
         PlatformAction.CREATE_HACKATHON,
+        PlatformAction.VIEW_ALL_COMPETITIONS,
         PlatformAction.ACCESS_ADMIN_DASHBOARD,
         PlatformAction.MANAGE_USERS,
     ]),
