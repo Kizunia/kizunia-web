@@ -65,7 +65,7 @@ export default async function CompetitionsPage({ searchParams }: Props) {
     PlatformAuthorizer.can({actor: strictActor}, PlatformAction.VIEW_ALL_COMPETITIONS);
 
     const resp = await CompetitionService.searchAdmin(strictActor, filters);
-
+   
     competitions = resp.items;
     pagination = resp.pagination;
   } catch (error) {
