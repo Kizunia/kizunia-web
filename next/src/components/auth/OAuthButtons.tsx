@@ -28,7 +28,7 @@ export default function OAuthButtons({
 
     const { error } = await authClient.signIn.social({
       provider,
-      callbackURL: redirect ?? "/dashboard",
+      callbackURL: redirect ?? "/",
       // errorCallbackURL: "/auth/error", // TODO: implement error callback url
       // fetchOptions:{
       // onRequest: ()=>{},
@@ -49,7 +49,7 @@ export default function OAuthButtons({
 
   return (
     <div className="flex w-full flex-col items-center justify-between gap-2">
-      <Button
+      {/* <Button
         type="button"
         variant="outline"
         className="w-full gap-2 relative "
@@ -58,12 +58,7 @@ export default function OAuthButtons({
       >
         <GoogleIcon width="0.98em" height="1em" />
         <span> Sign in with Google </span>
-        {/* {authClient.isLastUsedLoginMethod("google") && (
-          <Badge className=" justify-self-end ml-auto absolute top-0 right-0 px-2 py-1 ">
-            Last used
-          </Badge>
-        )} */}
-      </Button>
+      </Button> */}
 
       <Button
         type="button"
@@ -74,9 +69,6 @@ export default function OAuthButtons({
       >
         <GitHubIcon />
         <span> Sign in with Github </span>
-        {/* {authClient.isLastUsedLoginMethod("github") && (
-          <Badge className="ml-2  ">Last used</Badge>
-        )} */}
       </Button>
     </div>
   );

@@ -25,7 +25,7 @@ export default function PageWrapper({
   return (
     // <div className="flex flex-col gap-1">
     <>
-      <header className="bg-background flex items-center p-2 sticky top-0 z-100">
+      <header className="bg-background flex items-center p-2 sticky top-0 z-10">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-1">
 

@@ -7,6 +7,7 @@ import type { CompetitionSearchOptions } from "../search/types";
 import { CompetitionSearchInput } from "../search/schema";
 import { CompetitionSearchBuilder } from "../search/builder";
 import { HackathonAssetSlot } from "../types/asset-slot";
+import { HackathonNotFoundError } from "../errors";
 
 // interface FindCompetitionsOptions {
 //   search?: string;
@@ -150,34 +151,31 @@ export class CompetitionRepository {
     });
   }
 
-  static async findManyAdmin(
-  actorId: string,
-  filters: CompetitionSearchInput,
-) {
-  const query = CompetitionSearchBuilder.buildAdmin(filters);
+  static async findManyAdmin(actorId: string, filters: CompetitionSearchInput) {
+    const query = CompetitionSearchBuilder.buildAdmin(filters);
 
-  return prisma.hackathon.findMany({
-    ...query,
+    return prisma.hackathon.findMany({
+      ...query,
 
-    include: {
-      logoAsset: true,
-      coverAsset: true,
+      include: {
+        logoAsset: true,
+        coverAsset: true,
 
-      members: {
-        where: {
-          userId: actorId,
+        members: {
+          where: {
+            userId: actorId,
+          },
+          take: 1,
         },
-        take: 1,
-      },
 
-      _count: {
-        select: {
-          members: true,
+        _count: {
+          select: {
+            members: true,
+          },
         },
       },
-    },
-  });
-}
+    });
+  }
 
   static async findBySlug(slug: string) {
     return prisma.hackathon.findFirst({
@@ -232,10 +230,7 @@ export class CompetitionRepository {
     const competition = await this.findBySlug(slug);
 
     if (!competition) {
-      throw new NotFoundError({
-        code: "competition_not_found",
-        message: `Competition with given slug not found.`,
-      });
+      throw new HackathonNotFoundError();
     }
     return competition;
   }
@@ -253,10 +248,7 @@ export class CompetitionRepository {
     const competition = await this.findById(id);
 
     if (!competition) {
-      throw new NotFoundError({
-        code: "competition_not_found",
-        message: `Competition with given id not found.`,
-      });
+      throw new HackathonNotFoundError(`Competition with given id not found.`);
     }
 
     return competition;
@@ -293,10 +285,7 @@ export class CompetitionRepository {
     });
 
     if (!competition) {
-      throw new NotFoundError({
-        code: "competition_not_found",
-        message: "Competition not found.",
-      });
+      throw new HackathonNotFoundError();
     }
 
     return competition;
@@ -374,10 +363,7 @@ export class CompetitionRepository {
       });
 
       if (!hackathon) {
-        throw new NotFoundError({
-          code: "competition_not_found",
-          message: "Competition not found.",
-        });
+        throw new HackathonNotFoundError();
       }
 
       let contentId = hackathon.contentId;

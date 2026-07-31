@@ -1,5 +1,12 @@
 import { notFound } from "next/navigation";
-import { Calendar, Globe, MapPin, SquareArrowOutUpRight, Trophy, Users } from "lucide-react";
+import {
+  Calendar,
+  Globe,
+  MapPin,
+  SquareArrowOutUpRight,
+  Trophy,
+  Users,
+} from "lucide-react";
 import prisma from "@/lib/prisma";
 import PageWrapper from "@/components/page-wrapper";
 
@@ -13,6 +20,8 @@ import { ForwardRefMdxViewer } from "@/components/shared/mdx/ForwardRefMdxViewer
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { ApiError } from "@/lib/http";
+import { HackathonErrorCode } from "@/modules/hackathons/errors/error-code";
 export default async function CompetitionPage({
   params,
   searchParams,
@@ -25,13 +34,24 @@ export default async function CompetitionPage({
   }>;
 }) {
   const { slug } = await params;
-  console.log("slug", slug);
-  const response = await CompetitionApi.getPublic(slug);
-
-  if (!response.success) {
+  let response;
+  try {
+    response = await CompetitionApi.getPublic(slug);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (
+        error.code == HackathonErrorCode.NOT_FOUND ||
+        error.code == HackathonErrorCode.ARCHIVED ||
+        error.code == HackathonErrorCode.DELETED
+      )
+        notFound();
+    } else {
+      throw error;
+    }
+  }
+  if (!!!response) {
     notFound();
   }
-
   const competition = response.data;
 
   const isSideBarRequired =
@@ -102,28 +122,34 @@ export default async function CompetitionPage({
                 )}
               </div>
 
-              {competition.shortDescription && <p className="text-muted-foreground">
-                {competition.shortDescription}
-              </p>}
+              {competition.shortDescription && (
+                <p className="text-muted-foreground">
+                  {competition.shortDescription}
+                </p>
+              )}
 
-              {(competition.mode || competition.location) && <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{competition.mode}</Badge>
+              {(competition.mode || competition.location) && (
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">{competition.mode}</Badge>
 
-                {competition.location && (
-                  <Badge variant="outline">
-                    <MapPin className="mr-1 h-3 w-3" />
-                    {competition.location}
-                  </Badge>
-                )}
+                  {competition.location && (
+                    <Badge variant="outline">
+                      <MapPin className="mr-1 h-3 w-3" />
+                      {competition.location}
+                    </Badge>
+                  )}
 
-                 {competition.registrationLink && (
-                    
-                  <Badge asChild>
-                  <Link href={competition.registrationLink}  > <SquareArrowOutUpRight />Regester</Link></Badge>)
-                  }
-              </div>}
-
-             
+                  {competition.registrationLink && (
+                    <Badge asChild>
+                      <Link href={competition.registrationLink}>
+                        {" "}
+                        <SquareArrowOutUpRight />
+                        Regester
+                      </Link>
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </Card>
@@ -145,7 +171,6 @@ export default async function CompetitionPage({
                       markdown={
                         competition.content?.content ?? "No documentation."
                       }
-                     
                     />
                   </Suspense>
                 </div>

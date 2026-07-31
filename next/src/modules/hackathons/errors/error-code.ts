@@ -6,6 +6,8 @@ export const HackathonErrorCode = {
     DELETED: "HACKATHON_DELETED",
 
     ARCHIVED: "HACKATHON_ARCHIVED",
+
+    
 } as const;
 
 export type HackathonErrorCode =
