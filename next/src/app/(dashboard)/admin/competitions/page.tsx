@@ -46,13 +46,8 @@ export default async function CompetitionsPage({ searchParams }: Props) {
         status: 401,
       });
     }
-    // {
-    //   sort: "start-date-asc",
-    //   page: filters.page,
-    //   limit: 10,
-    // }
     filters.sort = "newest";
-    filters.limit = 10;
+    filters.limit = 30;
     filters.page = filters.page ?? 1;
     const strictActor: StrictAuthorizationActor = {
       id: actor.id,
