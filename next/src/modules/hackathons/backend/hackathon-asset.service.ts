@@ -7,6 +7,7 @@ import type { HackathonAssetSlot } from "../types/asset-slot";
 import { competitionMapper } from "./mapper";
 import { CompetitionRepository } from "./repository";
 import { SetHackathonAssetDTO } from "../types/set-asset.dto";
+import { CompetitionContextResolver } from "./authorization";
 
 export class HackathonAssetService {
   static async setAsset(hackathonId: string, dto: SetHackathonAssetDTO) {
@@ -24,7 +25,9 @@ export class HackathonAssetService {
         tx,
       );
 
-      return competitionMapper.toEditDTO(competition);
+
+
+      return competitionMapper.toEditDTO({hackathon: competition});
     });
   }
 }

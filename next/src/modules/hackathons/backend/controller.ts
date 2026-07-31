@@ -22,6 +22,7 @@ import { CompetitionSearchSchema } from "../search/schema";
 import { Slug } from "@/lib/validation/index";
 import { CreateAssetSchema } from "@/modules/assets/schemas/create-asset";
 import { HackathonAssetSlot } from "../types/asset-slot";
+import { AppError, UnauthorizedError } from "@/lib/errors";
 export class CompetitionController {
   static async create(request: NextRequest) {
     return Route.execute(async () => {
@@ -58,44 +59,109 @@ export class CompetitionController {
     });
   }
 
+  static async searchManageable(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+      if(!actor || !actor.id || !actor.role || actor.banned == undefined) {
+        throw new UnauthorizedError({code: "unauthorized", message: "Failed to authenticate the actor or actor is banned."});
+      }
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const query = Object.fromEntries(request.nextUrl.searchParams.entries());
+      const filters = CompetitionSearchSchema.parse(query);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+      const competitions = await CompetitionService.searchManageable(
+        {id: actor.id, role: actor.role, banned: actor.banned} ,
+        filters,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(competitions);
+    });
+  }
+
+  static async searchAdminManageable(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+      if(!actor || !actor.id || !actor.role || actor.banned == undefined) {
+        throw new UnauthorizedError({code: "unauthorized", message: "Failed to authenticate the actor or actor is banned."});
+      }
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const query = Object.fromEntries(request.nextUrl.searchParams.entries());
+      const filters = CompetitionSearchSchema.parse(query);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+      const competitions = await CompetitionService.searchAdmin(
+        {id: actor.id, role: actor.role, banned: actor.banned} ,
+        filters,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(competitions);
+    });
+  }
+
   static async findBySlug(request: NextRequest, slug: string) {
     return Route.execute(async () => {
       const parsedSlug = Slug.parse(slug);
       const actor = await SessionService.getOptionalActor(request);
 
       const context = await CompetitionContextResolver.resolveBySlug({
-        actor: {id: actor?.id ?? null, role: actor?.role ?? null, banned: actor?.banned ?? null},
+        actor: {
+          id: actor?.id ?? null,
+          role: actor?.role ?? null,
+          banned: actor?.banned ?? null,
+        },
         slug: parsedSlug,
       });
       CompetitionAuthorizer.read(context);
-      
+
       const competition = await CompetitionService.findBySlug(parsedSlug);
 
       return ApiResponse.ok(competition);
     });
   }
 
-  static async findForEdit(
-  request: NextRequest,
-  hackathonId: string,
-) {
-  return Route.execute(async () => {
-    const actor = await SessionService.getActor(request);
+  static async findForEdit(request: NextRequest, hackathonId: string) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getActor(request);
 
-    const context =
-      await CompetitionContextResolver.resolve({
+      const context = await CompetitionContextResolver.resolve({
         actor,
         hackathonId,
       });
 
-    CompetitionAuthorizer.edit(context);
+      CompetitionAuthorizer.edit(context);
 
-    const competition =
-      await CompetitionService.findForEdit(hackathonId);
+      const competition = await CompetitionService.adminFindForEdit(context);
 
-    return ApiResponse.ok(competition);
-  });
-}
+      return ApiResponse.ok(competition);
+    });
+  }
 
   static async update(request: NextRequest, hackathonId: string) {
     return Route.execute(async () => {
@@ -146,57 +212,55 @@ export class CompetitionController {
   }
 
   static async setAsset(
-  request: NextRequest,
-  hackathonId: string,
-  slot: HackathonAssetSlot,
-) {
-  return Route.execute(async () => {
-    // -----------------------------------------------------------------
-    // Authentication
-    // -----------------------------------------------------------------
+    request: NextRequest,
+    hackathonId: string,
+    slot: HackathonAssetSlot,
+  ) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
 
-    const actor = await SessionService.getActor(request);
+      const actor = await SessionService.getActor(request);
 
-    // -----------------------------------------------------------------
-    // Validation
-    // -----------------------------------------------------------------
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
 
-    const body = await request.json();
+      const body = await request.json();
 
-    const upload = CreateAssetSchema.parse(body);
+      const upload = CreateAssetSchema.parse(body);
 
-    // -----------------------------------------------------------------
-    // Context
-    // -----------------------------------------------------------------
+      // -----------------------------------------------------------------
+      // Context
+      // -----------------------------------------------------------------
 
-    const context =
-      await CompetitionContextResolver.resolve({
+      const context = await CompetitionContextResolver.resolve({
         actor,
         hackathonId,
       });
 
-    // -----------------------------------------------------------------
-    // Authorization
-    // -----------------------------------------------------------------
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
 
-    CompetitionAuthorizer.edit(context);
+      CompetitionAuthorizer.edit(context);
 
-    // -----------------------------------------------------------------
-    // Business Logic
-    // -----------------------------------------------------------------
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
 
-    const competition =
-      await CompetitionService.setAsset({
+      const competition = await CompetitionService.setAsset({
         context,
         slot,
         upload,
       });
 
-    // -----------------------------------------------------------------
-    // Response
-    // -----------------------------------------------------------------
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
 
-    return ApiResponse.ok(competition);
-  });
-}
+      return ApiResponse.ok(competition);
+    });
+  }
 }

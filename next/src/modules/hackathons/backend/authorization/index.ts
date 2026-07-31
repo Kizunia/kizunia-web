@@ -4,3 +4,4 @@ export * from "./context";
 export * from "./context-resolver";
 export * from "./permission-set";
 export * from "./policy";
+export * from "./permission-resolver";

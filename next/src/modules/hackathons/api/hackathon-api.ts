@@ -3,7 +3,7 @@ import axios from "@/lib/axios";
 import type { CreateHackathonInput } from "../schemas/create-hackathon";
 import { HttpClient } from "@/lib/http/client";
 import { CompetitionDetailDTO } from "../types/dto";
-import { CompetitionEditDTO } from "../types/edit-dto";
+import { CompetitionEditDTOWithPermissions } from "../types/edit-dto";
 import { UpdateCompetitionRequestDTO } from "../types/update-request-dto";
 import { CreateAssetDTO } from "@/modules/assets/dto/create-asset.dto";
 
@@ -27,8 +27,8 @@ export class CompetitionApi {
     return response.data;
   }
 
-  static async getForEdit(id: string): Promise<CompetitionEditDTO> {
-    const response = await HttpClient.get<CompetitionEditDTO>(
+  static async getForEdit(id: string): Promise<CompetitionEditDTOWithPermissions> {
+    const response = await HttpClient.get<CompetitionEditDTOWithPermissions>(
       `/api/v1/admin/hackathons/${id}`,
     );
 
@@ -40,7 +40,7 @@ export class CompetitionApi {
     slot: "logo" | "banner" | "cover",
     upload: CreateAssetDTO,
   ) {
-    const response = await HttpClient.patch<CompetitionEditDTO, CreateAssetDTO>(
+    const response = await HttpClient.patch<CompetitionEditDTOWithPermissions, CreateAssetDTO>(
       `/api/v1/admin/hackathons/${id}/assets/${slot}`,
       upload,
     );

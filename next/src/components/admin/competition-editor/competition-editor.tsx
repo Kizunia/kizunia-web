@@ -1,6 +1,6 @@
 "use client";
 import { SaveBar } from "./save-bar";
-import { CompetitionEditDTO } from "@/modules/hackathons/types/edit-dto";
+import { CompetitionEditDTOWithPermissions } from "@/modules/hackathons/types/edit-dto";
 import { useEffect } from "react";
 import {
   Card,
@@ -26,12 +26,11 @@ import { useCompetitionEditorStore } from "@/modules/hackathons/store/editor-sto
 export function CompetitionEditor({
   competition,
 }: {
-  competition: CompetitionEditDTO;
+  competition: CompetitionEditDTOWithPermissions;
 }) {
   const initialize = useCompetitionEditorStore(
   (state) => state.initialize,
 );
-
 
 
 useEffect(() => {

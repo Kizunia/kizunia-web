@@ -4,6 +4,7 @@ import type { CompetitionContext } from "./context";
 import { AuthorizationActor } from "@/authorization";
 import { ValidationError } from "@/lib/errors";
 import { CompetitionRepository } from "../repository";
+import { Hackathon, HackathonMember } from "@/generated/prisma";
 
 export class CompetitionContextResolver {
   static async resolve(params: {
@@ -67,6 +68,30 @@ export class CompetitionContextResolver {
         id: actor?.id ?? null,
         role: actor?.role ?? null,
         banned: actor?.banned ?? null,
+      },
+      hackathon,
+      membership,
+    };
+  }
+
+  /**
+   * Creates an authorization context from already-loaded entities.
+   *
+   * This should be used when the caller has already loaded the
+   * competition and membership, avoiding unnecessary database queries.
+   */
+  static fromData(params: {
+    actor: AuthorizationActor;
+    hackathon: Hackathon;
+    membership: HackathonMember | null;
+  }): CompetitionContext {
+    const { actor, hackathon, membership } = params;
+
+    return {
+      actor: {
+        id: actor.id,
+        role: actor.role,
+        banned: actor.banned,
       },
       hackathon,
       membership,

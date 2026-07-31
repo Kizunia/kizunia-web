@@ -2,6 +2,8 @@ export enum CompetitionAction {
 
     VIEW = "VIEW",
 
+    
+
     CREATE = "CREATE",
 
     EDIT = "EDIT",

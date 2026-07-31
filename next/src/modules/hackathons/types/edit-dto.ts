@@ -1,6 +1,7 @@
 import {
   CertificateType,
   DifficultyLevel,
+  HackathonMemberRole,
   HackathonMode,
   HackathonStatus,
   HackathonVisibility,
@@ -8,6 +9,8 @@ import {
   RegistrationFeeType,
   RegistrationPlatform,
 } from "@/generated/prisma";
+import { CompetitionPermissionsDTO } from "../backend/authorization/dto";
+
 
 export interface CompetitionEditDTO {
   id: string;
@@ -108,4 +111,14 @@ export interface CompetitionEditDTO {
     name: string;
     slug: string;
   }[];
+
+}
+export interface CompetitionEditDTOWithPermissions extends CompetitionEditDTO {
+
+
+  role: HackathonMemberRole | null;
+
+  updatedAt: Date;
+
+  permissions: CompetitionPermissionsDTO;
 }

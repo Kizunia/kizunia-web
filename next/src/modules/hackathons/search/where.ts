@@ -8,7 +8,7 @@ export class CompetitionWhereBuilder {
 
     AND.push({
       deletedAt: null,
-      visibility: "PUBLIC",
+      // visibility: "PUBLIC",
     });
 
     this.buildSearch(filters, AND);

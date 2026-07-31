@@ -12,6 +12,13 @@ export interface AuthorizationActor {
     banned: boolean | null | undefined;
 }
 
+export interface StrictAuthorizationActor extends AuthorizationActor {
+    id: string;
+    role: PlatformRole | string;
+    banned: boolean;
+}
+
+
 export interface AuthorizationContext {
     actor: AuthorizationActor;
 }
