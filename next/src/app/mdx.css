@@ -1,11 +1,21 @@
 /* ==========================================================================
    MDX Editor Typography (Temporary)
    ========================================================================== */
-.mdxeditor{
-    background: transparent;
+.mdxeditor {
+  /* all: revert;
+  background: transparent;
+  z-index: -1 !important; */
+}
+
+.mdxeditor-root-contenteditable {
+  /* background: green;
+  isolation: isolate;
+  z-index: -0 !important; */
+
 }
 .mdxeditor-root-contenteditable h1 {
   all: revert;
+  /* background: red; */
 }
 
 .mdxeditor-root-contenteditable h2 {

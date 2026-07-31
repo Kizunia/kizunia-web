@@ -87,7 +87,7 @@ export function SignInForm() {
             // });
 
             setLoading(true); // to indicate redirecting
-            router.push(redirect ?? "/dashboard");
+            router.push(redirect ?? "/competitions");
           }
         },
       }
@@ -232,7 +232,7 @@ export function SignInForm() {
         </Form>
       </CardContent>
       <CardFooter>
-        <div className="flex w-full justify-center border-t pt-4">
+        <div className="flex w-full justify-center">
           <p className="text-muted-foreground text-center text-xs">
             Don&apos;t have an account?{" "}
             <Link href="/sign-up" className="underline">
