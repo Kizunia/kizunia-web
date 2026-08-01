@@ -66,8 +66,11 @@ export class CompetitionController {
       // -----------------------------------------------------------------
 
       const actor = await SessionService.getActor(request);
-      if(!actor || !actor.id || !actor.role || actor.banned == undefined) {
-        throw new UnauthorizedError({code: "unauthorized", message: "Failed to authenticate the actor or actor is banned."});
+      if (!actor || !actor.id || !actor.role || actor.banned == undefined) {
+        throw new UnauthorizedError({
+          code: "unauthorized",
+          message: "Failed to authenticate the actor or actor is banned.",
+        });
       }
       // -----------------------------------------------------------------
       // Validation
@@ -80,7 +83,7 @@ export class CompetitionController {
       // Business Logic
       // -----------------------------------------------------------------
       const competitions = await CompetitionService.searchManageable(
-        {id: actor.id, role: actor.role, banned: actor.banned} ,
+        { id: actor.id, role: actor.role, banned: actor.banned },
         filters,
       );
 
@@ -99,8 +102,11 @@ export class CompetitionController {
       // -----------------------------------------------------------------
 
       const actor = await SessionService.getActor(request);
-      if(!actor || !actor.id || !actor.role || actor.banned == undefined) {
-        throw new UnauthorizedError({code: "unauthorized", message: "Failed to authenticate the actor or actor is banned."});
+      if (!actor || !actor.id || !actor.role || actor.banned == undefined) {
+        throw new UnauthorizedError({
+          code: "unauthorized",
+          message: "Failed to authenticate the actor or actor is banned.",
+        });
       }
       // -----------------------------------------------------------------
       // Validation
@@ -113,7 +119,7 @@ export class CompetitionController {
       // Business Logic
       // -----------------------------------------------------------------
       const competitions = await CompetitionService.searchAdmin(
-        {id: actor.id, role: actor.role, banned: actor.banned} ,
+        { id: actor.id, role: actor.role, banned: actor.banned },
         filters,
       );
 
@@ -208,6 +214,45 @@ export class CompetitionController {
       // -----------------------------------------------------------------
 
       return ApiResponse.ok(hackathon);
+    });
+  }
+
+  static async delete(request: NextRequest, hackathonId: string) {
+    return Route.execute(async () => {
+      // -------------------------------------------------
+      // Authentication
+      // -------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+
+      // -------------------------------------------------
+      // Context
+      // -------------------------------------------------
+      console.log("CompetitionController.delete: hackathonId", hackathonId);
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        hackathonId,
+      });
+
+      // -------------------------------------------------
+      // Authorization
+      // -------------------------------------------------
+
+      CompetitionAuthorizer.delete(context);
+
+      // -------------------------------------------------
+      // Business Logic
+      // -------------------------------------------------
+
+      await CompetitionService.delete({
+        context,
+      });
+
+      // -------------------------------------------------
+      // Response
+      // -------------------------------------------------
+
+      return ApiResponse.ok({});
     });
   }
 

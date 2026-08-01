@@ -9,13 +9,17 @@ import { CreateAssetDTO } from "@/modules/assets/dto/create-asset.dto";
 
 export class CompetitionApi {
   static async create(data: CreateHackathonInput) {
-    const response = await axios.post("/api/v1/admin/hackathons/new", data);
+    // const response = await axios.post("/api/v1/admin/hackathons/new", data);
+    const response = HttpClient.post("/api/v1/admin/hackathons/new", data);
 
-    return response.data;
+    return response;
   }
 
   static getPublic(slug: string) {
-    return HttpClient.get<CompetitionDetailDTO>(`/api/v1/competitions/${slug}`);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL!;
+    return HttpClient.get<CompetitionDetailDTO>(
+      `${baseUrl}/api/v1/competitions/${slug}`,
+    );
   }
 
   static async update(id: string, body: UpdateCompetitionRequestDTO) {
@@ -27,7 +31,16 @@ export class CompetitionApi {
     return response.data;
   }
 
-  static async getForEdit(id: string): Promise<CompetitionEditDTOWithPermissions> {
+  static async delete(id: string): Promise<void> {
+    
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL!;
+    await HttpClient.delete(`${baseUrl}/api/v1/admin/hackathons/${id}`);
+    // console.log(`Competition with ID ${id} deleted successfully.`);
+  }
+
+  static async getForEdit(
+    id: string,
+  ): Promise<CompetitionEditDTOWithPermissions> {
     const response = await HttpClient.get<CompetitionEditDTOWithPermissions>(
       `/api/v1/admin/hackathons/${id}`,
     );
@@ -40,10 +53,10 @@ export class CompetitionApi {
     slot: "logo" | "banner" | "cover",
     upload: CreateAssetDTO,
   ) {
-    const response = await HttpClient.patch<CompetitionEditDTOWithPermissions, CreateAssetDTO>(
-      `/api/v1/admin/hackathons/${id}/assets/${slot}`,
-      upload,
-    );
+    const response = await HttpClient.patch<
+      CompetitionEditDTOWithPermissions,
+      CreateAssetDTO
+    >(`/api/v1/admin/hackathons/${id}/assets/${slot}`, upload);
 
     return response.data;
   }

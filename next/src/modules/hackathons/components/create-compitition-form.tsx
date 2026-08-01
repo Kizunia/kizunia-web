@@ -52,7 +52,8 @@ export default function CreateCompititionForm() {
   });
 
   async function onSubmit(data: CreateHackathonInput) {
-    await createHackathon(data);
+    const res = await createHackathon(data);
+    console.log("res", res);
 
   }
   return (

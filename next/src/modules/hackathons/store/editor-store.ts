@@ -11,12 +11,16 @@ interface CompetitionEditorStore {
 
   dirty: boolean;
 
+  deleting: boolean;
+
   initialize: (competition: CompetitionEditDTOWithPermissions) => void;
   saving: boolean;
 
   save: () => Promise<void>;
 
   updateCompetition(partial: Partial<CompetitionEditDTOWithPermissions>): void;
+
+  deleteCompetition: () => Promise<void>;
   setCompetition(competition: CompetitionEditDTOWithPermissions): void;
   reset(): void;
 }
@@ -25,6 +29,7 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
   (set) => ({
     competition: null,
     saving: false,
+    deleting: false,
     original: null,
 
     dirty: false,
@@ -119,13 +124,47 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
 
         if (error instanceof ApiError) {
           if (error.code === "VALIDATION_FAILED") {
-            const cc= error.details as { fields: Record<string, string[]> };
+            const cc = error.details as { fields: Record<string, string[]> };
             console.log("ApiError", cc.fields);
             toast.error("Validation failed. Please check your input.", {
               description: "error.details",
             });
             return;
           }
+          toast.error(error.message);
+          return;
+        }
+
+        toast.error("Unexpected error");
+      }
+    },
+
+    deleteCompetition: async () => {
+      const state = useCompetitionEditorStore.getState();
+
+      if (!state.competition) {
+        return;
+      }
+
+      try {
+        useCompetitionEditorStore.setState({
+          deleting: true,
+        });
+
+        await CompetitionApi.delete(state.competition.id);
+
+        useCompetitionEditorStore.setState({
+          deleting: false,
+        });
+
+        toast.success("Competition deleted.");
+      } catch (error) {
+        console.log("STORE CAUGHT", error);
+        useCompetitionEditorStore.setState({
+          deleting: false,
+        });
+
+        if (error instanceof ApiError) {
           toast.error(error.message);
           return;
         }

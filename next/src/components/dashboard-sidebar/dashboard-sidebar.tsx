@@ -39,13 +39,13 @@ export function DashboardSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <OrgSwitcher />
+        {/* <OrgSwitcher /> */}
       </SidebarHeader>
       <SidebarContent>
         <NavMain />
         {/* <NavDocuments/> */}
         <NavSecondary className="mt-auto" />
-      </SidebarContent>
+       </SidebarContent>  {/* content*/}
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>

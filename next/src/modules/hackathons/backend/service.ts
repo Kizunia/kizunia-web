@@ -345,8 +345,8 @@ export class CompetitionService {
     });
   }
 
-  static async delete(context: CompetitionContext) {
-    return CompetitionRepository.delete(context.hackathon.id);
+  static async delete({context}: {context:CompetitionContext}): Promise<void> {
+    CompetitionRepository.softDelete(context.hackathon.id);
   }
 
   static async restore(context: CompetitionContext) {
