@@ -41,9 +41,10 @@ export interface SidebarNavItem {
 
 export interface SidebarNavSection {
   title: string;
-  url: string;
+  url?: string; // if no url, then it is a collapsible section with items
   icon: SidebarIcon;
   isActive?: boolean;
+  isAdminOnly?: boolean;
   items?: SidebarNavItem[];
 }
 
@@ -127,6 +128,31 @@ export const sidebarData: SidebarData = {
   // documents: [],
 };
 
+export const SideBarNavMain: SidebarNavSection[] = [
+  // main navigation items for the sidebar
+  {
+    title: "Competitions",
+    url: "/competitions",
+    icon: Trophy,
+    isActive: true,
+  },
+  {
+    title: "Admin",
+    // url: "#",
+    icon: UsersIcon,
+    isAdminOnly: true,
+    items: [
+      {
+        title: "All Competitions",
+        url: "/admin/competitions",
+      },
+       {
+        title: "New Competition",
+        url: "/admin/competitions/new",
+      },
+    ],
+  },
+];
 export const dashboardSidebarLinks: SidebarData = {
   user: {
     name: "shadcn",

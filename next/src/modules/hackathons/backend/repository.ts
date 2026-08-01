@@ -464,7 +464,7 @@ export class CompetitionRepository {
     });
   }
 
-  static async delete(id: string) {
+  static async softDelete(id: string) {
     // TODO: Soft delete is not fully implemented yet.
     return prisma.hackathon.update({
       where: {

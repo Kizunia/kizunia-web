@@ -22,13 +22,12 @@ export class HttpClient {
     return body as SuccessResponse<T>;
   }
 
-  static async get<T>(
+  static async get<TResponse>(
     url: string,
     init?: RequestInit,
-  ): Promise<SuccessResponse<T>> {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  ): Promise<SuccessResponse<TResponse>> {
 
-    const response = await fetch(`${baseUrl}${url}`, {
+    const response = await fetch(`${url}`, {
       ...init,
       headers: {
         "Content-Type": "application/json",
@@ -36,7 +35,7 @@ export class HttpClient {
       },
     });
 
-    return this.parseResponse<T>(response);
+    return this.parseResponse<TResponse>(response);
   }
 
   static async post<TResponse, TBody>(
@@ -74,4 +73,22 @@ export class HttpClient {
 
     return this.parseResponse<TResponse>(response);
   }
+
+   static async delete<TResponse>(
+    url: string,
+    init?: RequestInit,
+  ): Promise<SuccessResponse<TResponse>> {
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+      ...init,
+    });
+
+    return this.parseResponse<TResponse>(response);
+  }
+
+ 
 }

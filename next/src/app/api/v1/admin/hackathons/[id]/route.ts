@@ -33,3 +33,18 @@ export async function PATCH(
     id,
   );
 }
+
+
+
+
+export async function DELETE(
+  request: NextRequest,
+ { params }: RouteParams,
+) {
+  const { id } = await params;
+
+  return CompetitionController.delete(
+    request,
+    id,
+  );
+}
