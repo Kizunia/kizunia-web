@@ -7,12 +7,12 @@ interface Maps {
   catMap: Record<string, string>;
   badgeMap: Record<string, string>;
   userIdList: string[];
-  hackathonMap: Record<string, string>;
+  competitionMap: Record<string, string>;
 }
 
 export async function seedProjects(
   prisma: PrismaClient,
-  { techMap, catMap, badgeMap, userIdList, hackathonMap }: Maps
+  { techMap, catMap, badgeMap, userIdList, competitionMap }: Maps
 ) {
   console.log("  🚀 Seeding projects...");
 
@@ -78,22 +78,22 @@ export async function seedProjects(
         .catch(() => {});
     }
 
-    // ── 5. Hackathon submissions ─────────────────────────────
-    for (const hackSlug of p.hackathonSlugs) {
-      const hackId = hackathonMap[hackSlug];
+    // ── 5. Competition submissions ─────────────────────────────
+    for (const hackSlug of p.competitionSlugs) {
+      const hackId = competitionMap[hackSlug];
       if (!hackId) {
-        console.warn(`     ⚠ Unknown hackathon slug: ${hackSlug}`);
+        console.warn(`     ⚠ Unknown competition slug: ${hackSlug}`);
         continue;
       }
-      await prisma.hackathonProject
+      await prisma.competitionProject
         .create({
-          data: { hackathonId: hackId, projectId: project.id },
+          data: { competitionId: hackId, projectId: project.id },
         })
         .catch(() => {});
     }
 
-    // ── 6. Award "Hackathon Winner" badge to completed projects ─
-    const winnerBadgeId = badgeMap["Hackathon Winner"];
+    // ── 6. Award "Competition Winner" badge to completed projects ─
+    const winnerBadgeId = badgeMap["Competition Winner"];
     if (p.status === "PUBLISHED" && p.visibility === "PUBLIC" && winnerBadgeId) {
       await prisma.projectBadge
         .create({ data: { projectId: project.id, badgeId: winnerBadgeId } })

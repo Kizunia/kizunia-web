@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getInitials } from "@/utils/utils";
-import { CompetitionManagementTableDTO } from "@/modules/hackathons/backend/authorization/dto";
+import { CompetitionManagementTableDTO } from "@/modules/competitions/backend/authorization/dto";
 
 export default function AdminCompetitionsCards({
   competitions,

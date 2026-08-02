@@ -4,16 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  HACKATHON_STATUS_OPTIONS,
-  HACKATHON_VISIBILITY_OPTIONS,
-  HACKATHON_MODE_OPTIONS,
+  COMPETITION_STATUS_OPTIONS,
+  COMPETITION_VISIBILITY_OPTIONS,
+  COMPETITION_MODE_OPTIONS,
   REGISTRATION_PLATFORM_OPTIONS,
   CERTIFICATE_OPTIONS,
   DIFFICULTY_OPTIONS,
   ORGANIZER_TYPE_OPTIONS,
   REGISTRATION_FEE_TYPE_OPTIONS,
-} from "@/modules/hackathons/constants";
-import { useCompetitionEditorStore } from "@/modules/hackathons/store/editor-store";
+} from "@/modules/competitions/constants";
+import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { SelectField } from "./select-field";
 import { AssetsTab } from "./assets-tab";
 
@@ -122,7 +122,7 @@ export function GeneralTab() {
       <SelectField
         label="Status"
         value={competition.status}
-        options={HACKATHON_STATUS_OPTIONS}
+        options={COMPETITION_STATUS_OPTIONS}
         onValueChange={(status) =>
           updateCompetition({
             status: status as typeof competition.status,
@@ -133,7 +133,7 @@ export function GeneralTab() {
       <SelectField
         label="Visibility"
         value={competition.visibility}
-        options={HACKATHON_VISIBILITY_OPTIONS}
+        options={COMPETITION_VISIBILITY_OPTIONS}
         onValueChange={(visibility) =>
           updateCompetition({
             visibility: visibility as typeof competition.visibility,
@@ -144,7 +144,7 @@ export function GeneralTab() {
       <SelectField
         label="Mode"
         value={competition.mode}
-        options={HACKATHON_MODE_OPTIONS}
+        options={COMPETITION_MODE_OPTIONS}
         onValueChange={(mode) =>
           updateCompetition({
             mode: mode as typeof competition.mode,

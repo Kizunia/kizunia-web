@@ -9,15 +9,15 @@
 //       ├── data/
 //       │   ├── users.ts           ← 8 diverse user profiles
 //       │   ├── technologies.ts    ← 43 technologies across all stacks
-//       │   ├── categories.ts      ← 20 hackathon theme categories
+//       │   ├── categories.ts      ← 20 competition theme categories
 //       │   ├── badges.ts          ← 10 achievement badges
-//       │   ├── hackathons.ts      ← 25 hackathons (real-inspired + fictional)
-//       │   └── projects.ts        ← 6 projects submitted to hackathons
+//       │   ├── competitions.ts      ← 25 competitions (real-inspired + fictional)
+//       │   └── projects.ts        ← 6 projects submitted to competitions
 //       └── seeders/
 //           ├── users.seeder.ts
 //           ├── taxonomy.seeder.ts
 //           ├── user-enrichment.seeder.ts
-//           ├── hackathons.seeder.ts
+//           ├── competitions.seeder.ts
 //           ├── projects.seeder.ts
 //           └── suggestions.seeder.ts
 //
@@ -30,7 +30,7 @@ import { users } from "./seed/data/users";
 import { seedUsers } from "./seed/seeders/users.seeder";
 import { seedTaxonomy } from "./seed/seeders/taxonomy.seeder";
 import { seedUserEnrichment } from "./seed/seeders/user-enrichment.seeder";
-import { seedHackathons } from "./seed/seeders/hackathons.seeder";
+import { seedCompetitions } from "./seed/seeders/competitions.seeder";
 import { seedProjects } from "./seed/seeders/projects.seeder";
 import { seedSuggestions } from "./seed/seeders/suggestions.seeder";
 
@@ -57,8 +57,8 @@ async function main() {
   // ── Step 3: User enrichment (interests, badges, prefs) ─────
   await seedUserEnrichment(prisma, { techMap, catMap, badgeMap, userIdList });
 
-  // ── Step 4: Hackathons ─────────────────────────────────────
-  const hackathonMap = await seedHackathons(prisma, {
+  // ── Step 4: Competitions ─────────────────────────────────────
+  const competitionMap = await seedCompetitions(prisma, {
     techMap,
     catMap,
     userIdList,
@@ -70,7 +70,7 @@ async function main() {
     catMap,
     badgeMap,
     userIdList,
-    hackathonMap,
+    competitionMap,
   });
 
   // ── Step 6: Suggestions ────────────────────────────────────
@@ -78,25 +78,25 @@ async function main() {
     catMap,
     techMap,
     userIdList,
-    hackathonMap,
+    competitionMap,
   });
 
   // ── Summary ────────────────────────────────────────────────
   const counts = await Promise.all([
     prisma.user.count(),
-    prisma.hackathon.count(),
+    prisma.competition.count(),
     prisma.project.count(),
     prisma.technology.count(),
     prisma.category.count(),
     prisma.badge.count(),
-    prisma.hackathonSuggestion.count(),
-    prisma.hackathonBookmark.count(),
+    prisma.competitionSuggestion.count(),
+    prisma.competitionBookmark.count(),
   ]);
 
   console.log("\n✅ Seed Complete!\n");
   console.log("📊 Database Summary:");
   console.log(`   Users              : ${counts[0]}`);
-  console.log(`   Hackathons         : ${counts[1]}`);
+  console.log(`   Competitions         : ${counts[1]}`);
   console.log(`   Projects           : ${counts[2]}`);
   console.log(`   Technologies       : ${counts[3]}`);
   console.log(`   Categories         : ${counts[4]}`);

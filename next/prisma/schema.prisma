@@ -6,7 +6,7 @@
 // Conventions:
 // - Better Auth tables must remain compatible — do not rename their fields.
 // - Badge is generic — not limited to verification.
-// - HackathonStatus contains lifecycle values only. Moderation belongs to a future Proposal model.
+// - CompetitionStatus contains lifecycle values only. Moderation belongs to a future Proposal model.
 // - Major entities support soft delete via deletedAt.
 // - Audit fields (createdById, updatedById) use SetNull so history survives user deletion.
 
@@ -36,7 +36,7 @@ enum UserStatus {
 }
 
 // =============================================================================
-// Enums — Hackathon
+// Enums — Competition
 // =============================================================================
 enum SuggestionStatus {
   DRAFT
@@ -47,13 +47,13 @@ enum SuggestionStatus {
   WITHDRAWN
 }
 
-enum HackathonMode {
+enum CompetitionMode {
   ONLINE
   OFFLINE
   HYBRID
 }
 
-enum HackathonVisibility {
+enum CompetitionVisibility {
   PUBLIC
   UNLISTED
   PRIVATE
@@ -61,8 +61,8 @@ enum HackathonVisibility {
 }
 
 // Lifecycle-only status. Moderation workflow (draft, submitted, pending review,
-// approved) belongs to a future Proposal model — not the Hackathon itself.
-enum HackathonStatus {
+// approved) belongs to a future Proposal model — not the Competition itself.
+enum CompetitionStatus {
   UPCOMING
   REGISTRATION_OPEN
   REGISTRATION_CLOSED
@@ -71,8 +71,8 @@ enum HackathonStatus {
   CANCELLED
 }
 
-// Hackathons support multiple member roles beyond simple maintainers.
-enum HackathonMemberRole {
+// Competitions support multiple member roles beyond simple maintainers.
+enum CompetitionMemberRole {
   OWNER
   ORGANIZER
   MAINTAINER
@@ -252,18 +252,18 @@ model User {
   interests                     UserCategory[]
   notificationPref              NotificationPreference?
   badges                        UserBadge[]
-  hackathonMembers              HackathonMember[]
-  hackathonBookmarks            HackathonBookmark[]
+  competitionMembers              CompetitionMember[]
+  competitionBookmarks            CompetitionBookmark[]
   // ---------------------------------------------------------------------------
-  // Hackathon Suggestions
+  // Competition Suggestions
   // ---------------------------------------------------------------------------
-  hackathonSuggestionsSubmitted HackathonSuggestion[]   @relation("hackathonSuggestionSubmittedBy")
-  hackathonSuggestionsReviewed  HackathonSuggestion[]   @relation("hackathonSuggestionReviewedBy")
+  competitionSuggestionsSubmitted CompetitionSuggestion[]   @relation("competitionSuggestionSubmittedBy")
+  competitionSuggestionsReviewed  CompetitionSuggestion[]   @relation("competitionSuggestionReviewedBy")
   projectMembers                ProjectMember[]
 
   // Audit — entities created or last updated by this user
-  hackathonsCreated Hackathon[] @relation("hackathonCreatedBy")
-  hackathonsUpdated Hackathon[] @relation("hackathonUpdatedBy")
+  competitionsCreated Competition[] @relation("competitionCreatedBy")
+  competitionsUpdated Competition[] @relation("competitionUpdatedBy")
 
   projectsCreated Project[] @relation("projectCreatedBy")
   projectsUpdated Project[] @relation("projectUpdatedBy")
@@ -337,20 +337,20 @@ model Link {
 
   userId      String?
   user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  hackathonId String?
-  hackathon   Hackathon? @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  competitionId String?
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   projectId   String?
   project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
-  hackathonSuggestion   HackathonSuggestion? @relation(fields: [hackathonSuggestionId], references: [id])
-  hackathonSuggestionId String?
+  competitionSuggestion   CompetitionSuggestion? @relation(fields: [competitionSuggestionId], references: [id])
+  competitionSuggestionId String?
 
   @@index([userId])
-  @@index([hackathonId])
+  @@index([competitionId])
   @@index([projectId])
-  @@index([hackathonSuggestionId])
+  @@index([competitionSuggestionId])
   @@map("link")
 }
 
@@ -385,15 +385,15 @@ model Asset {
   userAvatar User[] @relation("userAvatar")
   userCover  User[] @relation("userCover")
 
-  // Hackathon
-  hackathonLogo   Hackathon[] @relation("hackathonLogo")
-  hackathonBanner Hackathon[] @relation("hackathonBanner")
-  hackathonCover  Hackathon[] @relation("hackathonCover")
+  // Competition
+  competitionLogo   Competition[] @relation("competitionLogo")
+  competitionBanner Competition[] @relation("competitionBanner")
+  competitionCover  Competition[] @relation("competitionCover")
 
   // Suggestion
-  suggestionLogo   HackathonSuggestion[] @relation("suggestionLogo")
-  suggestionBanner HackathonSuggestion[] @relation("suggestionBanner")
-  suggestionCover  HackathonSuggestion[] @relation("suggestionCover")
+  suggestionLogo   CompetitionSuggestion[] @relation("suggestionLogo")
+  suggestionBanner CompetitionSuggestion[] @relation("suggestionBanner")
+  suggestionCover  CompetitionSuggestion[] @relation("suggestionCover")
 
   // Project
   projectLogo  Project[] @relation("projectLogo")
@@ -402,7 +402,7 @@ model Asset {
   @@map("asset")
 }
 
-// Global pool of technologies/skills. Shared across Users, Projects, Hackathons.
+// Global pool of technologies/skills. Shared across Users, Projects, Competitions.
 model Technology {
   id          String  @id @default(cuid())
   name        String  @unique
@@ -411,29 +411,29 @@ model Technology {
   description String?
 
   users                           UserTechnology[]
-  hackathons                      HackathonTechnology[]
+  competitions                      CompetitionTechnology[]
   projects                        ProjectTechnology[]
-  hackathonSuggestionTechnologies HackathonSuggestionTechnology[]
+  competitionSuggestionTechnologies CompetitionSuggestionTechnology[]
 
   @@map("technology")
 }
 
-// Global pool of categories/interests. Shared across Users, Hackathons, Projects.
+// Global pool of categories/interests. Shared across Users, Competitions, Projects.
 model Category {
   id   String @id @default(cuid())
   name String @unique
   slug String @unique
 
   users                         UserCategory[]
-  hackathons                    HackathonCategory[]
+  competitions                    CompetitionCategory[]
   projects                      ProjectCategory[]
-  hackathonSuggestionCategories HackathonSuggestionCategory[]
+  competitionSuggestionCategories CompetitionSuggestionCategory[]
 
   @@map("category")
 }
 
 // Generic badge system. Not limited to verification — supports user badges,
-// project badges, and future entity badges (teams, hackathons).
+// project badges, and future entity badges (teams, competitions).
 model Badge {
   id          String  @id @default(cuid())
   name        String  @unique
@@ -495,17 +495,17 @@ model NotificationPreference {
 }
 
 // =============================================================================
-// Hackathon Domain (HD/CD)
+// Competition Domain (HD/CD)
 // =============================================================================
 
-model Hackathon {
+model Competition {
   id               String  @id @default(cuid())
   title            String
   slug             String  @unique
   shortDescription String?
 
   organizer            String?
-  mode                 HackathonMode?
+  mode                 CompetitionMode?
   location             String?
   minTeamSize          Int?
   maxTeamSize          Int?
@@ -516,48 +516,48 @@ model Hackathon {
   registrationDeadline DateTime?
   prizePool            String?
   logoAssetId          String?
-  logoAsset            Asset?         @relation("hackathonLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
+  logoAsset            Asset?         @relation("competitionLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
 
   bannerAssetId String?
-  bannerAsset   Asset?  @relation("hackathonBanner", fields: [bannerAssetId], references: [id], onDelete: SetNull)
+  bannerAsset   Asset?  @relation("competitionBanner", fields: [bannerAssetId], references: [id], onDelete: SetNull)
 
   coverAssetId String?
-  coverAsset   Asset?  @relation("hackathonCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
+  coverAsset   Asset?  @relation("competitionCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
   // documentation String? @db.Text
   contentId String?  @unique
-  content   Content? @relation("HackathonContent", fields: [contentId], references: [id], onDelete: SetNull)
+  content   Content? @relation("CompetitionContent", fields: [contentId], references: [id], onDelete: SetNull)
 
-  visibility HackathonVisibility @default(PRIVATE)
+  visibility CompetitionVisibility @default(PRIVATE)
   // Lifecycle-only. Moderation status belongs to a future Proposal model.
-  status     HackathonStatus?
+  status     CompetitionStatus?
 
-  // Audit — tracks who created and last updated this hackathon.
+  // Audit — tracks who created and last updated this competition.
   // Uses SetNull so audit history survives user deletion.
   createdById String?
-  createdBy   User?   @relation("hackathonCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation("competitionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById String?
-  updatedBy   User?   @relation("hackathonUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy   User?   @relation("competitionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   // Soft delete — rows are never permanently removed from major entities.
   deletedAt DateTime?
 
-  categories   HackathonCategory[]
-  technologies HackathonTechnology[]
-  members      HackathonMember[]
-  bookmarks    HackathonBookmark[]
-  projects     HackathonProject[]
+  categories   CompetitionCategory[]
+  technologies CompetitionTechnology[]
+  members      CompetitionMember[]
+  bookmarks    CompetitionBookmark[]
+  projects     CompetitionProject[]
 
   links Link[]
   // ---------------------------------------------------------------------------
   // Suggestions
   // ---------------------------------------------------------------------------
 
-  suggestions   HackathonSuggestion[]  @relation("hackathonSuggestionTarget")
-  // hackathonEligibilities HackathonEligibility[]
-  eligibilities HackathonEligibility[]
+  suggestions   CompetitionSuggestion[]  @relation("competitionSuggestionTarget")
+  // competitionEligibilities CompetitionEligibility[]
+  eligibilities CompetitionEligibility[]
 
   registrationPlatform RegistrationPlatform?
 
@@ -580,10 +580,10 @@ model Hackathon {
   @@index([registrationDeadline])
   @@index([createdById])
   @@index([updatedById])
-  @@map("hackathon")
+  @@map("competition")
 }
 
-model HackathonSuggestion {
+model CompetitionSuggestion {
   id String @id @default(cuid())
 
   // ===========================================================================
@@ -602,16 +602,16 @@ model HackathonSuggestion {
   // Relationships
   // ===========================================================================
 
-  // NULL => New Hackathon
-  // NOT NULL => Edit Existing Hackathon
-  hackathonId String?
-  hackathon   Hackathon? @relation("hackathonSuggestionTarget", fields: [hackathonId], references: [id], onDelete: Cascade)
+  // NULL => New Competition
+  // NOT NULL => Edit Existing Competition
+  competitionId String?
+  competition   Competition? @relation("competitionSuggestionTarget", fields: [competitionId], references: [id], onDelete: Cascade)
 
   submittedById String
-  submittedBy   User   @relation("hackathonSuggestionSubmittedBy", fields: [submittedById], references: [id], onDelete: Cascade)
+  submittedBy   User   @relation("competitionSuggestionSubmittedBy", fields: [submittedById], references: [id], onDelete: Cascade)
 
   reviewedById String?
-  reviewedBy   User?   @relation("hackathonSuggestionReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedBy   User?   @relation("competitionSuggestionReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   // ===========================================================================
   // Contributor Editable Fields
@@ -623,7 +623,7 @@ model HackathonSuggestion {
 
   organizer String?
 
-  mode HackathonMode?
+  mode CompetitionMode?
 
   location String?
 
@@ -657,8 +657,8 @@ model HackathonSuggestion {
   // Relations
   // ===========================================================================
 
-  categories   HackathonSuggestionCategory[]
-  technologies HackathonSuggestionTechnology[]
+  categories   CompetitionSuggestionCategory[]
+  technologies CompetitionSuggestionTechnology[]
 
   links       Link[]
   logoAssetId String?
@@ -673,87 +673,87 @@ model HackathonSuggestion {
   @@index([status])
   @@index([submittedById])
   @@index([reviewedById])
-  @@index([hackathonId])
+  @@index([competitionId])
   @@index([createdAt])
-  @@map("hackathon_suggestion")
+  @@map("competition_suggestion")
 }
 
-// Hackathon members with role-based access. Replaces the old HackathonMaintainer
+// Competition members with role-based access. Replaces the old CompetitionMaintainer
 // model to support multiple roles (owner, organizer, maintainer).
-model HackathonMember {
-  hackathonId String
+model CompetitionMember {
+  competitionId String
   userId      String
-  role        HackathonMemberRole @default(MAINTAINER)
+  role        CompetitionMemberRole @default(MAINTAINER)
   assignedAt  DateTime            @default(now())
-  hackathon   Hackathon           @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  competition   Competition           @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([hackathonId, userId])
-  @@map("hackathon_member")
+  @@id([competitionId, userId])
+  @@map("competition_member")
 }
 
-model HackathonCategory {
-  hackathonId String
+model CompetitionCategory {
+  competitionId String
   categoryId  String
-  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@id([hackathonId, categoryId])
-  @@map("hackathon_category")
+  @@id([competitionId, categoryId])
+  @@map("competition_category")
 }
 
-model HackathonTechnology {
-  hackathonId  String
+model CompetitionTechnology {
+  competitionId  String
   technologyId String
-  hackathon    Hackathon  @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  competition    Competition  @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
 
-  @@id([hackathonId, technologyId])
-  @@map("hackathon_technology")
+  @@id([competitionId, technologyId])
+  @@map("competition_technology")
 }
 
-model HackathonEligibility {
-  hackathonId String
+model CompetitionEligibility {
+  competitionId String
   type        EligibilityType
 
-  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
 
-  @@id([hackathonId, type])
+  @@id([competitionId, type])
   @@index([type])
-  @@map("hackathon_eligibility")
+  @@map("competition_eligibility")
 }
 
-model HackathonBookmark {
-  hackathonId String
+model CompetitionBookmark {
+  competitionId String
   userId      String
   createdAt   DateTime  @default(now())
-  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([hackathonId, userId])
-  @@map("hackathon_bookmark")
+  @@id([competitionId, userId])
+  @@map("competition_bookmark")
 }
 
-model HackathonSuggestionCategory {
+model CompetitionSuggestionCategory {
   suggestionId String
   categoryId   String
 
-  suggestion HackathonSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  suggestion CompetitionSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
   category   Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@id([suggestionId, categoryId])
-  @@map("hackathon_suggestion_category")
+  @@map("competition_suggestion_category")
 }
 
-model HackathonSuggestionTechnology {
+model CompetitionSuggestionTechnology {
   suggestionId String
   technologyId String
 
-  suggestion HackathonSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  suggestion CompetitionSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
   technology Technology          @relation(fields: [technologyId], references: [id], onDelete: Cascade)
 
   @@id([suggestionId, technologyId])
-  @@map("hackathon_suggestion_technology")
+  @@map("competition_suggestion_technology")
 }
 
 // =============================================================================
@@ -779,7 +779,7 @@ model Project {
   categories   ProjectCategory[]
   technologies ProjectTechnology[]
   badges       ProjectBadge[]
-  hackathons   HackathonProject[]
+  competitions   CompetitionProject[]
 
   links       Link[]
   logoAssetId String?
@@ -842,16 +842,16 @@ model ProjectBadge {
   @@map("project_badge")
 }
 
-// Many-to-many: a project can be submitted to multiple hackathons.
-model HackathonProject {
-  hackathonId String
+// Many-to-many: a project can be submitted to multiple competitions.
+model CompetitionProject {
+  competitionId String
   projectId   String
   submittedAt DateTime  @default(now())
-  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@id([hackathonId, projectId])
-  @@map("hackathon_project")
+  @@id([competitionId, projectId])
+  @@map("competition_project")
 }
 
 model Content {
@@ -864,7 +864,7 @@ model Content {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  hackathon Hackathon? @relation("HackathonContent")
+  competition Competition? @relation("CompetitionContent")
   project   Project?   @relation("ProjectContent")
   // team      Team?      @relation("TeamContent")
   // blog      Blog?      @relation("BlogContent")

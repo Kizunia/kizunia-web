@@ -1,5 +1,5 @@
 // prisma/seed/data/projects.ts
-// Sample projects submitted to hackathons, with varied statuses and categories.
+// Sample projects submitted to competitions, with varied statuses and categories.
 
 import type {
   ProjectVisibility,
@@ -17,8 +17,8 @@ interface ProjectSeed {
   categorySlugs: string[];
   technologySlugs: string[];
   members: { userIndex: number; role: ProjectRole }[];
-  // Hackathon slugs this project was submitted to
-  hackathonSlugs: string[];
+  // Competition slugs this project was submitted to
+  competitionSlugs: string[];
 }
 
 export const projects: ProjectSeed[] = [
@@ -35,7 +35,7 @@ export const projects: ProjectSeed[] = [
       { userIndex: 7, role: "OWNER" },
       { userIndex: 1, role: "CONTRIBUTOR" },
     ],
-    hackathonSlugs: ["medhack-healthcare-2026"],
+    competitionSlugs: ["medhack-healthcare-2026"],
   },
   {
     title: "DeFi Swap Protocol",
@@ -50,7 +50,7 @@ export const projects: ProjectSeed[] = [
       { userIndex: 2, role: "OWNER" },
       { userIndex: 4, role: "CONTRIBUTOR" },
     ],
-    hackathonSlugs: ["solana-summer-2025", "defi-builders-summit-2026"],
+    competitionSlugs: ["solana-summer-2025", "defi-builders-summit-2026"],
   },
   {
     title: "EcoTracker",
@@ -65,7 +65,7 @@ export const projects: ProjectSeed[] = [
       { userIndex: 3, role: "OWNER" },
       { userIndex: 6, role: "MAINTAINER" },
     ],
-    hackathonSlugs: ["google-solution-challenge-2026"],
+    competitionSlugs: ["google-solution-challenge-2026"],
   },
   {
     title: "DevFlow",
@@ -79,7 +79,7 @@ export const projects: ProjectSeed[] = [
     members: [
       { userIndex: 1, role: "OWNER" },
     ],
-    hackathonSlugs: ["mlh-ghw-ai-2026"],
+    competitionSlugs: ["mlh-ghw-ai-2026"],
   },
   {
     title: "CloudGuard",
@@ -94,7 +94,7 @@ export const projects: ProjectSeed[] = [
       { userIndex: 4, role: "OWNER" },
       { userIndex: 5, role: "CONTRIBUTOR" },
     ],
-    hackathonSlugs: ["aws-gameday-2026"],
+    competitionSlugs: ["aws-gameday-2026"],
   },
   {
     title: "LearnLoop",
@@ -109,6 +109,6 @@ export const projects: ProjectSeed[] = [
       { userIndex: 6, role: "OWNER" },
       { userIndex: 3, role: "CONTRIBUTOR" },
     ],
-    hackathonSlugs: ["first-hack-beginners"],
+    competitionSlugs: ["first-hack-beginners"],
   },
 ];

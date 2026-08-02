@@ -11,15 +11,15 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { SessionService } from "@/lib/auth/session";
-import { CompetitionManagementTableDTO } from "@/modules/hackathons/backend/authorization/dto";
+import { CompetitionManagementTableDTO } from "@/modules/competitions/backend/authorization/dto";
 
-import { CompetitionService } from "@/modules/hackathons/backend/service";
-import CompetitionsCards from "@/modules/hackathons/components/allCompititions/CompetitionsCards";
-import { searchCompetitionsSchema } from "@/modules/hackathons/schemas/search.schema";
-import { CompetitionSearchSchema } from "@/modules/hackathons/search/schema";
-import { CompetitionSearchResult } from "@/modules/hackathons/search/types";
+import { CompetitionService } from "@/modules/competitions/backend/service";
+import CompetitionsCards from "@/modules/competitions/components/allCompititions/CompetitionsCards";
+import { searchCompetitionsSchema } from "@/modules/competitions/schemas/search.schema";
+import { CompetitionSearchSchema } from "@/modules/competitions/search/schema";
+import { CompetitionSearchResult } from "@/modules/competitions/search/types";
 
-import { HackathonCardDTO } from "@/modules/hackathons/types/dto";
+import { CompetitionCardDTO } from "@/modules/competitions/types/dto";
 import AdminCompetitionsCards from "./_components/AdminCompetitionsCards";
 import { AuthenticationError } from "@/lib/errors";
 import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
@@ -34,7 +34,7 @@ interface Props {
 
 export default async function CompetitionsPage({ searchParams }: Props) {
   let competitions: CompetitionManagementTableDTO[] = [];
-  let pagination: CompetitionSearchResult<HackathonCardDTO>["pagination"];
+  let pagination: CompetitionSearchResult<CompetitionCardDTO>["pagination"];
   try {
     const rawSearchParams = await searchParams;
     const filters = CompetitionSearchSchema.parse(rawSearchParams);
@@ -87,7 +87,7 @@ export default async function CompetitionsPage({ searchParams }: Props) {
         </h1>
 
         <p className="max-w-2xl text-muted-foreground">
-          Discover hackathons, coding competitions, innovation challenges, and
+          Discover competitions, coding competitions, innovation challenges, and
           open opportunities from colleges and organizations.
         </p>
       </div>

@@ -1,3 +1,0 @@
-﻿/**
- * Hackathons Module - Types
- */

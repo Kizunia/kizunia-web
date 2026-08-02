@@ -1,0 +1,402 @@
+﻿/**
+ * Competitions Module - Mapper
+ *
+ * Responsible for converting between database models and DTOs.
+ * Prisma models should never be returned directly.
+ */
+import { RegistrationPlatform, type Prisma } from "@/generated/prisma";
+import type { CompetitionEditDTO, CompetitionEditDTOWithPermissions } from "../types/edit-dto";
+import type { CompetitionMemberRole } from "@/generated/prisma";
+import type {
+  CompetitionDetailDTO,
+  CompetitionWithRelations,
+  CompetitionCardDTO,
+} from "../types/dto";
+import { CompetitionRepository } from "./repository";
+import {
+  CompetitionPermissionsDTO,
+  CompetitionManagementTableDTO,
+} from "./authorization/dto";
+
+/**
+ * Prisma payload used when loading Competition cards.
+ *
+ * Keep this type in sync with the repository's `include` clause.
+ */
+type CompetitionWithAssets = Prisma.CompetitionGetPayload<{
+  include: {
+    logoAsset: true;
+    coverAsset: true;
+  };
+}>;
+
+type ManageableCompetition = Prisma.CompetitionGetPayload<{
+  include: {
+    logoAsset: true;
+    coverAsset: true;
+
+    members: true;
+
+    _count: {
+      select: {
+        members: true;
+      };
+    };
+  };
+}>;
+
+export class CompetitionMapper {
+  /**
+   * Converts a Prisma Competition model into a UI-friendly public DTO.\
+   */
+  toCardDTO(competition: CompetitionWithAssets): CompetitionCardDTO {
+    return {
+      id: competition.id,
+      slug: competition.slug,
+      title: competition.title,
+      shortDescription: competition.shortDescription,
+      organizer: competition.organizer,
+      registrationPlatform: competition.registrationPlatform,
+      mode: competition.mode,
+      startDate: competition.startDate,
+      logoUrl: competition.logoAsset?.secureUrl ?? null,
+      coverUrl: competition.coverAsset?.secureUrl ?? null,
+      location: competition.location,
+      registrationDeadline: competition.registrationDeadline,
+      minTeamSize: competition.minTeamSize,
+      maxTeamSize: competition.maxTeamSize,
+      status: competition.status,
+      registrationFeeType: competition.registrationFeeType,
+    };
+  }
+
+  toDetailDTO(competition: CompetitionWithRelations): CompetitionDetailDTO {
+    // public DTO for competition details
+    return {
+      ...competition,
+    };
+  }
+
+  /**
+   * Converts multiple Competitions.
+   */
+  toCardDTOs(competitions: CompetitionWithAssets[]): CompetitionCardDTO[] {
+    return competitions.map((competition) => this.toCardDTO(competition));
+  }
+
+  toManagementTableDTO(params: {
+    // for competition management table for competition orgs/owner/maintainers
+    competition: ManageableCompetition;
+    role: CompetitionMemberRole;
+    permissions: CompetitionPermissionsDTO;
+  }): CompetitionManagementTableDTO {
+    const { competition, role, permissions } = params;
+
+    return {
+      id: competition.id,
+
+      slug: competition.slug,
+
+      title: competition.title,
+
+      organizer: competition.organizer,
+
+      logoUrl: competition.logoAsset?.secureUrl ?? null,
+
+      status: competition.status,
+
+      visibility: competition.visibility,
+
+      role,
+
+      memberCount: competition._count.members,
+
+      registrationDeadline: competition.registrationDeadline,
+
+      updatedAt: competition.updatedAt,
+
+      permissions,
+    };
+  }
+  toManagementTableDTOs(
+    competitions: ManageableCompetition[],
+  ): CompetitionManagementTableDTO[] {
+    throw new Error("Use the service to map management DTOs.");
+  }
+
+    toEditDTO(params: {
+    // for competition management table for competition orgs/owner/maintainers
+    competition: Awaited<
+      ReturnType<typeof CompetitionRepository.findByIdForEdit>
+    >;
+  
+  }): CompetitionEditDTO {
+    const { competition } = params;
+
+    return {
+      id: competition.id,
+
+      title: competition.title,
+      slug: competition.slug,
+      shortDescription: competition.shortDescription,
+
+      organizer: competition.organizer,
+
+      website: competition.website,
+
+      registrationLink: competition.registrationLink,
+
+      content: competition.content?.content ?? "",
+
+      mode: competition.mode,
+
+      visibility: competition.visibility,
+
+      status: competition.status,
+
+      location: competition.location,
+
+      prizePool: competition.prizePool?.toString() ?? null,
+
+      minTeamSize: competition.minTeamSize,
+
+      maxTeamSize: competition.maxTeamSize,
+
+      registrationDeadline:
+        competition.registrationDeadline?.toISOString() ?? null,
+
+      startDate: competition.startDate?.toISOString() ?? null,
+
+      endDate: competition.endDate?.toISOString() ?? null,
+
+      registrationPlatform: competition.registrationPlatform,
+
+      registrationFee: competition.registrationFee,
+
+      registrationFeeType: competition.registrationFeeType,
+
+      organizerType: competition.organizerType,
+
+      difficulty: competition.difficulty,
+
+      certificateType: competition.certificateType,
+
+      logoAsset: competition.logoAsset
+        ? {
+            secureUrl: competition.logoAsset.secureUrl,
+          }
+        : null,
+
+      coverAsset: competition.coverAsset
+        ? {
+            secureUrl: competition.coverAsset.secureUrl,
+          }
+        : null,
+
+      bannerAsset: competition.bannerAsset
+        ? {
+            secureUrl: competition.bannerAsset.secureUrl,
+          }
+        : null,
+
+      categories: competition.categories.map((c) => ({
+        id: c.category.id,
+        name: c.category.name,
+        slug: c.category.slug,
+      })),
+
+      technologies: competition.technologies.map((t) => ({
+        id: t.technology.id,
+        name: t.technology.name,
+        slug: t.technology.slug,
+      })),
+
+  
+    };
+  }
+
+
+  toEditDTOWithPermissions(params: {
+    // for competition management table for competition orgs/owner/maintainers
+    competition: Awaited<
+      ReturnType<typeof CompetitionRepository.findByIdForEdit>
+    >;
+    role: CompetitionMemberRole | null;
+    permissions: CompetitionPermissionsDTO;
+  }): CompetitionEditDTOWithPermissions {
+    const { competition, role, permissions } = params;
+
+    return {
+      id: competition.id,
+
+      title: competition.title,
+      slug: competition.slug,
+      shortDescription: competition.shortDescription,
+
+      organizer: competition.organizer,
+
+      website: competition.website,
+
+      registrationLink: competition.registrationLink,
+
+      content: competition.content?.content ?? "",
+
+      mode: competition.mode,
+
+      visibility: competition.visibility,
+
+      status: competition.status,
+
+      location: competition.location,
+
+      prizePool: competition.prizePool?.toString() ?? null,
+
+      minTeamSize: competition.minTeamSize,
+
+      maxTeamSize: competition.maxTeamSize,
+
+      registrationDeadline:
+        competition.registrationDeadline?.toISOString() ?? null,
+
+      startDate: competition.startDate?.toISOString() ?? null,
+
+      endDate: competition.endDate?.toISOString() ?? null,
+
+      registrationPlatform: competition.registrationPlatform,
+
+      registrationFee: competition.registrationFee,
+
+      registrationFeeType: competition.registrationFeeType,
+
+      organizerType: competition.organizerType,
+
+      difficulty: competition.difficulty,
+
+      certificateType: competition.certificateType,
+
+      logoAsset: competition.logoAsset
+        ? {
+            secureUrl: competition.logoAsset.secureUrl,
+          }
+        : null,
+
+      coverAsset: competition.coverAsset
+        ? {
+            secureUrl: competition.coverAsset.secureUrl,
+          }
+        : null,
+
+      bannerAsset: competition.bannerAsset
+        ? {
+            secureUrl: competition.bannerAsset.secureUrl,
+          }
+        : null,
+
+      categories: competition.categories.map((c) => ({
+        id: c.category.id,
+        name: c.category.name,
+        slug: c.category.slug,
+      })),
+
+      technologies: competition.technologies.map((t) => ({
+        id: t.technology.id,
+        name: t.technology.name,
+        slug: t.technology.slug,
+      })),
+
+      role,
+      permissions,
+      updatedAt: competition.updatedAt,
+    };
+  }
+
+  
+
+  // toEditDTO(
+  //   // admin DTO for competition edit
+  //   competition: Awaited<
+  //     ReturnType<typeof CompetitionRepository.findByIdForEdit>
+  //   >,
+  // ): CompetitionEditDTO {
+  //   return {
+  //     id: competition.id,
+
+  //     title: competition.title,
+  //     slug: competition.slug,
+  //     shortDescription: competition.shortDescription,
+
+  //     organizer: competition.organizer,
+
+  //     website: competition.website,
+
+  //     registrationLink: competition.registrationLink,
+
+  //     content: competition.content?.content ?? "",
+
+  //     mode: competition.mode,
+
+  //     visibility: competition.visibility,
+
+  //     status: competition.status,
+
+  //     location: competition.location,
+
+  //     prizePool: competition.prizePool?.toString() ?? null,
+
+  //     minTeamSize: competition.minTeamSize,
+
+  //     maxTeamSize: competition.maxTeamSize,
+
+  //     registrationDeadline:
+  //       competition.registrationDeadline?.toISOString() ?? null,
+
+  //     startDate: competition.startDate?.toISOString() ?? null,
+
+  //     endDate: competition.endDate?.toISOString() ?? null,
+
+  //     registrationPlatform: competition.registrationPlatform,
+
+  //     registrationFee: competition.registrationFee,
+
+  //     registrationFeeType: competition.registrationFeeType,
+
+  //     organizerType: competition.organizerType,
+
+  //     difficulty: competition.difficulty,
+
+  //     certificateType: competition.certificateType,
+
+  //     logoAsset: competition.logoAsset
+  //       ? {
+  //           secureUrl: competition.logoAsset.secureUrl,
+  //         }
+  //       : null,
+
+  //     coverAsset: competition.coverAsset
+  //       ? {
+  //           secureUrl: competition.coverAsset.secureUrl,
+  //         }
+  //       : null,
+
+  //     bannerAsset: competition.bannerAsset
+  //       ? {
+  //           secureUrl: competition.bannerAsset.secureUrl,
+  //         }
+  //       : null,
+
+  //     categories: competition.categories.map((c) => ({
+  //       id: c.category.id,
+  //       name: c.category.name,
+  //       slug: c.category.slug,
+  //     })),
+
+  //     technologies: competition.technologies.map((t) => ({
+  //       id: t.technology.id,
+  //       name: t.technology.name,
+  //       slug: t.technology.slug,
+  //     })),
+  //   };
+  // }
+}
+
+export const competitionMapper = new CompetitionMapper();

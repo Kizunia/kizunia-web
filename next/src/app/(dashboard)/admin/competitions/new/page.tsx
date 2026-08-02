@@ -1,5 +1,5 @@
 import PageWrapper from "@/components/page-wrapper";
-import CreateCompititionForm from "@/modules/hackathons/components/create-compitition-form";
+import CreateCompititionForm from "@/modules/competitions/components/create-compitition-form";
 
 
 export default function CreateCompititionPage() {
@@ -7,11 +7,11 @@ export default function CreateCompititionPage() {
         <PageWrapper >
             <div className="space-y-2">
                 <h1 className="text-3xl font-bold tracking-tight">
-                    Create Hackathon
+                    Create Competition
                 </h1>
 
                 <p className="text-muted-foreground">
-                    Add a new hackathon to the Kizunia platform.
+                    Add a new competition to the Kizunia platform.
                 </p>
             </div>
 

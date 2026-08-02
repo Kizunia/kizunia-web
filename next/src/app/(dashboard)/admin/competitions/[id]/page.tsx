@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { CompetitionFacade } from "@/modules/hackathons/backend/facade";
+import { CompetitionFacade } from "@/modules/competitions/backend/facade";
 import { CompetitionEditor } from "@/components/admin/competition-editor/competition-editor";
 import PageWrapper from "@/components/page-wrapper";
 //location,  all the dates

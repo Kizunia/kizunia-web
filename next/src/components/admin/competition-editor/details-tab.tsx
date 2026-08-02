@@ -1,6 +1,6 @@
 "use client";
 
-import { useCompetitionEditorStore } from "@/modules/hackathons/store/editor-store";
+import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 
 export function DetailsTab() {
   const competition = useCompetitionEditorStore(

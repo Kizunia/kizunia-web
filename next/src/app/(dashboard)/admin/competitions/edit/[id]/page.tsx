@@ -1,7 +1,7 @@
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 
-import UpdateHackathonForm from "./_components/UpdateHackathonForm";
+import UpdateCompetitionForm from "./_components/UpdateCompetitionForm";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -28,5 +28,5 @@ export default async function Page({
          
     </Card>
   )
-  return <UpdateHackathonForm hackathonId={id} />;
+  return <UpdateCompetitionForm competitionId={id} />;
 }
