@@ -1,5 +1,5 @@
 // prisma/seed/data/users.ts
-// Diverse user profiles to test user filters and hackathon member roles.
+// Diverse user profiles to test user filters and competition member roles.
 
 export const users = [
   {
@@ -9,8 +9,8 @@ export const users = [
     username: "priya",
     displayUsername: "Priya",
     role: "admin",
-    headline: "Full-Stack Developer & Hackathon Organizer",
-    bio: "Building the future of developer communities. 10+ hackathons organized.",
+    headline: "Full-Stack Developer & Competition Organizer",
+    bio: "Building the future of developer communities. 10+ competitions organized.",
     college: "IIT Bombay",
     degree: "B.Tech Computer Science",
     graduationYear: 2023,
@@ -52,7 +52,7 @@ export const users = [
     displayUsername: "RahulV",
     role: "user",
     headline: "Flutter & Mobile Dev",
-    bio: "Cross-platform enthusiast. 3x hackathon winner.",
+    bio: "Cross-platform enthusiast. 3x competition winner.",
     college: "VIT Pune",
     degree: "B.Tech IT",
     graduationYear: 2026,

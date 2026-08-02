@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useCompetitionEditorStore } from "@/modules/hackathons/store/editor-store";
+import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 
 export function DangerTab() {
   const competition = useCompetitionEditorStore(

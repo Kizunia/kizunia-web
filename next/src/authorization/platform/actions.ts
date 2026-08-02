@@ -1,5 +1,5 @@
 export enum PlatformAction {
-  CREATE_HACKATHON = "CREATE_HACKATHON", //TODO: change to competition
+  CREATE_COMPETITION = "CREATE_COMPETITION", //TODO: change to competition
   VIEW_ALL_COMPETITIONS = "VIEW_ALL_COMPETITIONS",
   MANAGE_USERS = "MANAGE_USERS",
 

@@ -2,7 +2,7 @@
 
 import { ForwardRefEditor } from "@/components/shared/mdx/ForwardRefEditor";
 import { ForwardRefMdxViewer } from "@/components/shared/mdx/ForwardRefMdxViewer";
-import { useCompetitionEditorStore } from "@/modules/hackathons/store/editor-store";
+import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { Suspense } from "react";
 
 export function DocumentationTab() {

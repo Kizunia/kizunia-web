@@ -1,6 +1,6 @@
 "use client";
 import { SaveBar } from "./save-bar";
-import { CompetitionEditDTOWithPermissions } from "@/modules/hackathons/types/edit-dto";
+import { CompetitionEditDTOWithPermissions } from "@/modules/competitions/types/edit-dto";
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { GeneralTab } from "./general-tab";
 import { DocumentationTab } from "./documentation-tab";
 import { DetailsTab } from "./details-tab";
-import { useCompetitionEditorStore } from "@/modules/hackathons/store/editor-store";
+import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { DangerTab } from "./danger-tab";
 
 export function CompetitionEditor({

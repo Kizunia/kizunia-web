@@ -1,4 +1,4 @@
-import { CompetitionController } from "@/modules/hackathons/backend/controller";
+import { CompetitionController } from "@/modules/competitions/backend/controller";
 import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {

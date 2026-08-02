@@ -1,5 +1,5 @@
 // prisma/seed/data/categories.ts
-// Diverse categories covering major hackathon themes and interest areas.
+// Diverse categories covering major competition themes and interest areas.
 
 export const categories = [
   { name: "Artificial Intelligence", slug: "ai" },

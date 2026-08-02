@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import ReusableImageUploader from "@/components/cloudinary/imageUploader/reusableImageUploader";
 
-import { CompetitionApi } from "@/modules/hackathons/api/hackathon-api";
-import { useCompetitionEditorStore } from "@/modules/hackathons/store/editor-store";
+import { CompetitionApi } from "@/modules/competitions/api/competition-api";
+import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { Button } from "@/components/ui/button";
 
 export function AssetsTab() {
@@ -32,9 +32,9 @@ export function AssetsTab() {
         </DialogTrigger>
         <DialogContent>
           <ReusableImageUploader
-            title="Hackathon Logo"
+            title="Competition Logo"
             initialImage={competition.logoAsset?.secureUrl ?? ""}
-            cloudinaryFolder={`hackathons/${competition.id}/logo`}
+            cloudinaryFolder={`competitions/${competition.id}/logo`}
             customCropShape="rect"
             accept="image/*"
             onUpload={async (_, info) => {
@@ -87,9 +87,9 @@ export function AssetsTab() {
         </DialogTrigger>
         <DialogContent>
           <ReusableImageUploader
-            title="Hackathon Banner"
+            title="Competition Banner"
             initialImage={competition.bannerAsset?.secureUrl ?? ""}
-            cloudinaryFolder={`kizunia/hackathons/${competition.id}/banner`}
+            cloudinaryFolder={`kizunia/competitions/${competition.id}/banner`}
             customCropShape="rect"
             aspectRatio={16 / 9}
             accept="image/*"

@@ -27,7 +27,7 @@ const userEnrichments: {
     index: 1, // Arjun — ML engineer
     technologies: ["python", "pytorch", "tensorflow", "langchain", "openai-api", "fastapi"],
     categories: ["ai", "ml", "genai-llms", "data-science"],
-    badges: ["Hackathon Winner", "Rising Star", "Early Adopter"],
+    badges: ["Competition Winner", "Rising Star", "Early Adopter"],
   },
   {
     index: 2, // Sara — blockchain dev
@@ -39,7 +39,7 @@ const userEnrichments: {
     index: 3, // Rahul — Flutter / mobile
     technologies: ["flutter", "react-native", "kotlin", "firebase", "dart"],
     categories: ["mobile-dev", "iot", "sustainability"],
-    badges: ["3x Winner", "Hackathon Winner"],
+    badges: ["3x Winner", "Competition Winner"],
   },
   {
     index: 4, // Emily — DevOps / cloud
@@ -51,7 +51,7 @@ const userEnrichments: {
     index: 5, // Karthik — cybersecurity
     technologies: ["python", "rust", "docker"],
     categories: ["cybersecurity", "open-source"],
-    badges: ["Bug Hunter", "Hackathon Winner"],
+    badges: ["Bug Hunter", "Competition Winner"],
   },
   {
     index: 6, // Aisha — designer / frontend
@@ -114,8 +114,8 @@ export async function seedUserEnrichment(
           emailNotifications: true,
           pushNotifications: enrichment.index < 4, // first 4 users have push on
           preferences: {
-            hackathonReminders: true,
-            newHackathons: enrichment.index % 2 === 0,
+            competitionReminders: true,
+            newCompetitions: enrichment.index % 2 === 0,
             weeklyDigest: true,
           },
         },

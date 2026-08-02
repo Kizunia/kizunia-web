@@ -15,13 +15,13 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ForwardRefEditor } from "@/components/shared/mdx/ForwardRefEditor";
 import { Suspense } from "react";
-import { CompetitionApi } from "@/modules/hackathons/api/hackathon-api";
+import { CompetitionApi } from "@/modules/competitions/api/competition-api";
 import { ForwardRefMdxViewer } from "@/components/shared/mdx/ForwardRefMdxViewer";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ApiError } from "@/lib/http";
-import { HackathonErrorCode } from "@/modules/hackathons/errors/error-code";
+import { CompetitionErrorCode } from "@/modules/competitions/errors/error-code";
 export default async function CompetitionPage({
   params,
   searchParams,
@@ -40,9 +40,9 @@ export default async function CompetitionPage({
   } catch (error) {
     if (error instanceof ApiError) {
       if (
-        error.code == HackathonErrorCode.NOT_FOUND ||
-        error.code == HackathonErrorCode.ARCHIVED ||
-        error.code == HackathonErrorCode.DELETED
+        error.code == CompetitionErrorCode.NOT_FOUND ||
+        error.code == CompetitionErrorCode.ARCHIVED ||
+        error.code == CompetitionErrorCode.DELETED
       )
         notFound();
     } else {

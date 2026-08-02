@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-import { CompetitionController } from "@/modules/hackathons/backend/controller";
+import { CompetitionController } from "@/modules/competitions/backend/controller";
 
 interface RouteContext {
   params: Promise<{
