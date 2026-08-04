@@ -205,6 +205,13 @@ enum LinkType {
   OTHER
 }
 
+//portfolio
+enum PortfolioVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
 // =============================================================================
 // Better Auth Models — DO NOT MODIFY unless absolutely necessary
 // =============================================================================
@@ -230,14 +237,14 @@ model User {
   // --- Kizunia Custom Fields ---
 
   // Profile
-  headline       String?
-  bio            String?
-  college        String?
-  degree         String?
-  graduationYear Int?
-  location       String?
-  avatarAssetId  String?
-  avatarAsset    Asset?  @relation("userAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
+  // headline       String?
+  // bio            String?
+  // college        String?
+  // degree         String?
+  // graduationYear Int?
+  // location       String?
+  avatarAssetId String?
+  avatarAsset   Asset?  @relation("userAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
 
   coverAssetId String?
   coverAsset   Asset?  @relation("userCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
@@ -247,19 +254,20 @@ model User {
   status     UserStatus     @default(ACTIVE)
 
   // Relationships
-  links                         Link[]
-  technologies                  UserTechnology[]
-  interests                     UserCategory[]
-  notificationPref              NotificationPreference?
-  badges                        UserBadge[]
+  links                           Link[]
+  technologies                    UserTechnology[]
+  interests                       UserCategory[]
+  notificationPref                NotificationPreference?
+  badges                          UserBadge[]
   competitionMembers              CompetitionMember[]
   competitionBookmarks            CompetitionBookmark[]
+  portfolio                       Portfolio?
   // ---------------------------------------------------------------------------
   // Competition Suggestions
   // ---------------------------------------------------------------------------
-  competitionSuggestionsSubmitted CompetitionSuggestion[]   @relation("competitionSuggestionSubmittedBy")
-  competitionSuggestionsReviewed  CompetitionSuggestion[]   @relation("competitionSuggestionReviewedBy")
-  projectMembers                ProjectMember[]
+  competitionSuggestionsSubmitted CompetitionSuggestion[] @relation("competitionSuggestionSubmittedBy")
+  competitionSuggestionsReviewed  CompetitionSuggestion[] @relation("competitionSuggestionReviewedBy")
+  projectMembers                  ProjectMember[]
 
   // Audit — entities created or last updated by this user
   competitionsCreated Competition[] @relation("competitionCreatedBy")
@@ -335,20 +343,25 @@ model Link {
   type  LinkType
   order Int      @default(0)
 
-  userId      String?
-  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   competitionId String?
   competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  projectId   String?
-  project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId     String?
+  project       Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
   competitionSuggestion   CompetitionSuggestion? @relation(fields: [competitionSuggestionId], references: [id])
   competitionSuggestionId String?
 
+  portfolioId String?
+
+  portfolio Portfolio? @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([competitionId])
+  @@index([portfolioId])
   @@index([projectId])
   @@index([competitionSuggestionId])
   @@map("link")
@@ -381,6 +394,8 @@ model Asset {
 
   updatedAt DateTime @updatedAt
 
+  badgeIcons Badge[] @relation("badgeIcon")
+
   // User
   userAvatar User[] @relation("userAvatar")
   userCover  User[] @relation("userCover")
@@ -399,6 +414,19 @@ model Asset {
   projectLogo  Project[] @relation("projectLogo")
   projectCover Project[] @relation("projectCover")
 
+  //portfolio
+  portfolioResume Portfolio[] @relation("portfolioResume")
+
+  educationInstitutionLogos PortfolioEducation[] @relation("educationInstitutionLogo")
+
+  experienceCompanyLogos PortfolioExperience[] @relation("experienceCompanyLogo")
+
+  achievementAssets PortfolioAchievement[] @relation("achievementAsset")
+
+  certificationAssets PortfolioCertification[] @relation("certificationAsset")
+
+  testimonialImages Testimonial[] @relation("testimonialImage")
+
   @@map("asset")
 }
 
@@ -410,10 +438,11 @@ model Technology {
   iconUrl     String?
   description String?
 
-  users                           UserTechnology[]
+  users                             UserTechnology[]
   competitions                      CompetitionTechnology[]
-  projects                        ProjectTechnology[]
+  projects                          ProjectTechnology[]
   competitionSuggestionTechnologies CompetitionSuggestionTechnology[]
+  portfolioTechnologies             PortfolioTechnology[]
 
   @@map("technology")
 }
@@ -424,9 +453,9 @@ model Category {
   name String @unique
   slug String @unique
 
-  users                         UserCategory[]
+  users                           UserCategory[]
   competitions                    CompetitionCategory[]
-  projects                      ProjectCategory[]
+  projects                        ProjectCategory[]
   competitionSuggestionCategories CompetitionSuggestionCategory[]
 
   @@map("category")
@@ -438,7 +467,9 @@ model Badge {
   id          String  @id @default(cuid())
   name        String  @unique
   description String?
-  iconUrl     String?
+  iconAssetId String?
+
+  iconAsset Asset? @relation("badgeIcon", fields: [iconAssetId], references: [id], onDelete: SetNull)
 
   users    UserBadge[]
   projects ProjectBadge[]
@@ -516,7 +547,7 @@ model Competition {
   registrationDeadline DateTime?
   prizePool            String?
   logoAssetId          String?
-  logoAsset            Asset?         @relation("competitionLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
+  logoAsset            Asset?           @relation("competitionLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
 
   bannerAssetId String?
   bannerAsset   Asset?  @relation("competitionBanner", fields: [bannerAssetId], references: [id], onDelete: SetNull)
@@ -682,11 +713,11 @@ model CompetitionSuggestion {
 // model to support multiple roles (owner, organizer, maintainer).
 model CompetitionMember {
   competitionId String
-  userId      String
-  role        CompetitionMemberRole @default(MAINTAINER)
-  assignedAt  DateTime            @default(now())
+  userId        String
+  role          CompetitionMemberRole @default(MAINTAINER)
+  assignedAt    DateTime              @default(now())
   competition   Competition           @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([competitionId, userId])
   @@map("competition_member")
@@ -694,19 +725,19 @@ model CompetitionMember {
 
 model CompetitionCategory {
   competitionId String
-  categoryId  String
+  categoryId    String
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@id([competitionId, categoryId])
   @@map("competition_category")
 }
 
 model CompetitionTechnology {
-  competitionId  String
-  technologyId String
-  competition    Competition  @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+  competitionId String
+  technologyId  String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  technology    Technology  @relation(fields: [technologyId], references: [id], onDelete: Cascade)
 
   @@id([competitionId, technologyId])
   @@map("competition_technology")
@@ -714,7 +745,7 @@ model CompetitionTechnology {
 
 model CompetitionEligibility {
   competitionId String
-  type        EligibilityType
+  type          EligibilityType
 
   competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
 
@@ -725,10 +756,10 @@ model CompetitionEligibility {
 
 model CompetitionBookmark {
   competitionId String
-  userId      String
-  createdAt   DateTime  @default(now())
+  userId        String
+  createdAt     DateTime    @default(now())
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([competitionId, userId])
   @@map("competition_bookmark")
@@ -739,7 +770,7 @@ model CompetitionSuggestionCategory {
   categoryId   String
 
   suggestion CompetitionSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
-  category   Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category   Category              @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@id([suggestionId, categoryId])
   @@map("competition_suggestion_category")
@@ -750,7 +781,7 @@ model CompetitionSuggestionTechnology {
   technologyId String
 
   suggestion CompetitionSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
-  technology Technology          @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+  technology Technology            @relation(fields: [technologyId], references: [id], onDelete: Cascade)
 
   @@id([suggestionId, technologyId])
   @@map("competition_suggestion_technology")
@@ -766,7 +797,6 @@ model Project {
   slug             String @unique
   shortDescription String
 
-  // documentation String? @db.Text
   contentId String?  @unique
   content   Content? @relation("ProjectContent", fields: [contentId], references: [id], onDelete: SetNull)
 
@@ -779,7 +809,7 @@ model Project {
   categories   ProjectCategory[]
   technologies ProjectTechnology[]
   badges       ProjectBadge[]
-  competitions   CompetitionProject[]
+  competitions CompetitionProject[]
 
   links       Link[]
   logoAssetId String?
@@ -788,13 +818,19 @@ model Project {
   coverAssetId String?
   coverAsset   Asset?  @relation("projectCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
+  startDate DateTime?
+
+  endDate DateTime?
+
   createdById String?
   createdBy   User?   @relation("projectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   updatedById String?
   updatedBy   User?   @relation("projectUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  deletedAt DateTime?
+  deletedAt            DateTime?
+  portfolios           PortfolioProject[]
+  testimonials         Testimonial[]      @relation("projectTestimonials")
 
   @@map("project")
 }
@@ -845,14 +881,290 @@ model ProjectBadge {
 // Many-to-many: a project can be submitted to multiple competitions.
 model CompetitionProject {
   competitionId String
-  projectId   String
-  submittedAt DateTime  @default(now())
+  projectId     String
+  submittedAt   DateTime    @default(now())
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@id([competitionId, projectId])
   @@map("competition_project")
 }
+
+model PortfolioProject {
+  portfolioId String
+  projectId   String
+
+  featured Boolean @default(false)
+
+  hidden Boolean @default(false)
+
+  displayOrder Int @default(100)
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@id([portfolioId, projectId])
+  @@index([portfolioId, displayOrder])
+  @@map("portfolio_project")
+}
+
+//portfolio
+model Portfolio {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  headline String?
+  about    String? @db.Text
+
+  email        String?
+  phone        String?
+  publicContactEmail String?
+  website      String?
+  location     String?
+
+  visibility PortfolioVisibility @default(PUBLIC)
+
+  settings PortfolioSettings?
+
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  links Link[]
+
+  technologies PortfolioTechnology[]
+
+  education PortfolioEducation[]
+
+  experience PortfolioExperience[]
+
+  achievements PortfolioAchievement[]
+
+  certifications PortfolioCertification[]
+
+  testimonials Testimonial[] @relation("portfolioTestimonials")
+
+  resumeAssetId String?
+
+  resumeAsset Asset?             @relation("portfolioResume", fields: [resumeAssetId], references: [id], onDelete: SetNull)
+  projects    PortfolioProject[]
+
+  @@index([visibility])
+  @@index([deletedAt])
+  @@map("portfolio")
+}
+
+model PortfolioSettings {
+  id String @id @default(cuid())
+
+  theme String @default("default")
+
+  accentColor String @default("blue")
+
+  sectionOrder Json?
+
+  hiddenSections Json?
+
+  timelineConfig Json?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  portfolioId String @unique
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@map("portfolio_settings")
+}
+
+model PortfolioTechnology {
+  portfolioId String
+
+  technologyId String
+
+  startedUsingAt DateTime?
+
+  description String? @db.Text
+
+  displayOrder Int @default(0)
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  technology Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@id([portfolioId, technologyId])
+  @@map("portfolio_technology")
+}
+
+model PortfolioEducation {
+  id String @id @default(cuid())
+
+  portfolioId String
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  institution String
+
+  degree String?
+
+  fieldOfStudy String?
+
+  grade String?
+
+  description String? @db.Text
+
+  startDate DateTime?
+
+  endDate DateTime?
+
+  currentlyStudying Boolean @default(false)
+
+  institutionLogoAssetId String?
+
+  // institutionLogoAsset Asset? @relation(fields: [institutionLogoAssetId], references: [id], onDelete: SetNull)
+  institutionLogoAsset Asset? @relation("educationInstitutionLogo", fields: [institutionLogoAssetId], references: [id], onDelete: SetNull)
+
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@map("portfolio_education")
+}
+
+model PortfolioExperience {
+  id String @id @default(cuid())
+
+  portfolioId String
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  company String
+
+  position String
+
+  employmentType String?
+
+  location String?
+
+  description String? @db.Text
+
+  startDate DateTime?
+
+  endDate DateTime?
+
+  currentlyWorking Boolean @default(false)
+
+  companyLogoAssetId String?
+
+  companyLogoAsset Asset? @relation("experienceCompanyLogo", fields: [companyLogoAssetId], references: [id], onDelete: SetNull)
+
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@map("portfolio_experience")
+}
+
+model PortfolioAchievement {
+  id String @id @default(cuid())
+
+  portfolioId String
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  title String
+
+  description String? @db.Text
+
+  achievedAt DateTime?
+
+  assetId String?
+
+  asset Asset? @relation("achievementAsset", fields: [assetId], references: [id], onDelete: SetNull)
+
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@map("portfolio_achievement")
+}
+
+model PortfolioCertification {
+  id String @id @default(cuid())
+
+  portfolioId String
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  title String
+
+  issuer String
+
+  issueDate DateTime?
+
+  expiryDate DateTime?
+
+  credentialId String?
+
+  credentialUrl String?
+
+  assetId String?
+
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  asset     Asset?   @relation("certificationAsset", fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@map("portfolio_certification")
+}
+
+model Testimonial {
+  id String @id @default(cuid())
+
+  name String
+
+  position String?
+
+  company String?
+  displayOrder Int @default(100)
+
+  message String @db.Text
+
+  rating Int?
+
+  imageAssetId String?
+
+  imageAsset Asset? @relation("testimonialImage", fields: [imageAssetId], references: [id], onDelete: SetNull)
+
+  portfolioId String?
+
+  portfolio Portfolio? @relation("portfolioTestimonials", fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  projectId String?
+
+  project Project? @relation("projectTestimonials", fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@map("testimonial")
+}
+
+// content
 
 model Content {
   id String @id @default(cuid())
@@ -865,7 +1177,7 @@ model Content {
   updatedAt DateTime @updatedAt
 
   competition Competition? @relation("CompetitionContent")
-  project   Project?   @relation("ProjectContent")
+  project     Project?     @relation("ProjectContent")
   // team      Team?      @relation("TeamContent")
   // blog      Blog?      @relation("BlogContent")
 }
