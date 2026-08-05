@@ -17,15 +17,15 @@ export interface CreateProjectDto {
 
   coverAssetId?: string;
 
-  categoryIds: string[];
+  categoryIds?: string[];
 
-  technologyIds: string[];
+  technologyIds?: string[];
 
-  badgeIds: string[];
+  badgeIds?: string[];
 
-  linkIds: string[];
+  linkIds?: string[];
 
-  startDate?: Date;
+  startDate?: Date | null;
 
-  endDate?: Date;
+  endDate?: Date | null;
 }

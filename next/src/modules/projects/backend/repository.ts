@@ -9,6 +9,35 @@ import { Prisma, PrismaClient, Project } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
 import { ProjectQueryDto } from "../search";
 
+const projectSummarySelect = {
+  id: true,
+
+  title: true,
+
+  slug: true,
+
+  shortDescription: true,
+
+  visibility: true,
+
+  status: true,
+
+  startDate: true,
+
+  endDate: true,
+
+  logoAsset: {
+    select: {
+      id: true,
+      secureUrl: true,
+      width: true,
+      height: true,
+      format: true,
+      mimeType: true,
+    },
+  },
+} satisfies Prisma.ProjectSelect;
+
 const projectDetailsInclude = {
   content: true,
 
@@ -18,13 +47,47 @@ const projectDetailsInclude = {
     },
   },
 
-  logoAsset: true,
-
-  coverAsset: true,
+  logoAsset: {
+    select: {
+      id: true,
+      secureUrl: true,
+      width: true,
+      height: true,
+      format: true,
+      mimeType: true,
+    },
+  },
+  coverAsset: {
+    select: {
+      id: true,
+      secureUrl: true,
+      width: true,
+      height: true,
+      format: true,
+      mimeType: true,
+    },
+  },
 
   members: {
+    orderBy: {
+      joinedAt: "asc",
+    },
+
     include: {
-      user: true,
+      user: {
+        include: {
+          avatarAsset: {
+            select: {
+              id: true,
+              secureUrl: true,
+              width: true,
+              height: true,
+              format: true,
+              mimeType: true,
+            },
+          },
+        },
+      },
     },
   },
 
@@ -37,30 +100,91 @@ const projectDetailsInclude = {
   technologies: {
     include: {
       technology: true,
+      // role: true,
+      // content: true,
     },
   },
 
   badges: {
+    orderBy: {
+      issuedAt: "desc",
+    },
+
     include: {
       badge: {
         include: {
-          iconAsset: true,
+          iconAsset: {
+            select: {
+              id: true,
+              secureUrl: true,
+              width: true,
+              height: true,
+              format: true,
+              mimeType: true,
+            },
+          },
         },
       },
     },
   },
 
   competitions: {
+    orderBy: {
+      submittedAt: "desc",
+    },
+
     include: {
       competition: true,
     },
   },
 
-  testimonials: true,
+  testimonials: {
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      imageAsset: {
+        select: {
+          id: true,
+          secureUrl: true,
+          width: true,
+          height: true,
+          format: true,
+          mimeType: true,
+        },
+      },
+    },
+  },
 
-  createdBy: true,
+  createdBy: {
+    include: {
+      avatarAsset: {
+        select: {
+          id: true,
+          secureUrl: true,
+          width: true,
+          height: true,
+          format: true,
+          mimeType: true,
+        },
+      },
+    },
+  },
 
-  updatedBy: true,
+  updatedBy: {
+    include: {
+      avatarAsset: {
+        select: {
+          id: true,
+          secureUrl: true,
+          width: true,
+          height: true,
+          format: true,
+          mimeType: true,
+        },
+      },
+    },
+  },
 } satisfies Prisma.ProjectInclude;
 
 const projectAuthorizationSelect = {
@@ -82,7 +206,11 @@ const projectAuthorizationSelect = {
   },
 } satisfies Prisma.ProjectSelect;
 
-export type ProjectEntity = Prisma.ProjectGetPayload<{
+export type ProjectSummaryEntity = Prisma.ProjectGetPayload<{
+  select: typeof projectSummarySelect;
+}>;
+
+export type ProjectDetailsEntity = Prisma.ProjectGetPayload<{
   include: typeof projectDetailsInclude;
 }>;
 
@@ -99,7 +227,7 @@ export class ProjectRepository {
   // Read
   // =============================================================================
 
-  async findById({ id }: { id: string }): Promise<ProjectEntity | null> {
+  async findById({ id }: { id: string }): Promise<ProjectDetailsEntity | null> {
     return this.db.project.findFirst({
       where: {
         id,
@@ -109,7 +237,11 @@ export class ProjectRepository {
     });
   }
 
-  async findBySlug({ slug }: { slug: string }): Promise<ProjectEntity | null> {
+  async findBySlug({
+    slug,
+  }: {
+    slug: string;
+  }): Promise<ProjectDetailsEntity | null> {
     return this.db.project.findFirst({
       where: {
         slug,
@@ -136,7 +268,7 @@ export class ProjectRepository {
     query,
   }: {
     query: ProjectQueryDto;
-  }): Promise<ProjectEntity[]> {
+  }): Promise<ProjectSummaryEntity[]> {
     return this.db.project.findMany({
       where: this.buildWhereClause({
         query,
@@ -150,7 +282,7 @@ export class ProjectRepository {
         query,
       }),
 
-      include: projectDetailsInclude,
+      select: projectSummarySelect,
     });
   }
 
@@ -212,7 +344,7 @@ export class ProjectRepository {
     data,
   }: {
     data: Prisma.ProjectCreateInput;
-  }): Promise<ProjectEntity> {
+  }): Promise<ProjectDetailsEntity> {
     return this.db.project.create({
       data,
       include: projectDetailsInclude,
@@ -229,7 +361,7 @@ export class ProjectRepository {
   }: {
     id: string;
     data: Prisma.ProjectUpdateInput;
-  }): Promise<ProjectEntity> {
+  }): Promise<ProjectDetailsEntity> {
     return this.db.project.update({
       where: {
         id,

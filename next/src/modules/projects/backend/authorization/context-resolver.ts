@@ -1,14 +1,16 @@
 import type { AuthorizationActor } from "@/authorization";
 
-import { InternalError } from "@/lib/errors";
+import {
+  ProjectAuthorizationEntity,
+  ProjectRepository,
+} from "../repository";
 
 import type { ProjectContext } from "./context";
-
-import { ProjectRepository } from "../repository";
+import { ProjectNotFoundError } from "../errors/index";
 
 export class ProjectContextResolver {
   /**
-   * Resolves the authorization context for a project.
+   * Resolves the authorization context using a project id.
    */
   static async resolve({
     actor,
@@ -17,17 +19,6 @@ export class ProjectContextResolver {
     actor: AuthorizationActor;
     projectId: string;
   }): Promise<ProjectContext> {
-    if (!actor.id) {
-      throw new InternalError({
-        code: "PROJECT_CONTEXT_RESOLUTION_ERROR",
-        status: 500,
-        message:
-          "Actor ID is required to resolve the project context.",
-        details:
-          "The actor ID is missing or undefined.",
-      });
-    }
-
     const repository = new ProjectRepository();
 
     const [project, membership] = await Promise.all([
@@ -35,39 +26,68 @@ export class ProjectContextResolver {
         id: projectId,
       }),
 
-      repository.findMembership({
-        projectId,
-        userId: actor.id,
-      }),
+      actor.id
+        ? repository.findMembership({
+            projectId,
+            userId: actor.id,
+          })
+        : Promise.resolve(null),
     ]);
 
     if (!project) {
-      throw new InternalError({
-        code: "PROJECT_CONTEXT_RESOLUTION_ERROR",
-        status: 500,
-        message:
-          "Failed to resolve the project authorization context.",
-      });
+      throw new ProjectNotFoundError();
     }
 
-    return {
-      actor: {
-        id: actor.id,
-        role: actor.role,
-        banned: actor.banned,
-      },
+    return this.fromData({
+      actor,
 
       project,
 
       membership,
-    };
+    });
+  }
+
+  /**
+   * Resolves the authorization context using a project slug.
+   */
+  static async resolveBySlug({
+    actor,
+    slug,
+  }: {
+    actor: AuthorizationActor;
+    slug: string;
+  }): Promise<ProjectContext> {
+    const repository = new ProjectRepository();
+
+    const project = await repository.findBySlug({
+      slug,
+    });
+
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const membership = actor.id
+      ? await repository.findMembership({
+          projectId: project.id,
+          userId: actor.id,
+        })
+      : null;
+
+    return this.fromData({
+      actor,
+
+      project,
+
+      membership,
+    });
   }
 
   /**
    * Creates a context from already loaded entities.
    *
-   * This avoids additional database queries when the
-   * caller already has the authorization data.
+   * Use this whenever the caller already has the project and/or membership.
+   * This avoids unnecessary database queries.
    */
   static fromData({
     actor,
@@ -75,7 +95,11 @@ export class ProjectContextResolver {
     membership,
   }: ProjectContext): ProjectContext {
     return {
-      actor,
+      actor: {
+        id: actor.id,
+        role: actor.role,
+        banned: actor.banned,
+      },
 
       project,
 
