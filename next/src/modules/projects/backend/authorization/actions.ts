@@ -1,23 +1,64 @@
 export enum ProjectAction {
+  /**
+   * Public
+   */
+  VIEW = "VIEW",
 
-    VIEW = "VIEW",
+  /**
+   * Project lifecycle
+   */
+  CREATE = "CREATE",
+  EDIT = "EDIT",
+  DELETE = "DELETE",
 
-    CREATE = "CREATE",
+  /**
+   * Publishing
+   */
+  PUBLISH = "PUBLISH",
+  UNPUBLISH = "UNPUBLISH",
 
-    EDIT = "EDIT",
+  /**
+   * Members
+   */
+  MANAGE_MEMBERS = "MANAGE_MEMBERS",
 
-    DELETE = "DELETE",
+  /**
+   * Content
+   */
+  MANAGE_CONTENT = "MANAGE_CONTENT",
 
-    PUBLISH = "PUBLISH",
+  /**
+   * Media
+   */
+  MANAGE_MEDIA = "MANAGE_MEDIA",
 
-    UNPUBLISH = "UNPUBLISH",
+  /**
+   * Links
+   */
+  MANAGE_LINKS = "MANAGE_LINKS",
 
-    VERIFY = "VERIFY",
+  /**
+   * Technologies
+   */
+  MANAGE_TECHNOLOGIES = "MANAGE_TECHNOLOGIES",
 
-    MANAGE_MEMBERS = "MANAGE_MEMBERS",
+  /**
+   * Categories
+   */
+  MANAGE_CATEGORIES = "MANAGE_CATEGORIES",
 
-    MANAGE_MEDIA = "MANAGE_MEDIA",
+  /**
+   * Badges
+   */
+  MANAGE_BADGES = "MANAGE_BADGES",
 
-    MANAGE_LINKS = "MANAGE_LINKS",
+  /**
+   * Testimonials
+   */
+  MANAGE_TESTIMONIALS = "MANAGE_TESTIMONIALS",
 
+  /**
+   * Competition submissions
+   */
+  MANAGE_COMPETITIONS = "MANAGE_COMPETITIONS",
 }

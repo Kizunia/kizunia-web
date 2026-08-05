@@ -154,6 +154,26 @@ export class ProjectRepository {
     });
   }
 
+  async findMembership({
+    projectId,
+    userId,
+  }: {
+    projectId: string;
+    userId: string;
+  }) {
+    return this.db.projectMember.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId,
+        },
+      },
+      select: {
+        role: true,
+      },
+    });
+  }
+
   async exists({ id }: { id: string }): Promise<boolean> {
     const count = await this.db.project.count({
       where: {
