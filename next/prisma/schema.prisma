@@ -828,10 +828,16 @@ model Project {
   updatedById String?
   updatedBy   User?   @relation("projectUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  deletedAt            DateTime?
-  portfolios           PortfolioProject[]
-  testimonials         Testimonial[]      @relation("projectTestimonials")
+  deletedAt    DateTime?
+  portfolios   PortfolioProject[]
+  testimonials Testimonial[]      @relation("projectTestimonials")
 
+  @@index([slug])
+  @@index([status])
+  @@index([visibility])
+  @@index([deletedAt])
+  @@index([createdById])
+  @@index([updatedById])
   @@map("project")
 }
 
@@ -917,22 +923,20 @@ model PortfolioProject {
 model Portfolio {
   id String @id @default(cuid())
 
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  userId      String @unique
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   headline String?
-  about    String? @db.Text
+  bio      String? @db.Text
 
-  email        String?
-  phone        String?
+  phone              String?
   publicContactEmail String?
-  website      String?
-  location     String?
+  location           String?
 
   visibility PortfolioVisibility @default(PUBLIC)
 
   settings PortfolioSettings?
-
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -957,6 +961,7 @@ model Portfolio {
   resumeAsset Asset?             @relation("portfolioResume", fields: [resumeAssetId], references: [id], onDelete: SetNull)
   projects    PortfolioProject[]
 
+  @@index([userId])
   @@index([visibility])
   @@index([deletedAt])
   @@map("portfolio")
@@ -969,11 +974,11 @@ model PortfolioSettings {
 
   accentColor String @default("blue")
 
-  sectionOrder Json?
+  sectionOrder String[] // Stores the order of sections in the portfolio in array [ "about","projects","experience","education","skills","testimonials","contact"]
 
-  hiddenSections Json?
+  hiddenSections String[] // array of section names that are hidden in the portfolio
 
-  timelineConfig Json?
+  // timelineConfig Json?
 
   createdAt DateTime @default(now())
 
@@ -1138,8 +1143,8 @@ model Testimonial {
 
   position String?
 
-  company String?
-  displayOrder Int @default(100)
+  company      String?
+  displayOrder Int     @default(100)
 
   message String @db.Text
 
