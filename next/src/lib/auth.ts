@@ -5,6 +5,7 @@ import prisma from "./prisma";
 import { displayUsernameSchema, usernameSchema } from "./validation";
 import { nextCookies } from "better-auth/next-js";
 import { sendEmail } from "./auth/email";
+import { dash } from "@better-auth/infra";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -21,6 +22,7 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+     dash(),
     admin(),
     username({
       usernameValidator(username) {
