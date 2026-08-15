@@ -50,6 +50,8 @@ export class ProjectService {
       slug,
     });
 
+    
+
     if (!project) {
       throw new ProjectNotFoundError();
     }
