@@ -5,12 +5,16 @@
  * Repositories should never contain business rules.
  */
 
-import {  PortfolioVisibility, Prisma, PrismaClient, ProjectStatus, ProjectVisibility } from "@/generated/prisma";
+import {
+  PortfolioVisibility,
+  Prisma,
+  PrismaClient,
+  ProjectStatus,
+  ProjectVisibility,
+} from "@/generated/prisma";
 import prisma from "@/lib/prisma";
 import { PortfolioNotFoundError } from "../errors";
-
-
-
+import { username } from "better-auth/plugins";
 
 const portfolioSummarySelect = {
   id: true,
@@ -47,7 +51,6 @@ const portfolioAuthorizationSelect = {
   userId: true,
 
   visibility: true,
-  
 
   deletedAt: true,
 } satisfies Prisma.PortfolioSelect;
@@ -161,7 +164,7 @@ const portfolioPublicDetailsInclude = {
       imageAsset: true,
     },
   },
-  
+
   projects: {
     where: {
       hidden: false,
@@ -249,12 +252,210 @@ const portfolioPublicDetailsInclude = {
   },
 } satisfies Prisma.PortfolioInclude;
 
+const portfolioEditorInclude = {
+  user: {
+    select: {
+      id: true,
+
+      username: true,
+
+      name: true,
+
+      avatarAsset: {
+        select: {
+          id: true,
+          secureUrl: true,
+          width: true,
+          height: true,
+          format: true,
+          mimeType: true,
+        },
+      },
+
+      coverAsset: {
+        select: {
+          id: true,
+          secureUrl: true,
+          width: true,
+          height: true,
+          format: true,
+          mimeType: true,
+        },
+      },
+    },
+  },
+
+  settings: true,
+
+  resumeAsset: {
+    select: {
+      id: true,
+      secureUrl: true,
+      width: true,
+      height: true,
+      format: true,
+      mimeType: true,
+    },
+  },
+
+  links: {
+    orderBy: {
+      order: "asc",
+    },
+  },
+
+  technologies: {
+    orderBy: {
+      displayOrder: "asc",
+    },
+
+    include: {
+      technology: true,
+    },
+  },
+
+  education: {
+    orderBy: {
+      displayOrder: "asc",
+    },
+
+    include: {
+      institutionLogoAsset: true,
+    },
+  },
+
+  experience: {
+    orderBy: {
+      displayOrder: "asc",
+    },
+
+    include: {
+      companyLogoAsset: true,
+    },
+  },
+
+  achievements: {
+    orderBy: {
+      displayOrder: "asc",
+    },
+
+    include: {
+      asset: true,
+    },
+  },
+
+  certifications: {
+    orderBy: {
+      displayOrder: "asc",
+    },
+
+    include: {
+      asset: true,
+    },
+  },
+
+  testimonials: {
+    orderBy: {
+      displayOrder: "asc",
+    },
+
+    include: {
+      imageAsset: true,
+    },
+  },
+
+  projects: {
+    where: {
+      project: {
+        deletedAt: null,
+      },
+    },
+
+    orderBy: {
+      displayOrder: "asc",
+    },
+
+    include: {
+      project: {
+        include: {
+          logoAsset: true,
+
+          coverAsset: true,
+
+          links: {
+            orderBy: {
+              order: "asc",
+            },
+          },
+
+          technologies: {
+            include: {
+              technology: true,
+            },
+          },
+
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+
+          badges: {
+            include: {
+              badge: true,
+            },
+          },
+
+          competitions: {
+            include: {
+              competition: {
+                select: {
+                  id: true,
+
+                  title: true,
+
+                  slug: true,
+
+                  startDate: true,
+
+                  endDate: true,
+
+                  logoAsset: {
+                    select: {
+                      id: true,
+                      secureUrl: true,
+                      width: true,
+                      height: true,
+                      format: true,
+                      mimeType: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+
+          testimonials: {
+            include: {
+              imageAsset: true,
+            },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.PortfolioInclude;
+
 export type PortfolioSummaryEntity = Prisma.PortfolioGetPayload<{
   select: typeof portfolioSummarySelect;
 }>;
 
 export type PortfolioPublicDetailsEntity = Prisma.PortfolioGetPayload<{
   include: typeof portfolioPublicDetailsInclude;
+}>;
+
+export type PortfolioEditorEntity = Prisma.PortfolioGetPayload<{
+  include: typeof portfolioEditorInclude;
 }>;
 
 export type PortfolioAuthorizationEntity = Prisma.PortfolioGetPayload<{
@@ -267,7 +468,6 @@ export type PortfolioAuthorizationEntity = Prisma.PortfolioGetPayload<{
  * Responsible only for database access.
  * Repositories should never contain business rules.
  */
-
 
 export class PortfolioRepository {
   constructor(
@@ -299,20 +499,20 @@ export class PortfolioRepository {
   }
 
   async findPublicByUsernameOrThrow({
-  username,
-}: {
-  username: string;
-}): Promise<PortfolioPublicDetailsEntity> {
-  const portfolio = await this.findPublicByUsername({
     username,
-  });
+  }: {
+    username: string;
+  }): Promise<PortfolioPublicDetailsEntity> {
+    const portfolio = await this.findPublicByUsername({
+      username,
+    });
 
-  if (!portfolio) {
-    throw new PortfolioNotFoundError();
+    if (!portfolio) {
+      throw new PortfolioNotFoundError();
+    }
+
+    return portfolio;
   }
-
-  return portfolio;
-}
 
   async findById({
     id,
@@ -342,29 +542,59 @@ export class PortfolioRepository {
     });
   }
 
+  async findEditorByUserId({
+    userId,
+  }: {
+    userId: string;
+  }): Promise<PortfolioEditorEntity | null> {
+    return this.db.portfolio.findUnique({
+      where: {
+        userId,
+      },
+
+      include: portfolioEditorInclude,
+    });
+  }
+
   async findByUserIdOrThrow({
+    userId,
+  }: {
+    userId: string;
+  }): Promise<PortfolioPublicDetailsEntity> {
+    const portfolio = await this.findByUserId({
+      userId,
+    });
+
+    if (!portfolio) {
+      throw new PortfolioNotFoundError();
+    }
+
+    return portfolio;
+  }
+
+  async findByIdOrThrow({
+    id,
+  }: {
+    id: string;
+  }): Promise<PortfolioPublicDetailsEntity> {
+    const portfolio = await this.findById({
+      id,
+    });
+
+    if (!portfolio) {
+      throw new PortfolioNotFoundError();
+    }
+
+    return portfolio;
+  }
+
+  async findEditorByUserIdOrThrow({
   userId,
 }: {
   userId: string;
-}): Promise<PortfolioPublicDetailsEntity> {
-  const portfolio = await this.findByUserId({
+}): Promise<PortfolioEditorEntity> {
+  const portfolio = await this.findEditorByUserId({
     userId,
-  });
-
-  if (!portfolio) {
-    throw new PortfolioNotFoundError();
-  }
-
-  return portfolio;
-}
-
-  async findByIdOrThrow({
-  id,
-}: {
-  id: string;
-}): Promise<PortfolioPublicDetailsEntity> {
-  const portfolio = await this.findById({
-    id,
   });
 
   if (!portfolio) {
@@ -388,11 +618,7 @@ export class PortfolioRepository {
     });
   }
 
-  async exists({
-    id,
-  }: {
-    id: string;
-  }): Promise<boolean> {
+  async exists({ id }: { id: string }): Promise<boolean> {
     const portfolio = await this.db.portfolio.findUnique({
       where: {
         id,
@@ -406,11 +632,7 @@ export class PortfolioRepository {
     return portfolio !== null;
   }
 
-  async existsByUserId({
-    userId,
-  }: {
-    userId: string;
-  }): Promise<boolean> {
+  async existsByUserId({ userId }: { userId: string }): Promise<boolean> {
     const portfolio = await this.db.portfolio.findUnique({
       where: {
         userId,
@@ -448,6 +670,22 @@ export class PortfolioRepository {
     });
   }
 
+  async findUserForCreation({
+    userId,
+  }: {
+    userId: string;
+  }): Promise<{ name: string; username: string | null } | null> {
+    return this.db.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        name: true,
+        username: true,
+      },
+    });
+  }
+
   // ===========================================================================
   // Update
   // ===========================================================================
@@ -474,11 +712,7 @@ export class PortfolioRepository {
   // Delete
   // ===========================================================================
 
-  async softDelete({
-    id,
-  }: {
-    id: string;
-  }): Promise<void> {
+  async softDelete({ id }: { id: string }): Promise<void> {
     await this.db.portfolio.update({
       where: {
         id,

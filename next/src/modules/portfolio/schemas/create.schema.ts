@@ -5,7 +5,8 @@ export const createPortfolioSchema = z.object({
     .string()
     .trim()
     .min(1, "Display name is required.")
-    .max(100),
+    .max(100)
+    .optional(),
 
   headline: z
     .string()

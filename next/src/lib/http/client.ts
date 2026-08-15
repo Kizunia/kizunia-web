@@ -1,8 +1,5 @@
 import { ApiError } from "./api-error";
-import type {
-  ErrorResponse,
-  SuccessResponse,
-} from "./response-body";
+import type { ErrorResponse, SuccessResponse } from "./response-body";
 
 export class HttpClient {
   private static async parseResponse<T>(
@@ -13,10 +10,7 @@ export class HttpClient {
     if (!response.ok) {
       const error = body as ErrorResponse;
 
-      throw new ApiError(
-        response.status,
-        error.error,
-      );
+      throw new ApiError(response.status, error.error);
     }
 
     return body as SuccessResponse<T>;
@@ -26,7 +20,6 @@ export class HttpClient {
     url: string,
     init?: RequestInit,
   ): Promise<SuccessResponse<TResponse>> {
-
     const response = await fetch(`${url}`, {
       ...init,
       headers: {
@@ -38,14 +31,14 @@ export class HttpClient {
     return this.parseResponse<TResponse>(response);
   }
 
-  static async post<TResponse, TBody>(
+  static async post<TResponse, TBody = undefined>(
     url: string,
-    body: TBody,
+    body?: TBody,
     init?: RequestInit,
   ): Promise<SuccessResponse<TResponse>> {
     const response = await fetch(url, {
       method: "POST",
-      body: JSON.stringify(body),
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       headers: {
         "Content-Type": "application/json",
         ...init?.headers,
@@ -74,7 +67,7 @@ export class HttpClient {
     return this.parseResponse<TResponse>(response);
   }
 
-   static async delete<TResponse>(
+  static async delete<TResponse>(
     url: string,
     init?: RequestInit,
   ): Promise<SuccessResponse<TResponse>> {
@@ -89,6 +82,4 @@ export class HttpClient {
 
     return this.parseResponse<TResponse>(response);
   }
-
- 
 }
