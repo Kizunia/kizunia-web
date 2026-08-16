@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { ApiError } from "@/lib/http";
 import { PortfolioApi } from "../api/portfolio-api";
 import { PortfolioEditorDto } from "../../dtos";
+import { UpdatePortfolioProfileDto } from "../../dtos/input/update.dto";
 
 interface PortfolioStore {
   portfolio: PortfolioEditorDto | null;
@@ -14,77 +15,99 @@ interface PortfolioStore {
 
   getMine: () => Promise<void>;
   createPortfolio: () => Promise<PortfolioEditorDto | null>;
+
+  updateProfile: (dto: UpdatePortfolioProfileDto) => Promise<void>;
 }
 
-export const usePortfolioStore = create<PortfolioStore>(
-  (set) => ({
-    portfolio: null,
+export const usePortfolioStore = create<PortfolioStore>((set) => ({
+  portfolio: null,
 
-    isLoading: false,
-    isCreating: false,
+  isLoading: false,
+  isCreating: false,
 
-    error: null,
+  error: null,
 
-    getMine: async () => {
+  getMine: async () => {
+    set({
+      isLoading: true,
+      error: null,
+    });
+
+    try {
+      const portfolio = await PortfolioApi.getMine();
+
       set({
-        isLoading: true,
-        error: null,
+        portfolio,
+        isLoading: false,
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        set({
+          portfolio: null,
+          isLoading: false,
+          error: null,
+        });
+
+        return;
+      }
+
+      set({
+        isLoading: false,
+        error:
+          error instanceof Error ? error.message : "Failed to load portfolio.",
+      });
+    }
+  },
+
+  createPortfolio: async () => {
+    set({
+      isCreating: true,
+      error: null,
+    });
+
+    try {
+      const portfolio = await PortfolioApi.create();
+
+      set({
+        portfolio,
+        isCreating: false,
       });
 
-      try {
-        const portfolio = await PortfolioApi.getMine();
-
-        set({
-          portfolio,
-          isLoading: false,
-        });
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 404) {
-          set({
-            portfolio: null,
-            isLoading: false,
-            error: null,
-          });
-
-          return;
-        }
-
-        set({
-          isLoading: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to load portfolio.",
-        });
-      }
-    },
-
-    createPortfolio: async () => {
+      return portfolio;
+    } catch (error) {
       set({
-        isCreating: true,
-        error: null,
+        isCreating: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to create portfolio.",
       });
 
-      try {
-        const portfolio = await PortfolioApi.create();
+      return null;
+    }
+  },
 
-        set({
-          portfolio,
-          isCreating: false,
-        });
+  updateProfile: async (dto) => {
+    set({
+      error: null,
+    });
 
-        return portfolio;
-      } catch (error) {
-        set({
-          isCreating: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to create portfolio.",
-        });
+    try {
+      const portfolio = await PortfolioApi.updateProfile(dto);
 
-        return null;
-      }
-    },
-  }),
-);
+      set({
+        portfolio,
+        error: null,
+      });
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to update portfolio profile.",
+      });
+
+      throw error;
+    }
+  },
+}));

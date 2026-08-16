@@ -446,6 +446,7 @@ const portfolioEditorInclude = {
   },
 } satisfies Prisma.PortfolioInclude;
 
+
 export type PortfolioSummaryEntity = Prisma.PortfolioGetPayload<{
   select: typeof portfolioSummarySelect;
 }>;
@@ -462,6 +463,15 @@ export type PortfolioAuthorizationEntity = Prisma.PortfolioGetPayload<{
   select: typeof portfolioAuthorizationSelect;
 }>;
 
+export interface PortfolioProfileUpdateData {
+  displayName?: string;
+  headline?: string | null;
+  bio?: string | null;
+  phone?: string | null;
+  publicContactEmail?: string | null;
+  location?: string | null;
+  resumeAssetId?: string | null;
+}
 /**
  * Portfolio Module - Repository
  *
@@ -589,20 +599,20 @@ export class PortfolioRepository {
   }
 
   async findEditorByUserIdOrThrow({
-  userId,
-}: {
-  userId: string;
-}): Promise<PortfolioEditorEntity> {
-  const portfolio = await this.findEditorByUserId({
     userId,
-  });
+  }: {
+    userId: string;
+  }): Promise<PortfolioEditorEntity> {
+    const portfolio = await this.findEditorByUserId({
+      userId,
+    });
 
-  if (!portfolio) {
-    throw new PortfolioNotFoundError();
+    if (!portfolio) {
+      throw new PortfolioNotFoundError();
+    }
+
+    return portfolio;
   }
-
-  return portfolio;
-}
 
   async findForAuthorization({
     id,
@@ -689,6 +699,48 @@ export class PortfolioRepository {
   // ===========================================================================
   // Update
   // ===========================================================================
+
+  // ===========================================================================
+  // Update
+  // ===========================================================================
+
+ async updateProfile({
+  id,
+  data,
+}: {
+  id: string;
+  data: PortfolioProfileUpdateData;
+}): Promise<PortfolioEditorEntity> {
+  return this.db.portfolio.update({
+    where: {
+      id,
+    },
+
+    data: {
+      displayName: data.displayName,
+      headline: data.headline,
+      bio: data.bio,
+      phone: data.phone,
+      publicContactEmail: data.publicContactEmail,
+      location: data.location,
+
+      ...(data.resumeAssetId !== undefined && {
+        resumeAsset:
+          data.resumeAssetId === null
+            ? {
+                disconnect: true,
+              }
+            : {
+                connect: {
+                  id: data.resumeAssetId,
+                },
+              },
+      }),
+    },
+
+    include: portfolioEditorInclude,
+  });
+}
 
   async update({
     id,

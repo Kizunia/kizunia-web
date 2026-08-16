@@ -26,6 +26,7 @@ import { portfolioService } from "./service";
 
 import { createPortfolioSchema } from "../schemas";
 import { PortfolioNotFoundError } from "../errors";
+import { UpdatePortfolioProfileSchema } from "../schemas/update/profile-update.schema";
 
 export class PortfolioController {
   // ===========================================================================
@@ -159,4 +160,58 @@ export class PortfolioController {
       );
     });
   }
+
+  // ===========================================================================
+// Profile
+// ===========================================================================
+
+static async updateProfile(request: NextRequest) {
+  return Route.execute(async () => {
+    // -----------------------------------------------------------------------
+    // Authentication
+    // -----------------------------------------------------------------------
+
+    const actor = await SessionService.getStrictActor(request);
+
+    // if (
+    //   !actor ||
+    //   !actor.id ||
+    //   !actor.role ||
+    //   actor.banned === undefined
+    // ) {
+    //   throw new UnauthorizedError({
+    //     code: "unauthorized",
+    //     message: "Failed to authenticate the actor.",
+    //   });
+    // }
+
+    // -----------------------------------------------------------------------
+    // Validation
+    // -----------------------------------------------------------------------
+
+    const body = await request.json();
+
+    const data = UpdatePortfolioProfileSchema.parse(body);
+
+    // -----------------------------------------------------------------------
+    // Business Logic
+    // -----------------------------------------------------------------------
+
+    const portfolio = await portfolioService.updateProfile({
+      actor: {
+        id: actor.id,
+        role: actor.role,
+        banned: (actor.banned === true) ? true : false,
+      },
+
+      dto: data,
+    });
+
+    // -----------------------------------------------------------------------
+    // Response
+    // -----------------------------------------------------------------------
+
+    return ApiResponse.ok(portfolio);
+  });
+}
 }

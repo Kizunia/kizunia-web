@@ -17,8 +17,10 @@ import {
   SettingsIcon,
   UsersIcon,
   Trophy,
+  FileUser
 } from "lucide-react";
 import type { ComponentType } from "react";
+
 
 type SidebarIcon = ComponentType<any>;
 
@@ -130,6 +132,7 @@ export const sidebarData: SidebarData = {
 
 export const SideBarNavMain: SidebarNavSection[] = [
   // main navigation items for the sidebar
+  // main navigation items for the sidebar
   {
     title: "Competitions",
     url: "/competitions",
@@ -146,13 +149,30 @@ export const SideBarNavMain: SidebarNavSection[] = [
         title: "All Competitions",
         url: "/admin/competitions",
       },
-       {
+      {
         title: "New Competition",
         url: "/admin/competitions/new",
       },
     ],
   },
+
+  {
+    title: "Portfolio",
+    // url: "/portfolio",
+    icon: FileUser,
+    items: [
+      {
+        title: "Profile",
+        url: "/portfolio/profile",
+      },
+      {
+        title: "Projects",
+        url: "/portfolio/projects",
+      },
+    ],
+  },
 ];
+
 export const dashboardSidebarLinks: SidebarData = {
   user: {
     name: "shadcn",

@@ -1,4 +1,5 @@
-import { PortfolioEditorDto } from "../../dtos";
+import { PortfolioEditorDto } from "@/modules/portfolio/dtos";
+
 
 
 interface PortfolioEditorProps {
