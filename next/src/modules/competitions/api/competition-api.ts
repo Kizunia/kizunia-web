@@ -1,4 +1,4 @@
-import axios from "@/lib/axios";
+
 
 import type { CreateCompetitionInput } from "../schemas/create-competition";
 import { HttpClient } from "@/lib/http/client";
