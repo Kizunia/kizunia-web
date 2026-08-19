@@ -72,13 +72,13 @@ export function ProjectEditorLayout({
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-full flex-col mx-auto w-fit md:min-w-2xl">
       <div className="space-y-4">
         <ProjectEditorHeader projectName={project.title} />
 
         <ProjectEditorNavigation projectId={project.id} />
 
-        <main>{children}</main>
+        <main className="" >{children}</main>
       </div>
     </div>
   );

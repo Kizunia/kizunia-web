@@ -81,6 +81,9 @@ export function ProjectContentEditor({
         placeholder="Write your project content..."
       />
 
+      
+      
+
       {error && (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
           <p className="text-sm text-destructive">

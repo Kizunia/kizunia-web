@@ -52,8 +52,8 @@ export function ProjectEditorNavigation({
   const basePath = `/projects/${projectId}/edit`;
 
   return (
-    <nav className="border-b">
-      <div className="flex items-center gap-1 overflow-x-auto">
+    <nav className="border-b" >
+      <div className="flex items-center gap-1 overflow-x-auto max-w-xs sm:max-w-sm md:max-w-fit">
         {tabs.map((tab) => {
           const href = tab.segment
             ? `${basePath}/${tab.segment}`
