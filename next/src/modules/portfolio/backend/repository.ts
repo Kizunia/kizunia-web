@@ -13,8 +13,9 @@ import {
   ProjectVisibility,
 } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
-import { PortfolioNotFoundError } from "../errors";
+// import { PortfolioNotFoundError } from "../errors";
 import { username } from "better-auth/plugins";
+import { PortfolioNotFoundError } from "../errors";
 
 const portfolioSummarySelect = {
   id: true,
