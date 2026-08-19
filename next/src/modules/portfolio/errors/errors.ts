@@ -4,6 +4,8 @@ import {
   NotFoundError,
 } from "@/lib/errors";
 
+
+
 export class PortfolioNotFoundError extends NotFoundError {
   constructor() {
     super({
@@ -22,3 +24,7 @@ export class PortfolioAlreadyExistsError extends ConflictError {
     });
   }
 }
+
+
+
+

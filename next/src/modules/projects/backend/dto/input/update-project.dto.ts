@@ -2,6 +2,9 @@ import {
   ProjectVisibility,
 } from "@/generated/prisma";
 
+/**
+ * @deprecated Use UpdateProjectProfileDto or similar instead.
+ *  */
 export interface UpdateProjectDto {
   title?: string;
 

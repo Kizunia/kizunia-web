@@ -19,7 +19,7 @@ import { SessionService } from "@/lib/auth/index";
 import { UpdateCompetitionSchema } from "../schemas/update-competition";
 import { CompetitionContextResolver } from "./authorization";
 import { CompetitionSearchSchema } from "../search/schema";
-import { Slug } from "@/lib/validation/index";
+import { SlugSchema } from "@/lib/validation/index";
 import { CreateAssetSchema } from "@/modules/assets/schemas/create-asset";
 import { CompetitionAssetSlot } from "../types/asset-slot";
 import { AppError, UnauthorizedError } from "@/lib/errors";
@@ -133,7 +133,7 @@ export class CompetitionController {
 
   static async findBySlug(request: NextRequest, slug: string) {
     return Route.execute(async () => {
-      const parsedSlug = Slug.parse(slug);
+      const parsedSlug = SlugSchema.parse(slug);
       const actor = await SessionService.getOptionalActor(request);
 
       const context = await CompetitionContextResolver.resolveBySlug({

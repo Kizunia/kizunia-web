@@ -132,7 +132,6 @@ export const sidebarData: SidebarData = {
 
 export const SideBarNavMain: SidebarNavSection[] = [
   // main navigation items for the sidebar
-  // main navigation items for the sidebar
   {
     title: "Competitions",
     url: "/competitions",
@@ -171,6 +170,25 @@ export const SideBarNavMain: SidebarNavSection[] = [
       },
     ],
   },
+
+  {
+    title: "Projects",
+    icon: FileCodeIcon,
+    items: [
+      {
+        title: "Projects",
+        url: "/projects",
+      },
+      {
+        title: "My Projects",
+        url: "/projects/my-projects",
+      },
+      {
+        title: "New Project",
+        url: "/projects/new",
+      },
+    ]
+  }
 ];
 
 export const dashboardSidebarLinks: SidebarData = {

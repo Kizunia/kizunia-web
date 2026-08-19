@@ -8,6 +8,7 @@
 import { Prisma, PrismaClient, Project } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
 import { ProjectQueryDto } from "../search";
+import { ProjectNotFoundError } from "./errors";
 
 const projectSummarySelect = {
   id: true,
@@ -218,6 +219,10 @@ export type ProjectAuthorizationEntity = Prisma.ProjectGetPayload<{
   select: typeof projectAuthorizationSelect;
 }>;
 
+type ProjectProfileUpdateData = Pick<
+  Prisma.ProjectUpdateInput,
+  "title" | "slug" | "shortDescription" | "status" | "visibility" | "updatedBy"
+>;
 export class ProjectRepository {
   constructor(
     private readonly db: PrismaClient | Prisma.TransactionClient = prisma,
@@ -306,6 +311,22 @@ export class ProjectRepository {
     });
   }
 
+  async findContent({
+    projectId,
+  }: {
+    projectId: string;
+  }): Promise<{ contentId: string | null } | null> {
+    return this.db.project.findFirst({
+      where: {
+        id: projectId,
+        deletedAt: null,
+      },
+      select: {
+        contentId: true,
+      },
+    });
+  }
+
   async exists({ id }: { id: string }): Promise<boolean> {
     const count = await this.db.project.count({
       where: {
@@ -351,10 +372,34 @@ export class ProjectRepository {
     });
   }
 
+  async createContent({
+    projectId,
+    data,
+  }: {
+    projectId: string;
+    data: Prisma.ContentCreateWithoutProjectInput;
+  }): Promise<ProjectDetailsEntity> {
+    return this.db.project.update({
+      where: {
+        id: projectId,
+      },
+      data: {
+        content: {
+          create: data,
+        },
+      },
+      include: projectDetailsInclude,
+    });
+  }
+
   // =============================================================================
   // Update
   // =============================================================================
 
+  /**
+   *
+   * @deprecated Use updateProfile or updateContent or similar instead.
+   */
   async update({
     id,
     data,
@@ -368,6 +413,37 @@ export class ProjectRepository {
       },
       data,
       include: projectDetailsInclude,
+    });
+  }
+
+  async updateProfile({
+    id,
+    data,
+  }: {
+    id: string;
+    data: ProjectProfileUpdateData;
+  }): Promise<ProjectDetailsEntity> {
+    return this.db.project.update({
+      where: {
+        id,
+      },
+      data,
+      include: projectDetailsInclude,
+    });
+  }
+
+  async updateContent({
+    contentId,
+    data,
+  }: {
+    contentId: string;
+    data: Prisma.ContentUpdateInput;
+  }) {
+    return this.db.content.update({
+      where: {
+        id: contentId,
+      },
+      data,
     });
   }
 
@@ -390,6 +466,26 @@ export class ProjectRepository {
         deletedAt,
       },
     });
+  }
+
+  async existsBySlugExceptProject({
+    slug,
+    projectId,
+  }: {
+    slug: string;
+    projectId: string;
+  }): Promise<boolean> {
+    const count = await this.db.project.count({
+      where: {
+        slug,
+        deletedAt: null,
+        id: {
+          not: projectId,
+        },
+      },
+    });
+
+    return count > 0;
   }
 
   // =============================================================================

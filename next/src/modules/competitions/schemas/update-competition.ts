@@ -14,7 +14,7 @@ import {
   ContentSchema,
   OrganizerSchema,
   ShortDescriptionSchema,
-  Slug,
+  SlugSchema,
   TitleSchema,
   UrlSchema,
 } from "@/lib/validation/index";
@@ -26,7 +26,7 @@ export const UpdateCompetitionSchema = z
     // ---------------------------------------------------------------------
 
     title: TitleSchema.optional(),
-    slug: Slug.optional(),
+    slug: SlugSchema.optional(),
     shortDescription: ShortDescriptionSchema.nullable().optional(),
     organizer: OrganizerSchema.nullable().optional(),
 

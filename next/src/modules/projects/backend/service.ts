@@ -9,7 +9,11 @@
  * - Business validation
  */
 
-import { AuthorizationActor, AuthorizationCode, StrictAuthorizationActor } from "@/authorization";
+import {
+  AuthorizationActor,
+  AuthorizationCode,
+  StrictAuthorizationActor,
+} from "@/authorization";
 import { AuthorizationError } from "@/lib/errors";
 import {
   ProjectAction,
@@ -27,10 +31,15 @@ import { ProjectRepository, ProjectDetailsEntity } from "./repository";
 import { ProjectDetailsDto, ProjectSummaryDto } from "./dto/output";
 import { ProjectQueryDto } from "../search";
 import prisma from "@/lib/prisma";
-import { CreateProjectDto } from "./dto/input";
+import {
+  CreateProjectDto,
+  UpdateProjectContentDto,
+  UpdateProjectProfileDto,
+} from "./dto/input";
 import { ProjectRole } from "@/generated/prisma";
 import { PlatformAction } from "@/authorization/platform/actions";
 import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
+import { ProjectDuplicateSlugError } from "@/modules/projects/backend/errors/index";
 
 export class ProjectService {
   private readonly repository = new ProjectRepository();
@@ -49,8 +58,6 @@ export class ProjectService {
     const project = await this.repository.findBySlug({
       slug,
     });
-
-    
 
     if (!project) {
       throw new ProjectNotFoundError();
@@ -72,7 +79,7 @@ export class ProjectService {
     });
 
     // const decision = ProjectPolicy.can(context, ProjectAction.VIEW);
-    ProjectAuthorizer.read(context)
+    ProjectAuthorizer.read(context);
 
     // if (!decision.allowed) {
     //   throw new AuthorizationError({
@@ -81,6 +88,39 @@ export class ProjectService {
     //     code: "UNAUTHORIZED",
     //   });
     // }
+
+    return ProjectMapper.toDetailsDto(project);
+  }
+
+  async findById({ // not for public, for members admin , for the once who has access to the project edit
+    id,
+    actor,
+  }: {
+    id: string;
+    actor: AuthorizationActor;
+  }): Promise<ProjectDetailsDto> {
+    const project = await this.repository.findById({
+      id,
+    });
+
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const membership = actor.id
+      ? await this.repository.findMembership({
+          projectId: project.id,
+          userId: actor.id,
+        })
+      : null;
+
+    const context = ProjectContextResolver.fromData({
+      actor,
+      project,
+      membership,
+    });
+
+    ProjectAuthorizer.edit(context);
 
     return ProjectMapper.toDetailsDto(project);
   }
@@ -126,7 +166,7 @@ export class ProjectService {
 
     const actorId = actor.id;
 
-    PlatformAuthorizer.can({actor}, PlatformAction.CREATE_PROJECT);
+    PlatformAuthorizer.can({ actor }, PlatformAction.CREATE_PROJECT);
 
     const project = await prisma.$transaction(async (tx) => {
       const repository = new ProjectRepository(tx);
@@ -193,53 +233,188 @@ export class ProjectService {
     throw new Error("Not implemented.");
   }
 
+  async updateProfile({
+    id,
+    actor,
+    dto,
+  }: {
+    id: string;
+    actor: StrictAuthorizationActor;
+    dto: UpdateProjectProfileDto;
+  }): Promise<ProjectDetailsDto> {
+    const project = await this.getProjectOrThrow({
+      id,
+    });
+
+    const membership = actor.id
+      ? await this.repository.findMembership({
+          projectId: project.id,
+          userId: actor.id,
+        })
+      : null;
+
+    const context = ProjectContextResolver.fromData({
+      actor,
+      project,
+      membership,
+    });
+
+    ProjectAuthorizer.edit(context);
+
+    if (dto.slug !== undefined) {
+      await this.ensureSlugAvailableForUpdate({
+        slug: dto.slug,
+        projectId: project.id,
+      });
+    }
+
+    if (!actor.id) {
+      throw new AuthorizationError({
+        code: AuthorizationCode.UNAUTHORIZED,
+        message: "Authentication is required.",
+        status: 401,
+      });
+    }
+
+    const updatedProject = await prisma.$transaction(async (tx) => {
+      const repository = new ProjectRepository(tx);
+
+      return repository.updateProfile({
+        id: project.id,
+        data: {
+          ...dto,
+
+          updatedBy: {
+            connect: {
+              id: actor.id,
+            },
+          },
+        },
+      });
+    });
+
+    return ProjectMapper.toDetailsDto(updatedProject);
+  }
+
+  async updateContent({
+    id,
+    actor,
+    dto,
+  }: {
+    id: string;
+    actor: AuthorizationActor;
+    dto: UpdateProjectContentDto;
+  }): Promise<ProjectDetailsDto> {
+    const project = await this.getProjectOrThrow({
+      id,
+    });
+
+    const membership = actor.id
+      ? await this.repository.findMembership({
+          projectId: project.id,
+          userId: actor.id,
+        })
+      : null;
+
+    const context = ProjectContextResolver.fromData({
+      actor,
+      project,
+      membership,
+    });
+
+    ProjectAuthorizer.edit(context);
+
+    const updatedProject = await prisma.$transaction(async (tx) => {
+      const repository = new ProjectRepository(tx);
+
+      const projectContent = await repository.findContent({
+        projectId: project.id,
+      });
+
+      if (!projectContent) {
+        throw new ProjectNotFoundError();
+      }
+
+      if (projectContent.contentId) {
+        await repository.updateContent({
+          contentId: projectContent.contentId,
+          data: {
+            content: dto.content,
+            version: {
+              increment: 1,
+            },
+          },
+        });
+      } else {
+        await repository.createContent({
+          projectId: project.id,
+          data: {
+            content: dto.content,
+          },
+        });
+      }
+
+      const updatedProject = await repository.findById({
+        id: project.id,
+      });
+
+      if (!updatedProject) {
+        throw new ProjectNotFoundError();
+      }
+
+      return updatedProject;
+    });
+
+    return ProjectMapper.toDetailsDto(updatedProject);
+  }
+
   // ===========================================================================
   // Delete
   // ===========================================================================
 
   async delete({
-  id,
-  actor,
-}: {
-  id: string;
-  actor: AuthorizationActor;
-}): Promise<void> {
-  const project = await this.getProjectOrThrow({
     id,
-  });
-
-  const membership = actor.id
-    ? await this.repository.findMembership({
-        projectId: project.id,
-        userId: actor.id,
-      })
-    : null;
-
-  const context = ProjectContextResolver.fromData({
     actor,
-    project,
-    membership,
-  });
+  }: {
+    id: string;
+    actor: AuthorizationActor;
+  }): Promise<void> {
+    const project = await this.getProjectOrThrow({
+      id,
+    });
 
-  // const decision = ProjectPolicy.can(
-  //   context,
-  //   ProjectAction.DELETE,
-  // );
+    const membership = actor.id
+      ? await this.repository.findMembership({
+          projectId: project.id,
+          userId: actor.id,
+        })
+      : null;
 
-  ProjectAuthorizer.delete(context)
+    const context = ProjectContextResolver.fromData({
+      actor,
+      project,
+      membership,
+    });
 
-  // if (!decision.allowed) {
-  //   throw new AuthorizationError({
-  //       status: 403,
-  //       message: decision.message ?? "Unauthorized.",
-  //       code: "UNAUTHORIZED",
-  //   });
-  // }
+    // const decision = ProjectPolicy.can(
+    //   context,
+    //   ProjectAction.DELETE,
+    // );
 
-  await this.repository.softDelete({
-    id,
-  });
-}
+    ProjectAuthorizer.delete(context);
+
+    // if (!decision.allowed) {
+    //   throw new AuthorizationError({
+    //       status: 403,
+    //       message: decision.message ?? "Unauthorized.",
+    //       code: "UNAUTHORIZED",
+    //   });
+    // }
+
+    await this.repository.softDelete({
+      id,
+    });
+  }
 
   // ===========================================================================
   // Helpers
@@ -271,6 +446,22 @@ export class ProjectService {
     }
   }
 
+  private async ensureSlugAvailableForUpdate({
+    slug,
+    projectId,
+  }: {
+    slug: string;
+    projectId: string;
+  }): Promise<void> {
+    const exists = await this.repository.existsBySlugExceptProject({
+      slug,
+      projectId,
+    });
+
+    if (exists) {
+      throw new ProjectDuplicateSlugError(slug);
+    }
+  }
 }
 
 export const projectService = new ProjectService();

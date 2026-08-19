@@ -6,7 +6,7 @@ export const TitleSchema = z
   .min(3, "Title must be at least 3 characters.")
   .max(150, "Title cannot exceed 150 characters.");
 
-export const Slug = z
+export const SlugSchema = z
   .string()
   .trim()
   .min(3, "Slug must be at least 3 characters.")
