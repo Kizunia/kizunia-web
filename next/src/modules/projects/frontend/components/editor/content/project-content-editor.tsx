@@ -42,13 +42,21 @@ export function ProjectContentEditor({
   );
 
   useEffect(() => {
-    if (project) {
-      initialize(project);
+    if (!project) {
+      return;
     }
+
+    initialize(project);
   }, [project, initialize]);
 
   if (!project) {
-    return null;
+    return (
+      <section className="rounded-lg border p-6">
+        <p className="text-sm text-muted-foreground">
+          Project data is unavailable.
+        </p>
+      </section>
+    );
   }
 
   return (
@@ -74,9 +82,11 @@ export function ProjectContentEditor({
       />
 
       {error && (
-        <p className="text-sm text-destructive">
-          {error}
-        </p>
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+          <p className="text-sm text-destructive">
+            {error}
+          </p>
+        </div>
       )}
 
       <div className="flex justify-end">

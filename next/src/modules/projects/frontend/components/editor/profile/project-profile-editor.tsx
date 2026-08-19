@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import { useProjectStore } from "../../../store/project.store";
 import { useProjectProfileStore } from "../../../store/project-profile.store";
 
@@ -20,61 +21,86 @@ interface ProjectProfileEditorProps {
   projectId: string;
 }
 
-export function ProjectProfileEditor({ projectId }: ProjectProfileEditorProps) {
+export function ProjectProfileEditor({
+  projectId,
+}: ProjectProfileEditorProps) {
   const project = useProjectStore((state) => state.project);
 
   const form = useProjectProfileStore((state) => state.form);
-  const isSaving = useProjectProfileStore((state) => state.isSaving);
-  const error = useProjectProfileStore((state) => state.error);
+  const isSaving = useProjectProfileStore(
+    (state) => state.isSaving,
+  );
+  const error = useProjectProfileStore(
+    (state) => state.error,
+  );
 
-  const getProject = useProjectStore((state) => state.getProject);
+  const initialize = useProjectProfileStore(
+    (state) => state.initialize,
+  );
 
-  const initialize = useProjectProfileStore((state) => state.initialize);
+  const setField = useProjectProfileStore(
+    (state) => state.setField,
+  );
 
-  const setField = useProjectProfileStore((state) => state.setField);
-
-  const updateProfile = useProjectProfileStore((state) => state.updateProfile);
+  const updateProfile = useProjectProfileStore(
+    (state) => state.updateProfile,
+  );
 
   useEffect(() => {
-    if (project) {
-      initialize(project);
-    } else {
-      getProject({
-        id: projectId,
-      });
+    if (!project) {
+      return;
     }
-  }, [project, initialize, getProject, projectId]);
+
+    initialize(project);
+  }, [project, initialize]);
 
   if (!project) {
-    return <>No project found</>;
+    return (
+      <div className="rounded-lg border p-6">
+        <p className="text-sm text-muted-foreground">
+          Project data is unavailable.
+        </p>
+      </div>
+    );
   }
 
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <h2 className="text-lg font-semibold">Project profile</h2>
+        <h2 className="text-lg font-semibold">
+          Project profile
+        </h2>
 
         <p className="text-sm text-muted-foreground">
-          Manage the basic information and publishing settings for your project.
+          Manage the basic information and publishing settings
+          for your project.
         </p>
       </div>
 
       <div className="space-y-6">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Title</label>
+          <label className="text-sm font-medium">
+            Title
+          </label>
 
           <Input
             value={form.title}
-            onChange={(event) => setField("title", event.target.value)}
+            onChange={(event) =>
+              setField("title", event.target.value)
+            }
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Slug</label>
+          <label className="text-sm font-medium">
+            Slug
+          </label>
 
           <Input
             value={form.slug}
-            onChange={(event) => setField("slug", event.target.value)}
+            onChange={(event) =>
+              setField("slug", event.target.value)
+            }
           />
 
           <p className="text-xs text-muted-foreground">
@@ -83,12 +109,17 @@ export function ProjectProfileEditor({ projectId }: ProjectProfileEditorProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Short description</label>
+          <label className="text-sm font-medium">
+            Short description
+          </label>
 
           <Textarea
             value={form.shortDescription}
             onChange={(event) =>
-              setField("shortDescription", event.target.value)
+              setField(
+                "shortDescription",
+                event.target.value,
+              )
             }
             rows={4}
           />
@@ -96,12 +127,17 @@ export function ProjectProfileEditor({ projectId }: ProjectProfileEditorProps) {
 
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Status</label>
+            <label className="text-sm font-medium">
+              Status
+            </label>
 
             <Select
               value={form.status}
               onValueChange={(value) =>
-                setField("status", value as typeof form.status)
+                setField(
+                  "status",
+                  value as typeof form.status,
+                )
               }
             >
               <SelectTrigger>
@@ -109,20 +145,29 @@ export function ProjectProfileEditor({ projectId }: ProjectProfileEditorProps) {
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="DRAFT">Draft</SelectItem>
+                <SelectItem value="DRAFT">
+                  Draft
+                </SelectItem>
 
-                <SelectItem value="PUBLISHED">Published</SelectItem>
+                <SelectItem value="PUBLISHED">
+                  Published
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Visibility</label>
+            <label className="text-sm font-medium">
+              Visibility
+            </label>
 
             <Select
               value={form.visibility}
               onValueChange={(value) =>
-                setField("visibility", value as typeof form.visibility)
+                setField(
+                  "visibility",
+                  value as typeof form.visibility,
+                )
               }
             >
               <SelectTrigger>
@@ -130,17 +175,29 @@ export function ProjectProfileEditor({ projectId }: ProjectProfileEditorProps) {
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="PUBLIC">Public</SelectItem>
+                <SelectItem value="PUBLIC">
+                  Public
+                </SelectItem>
 
-                <SelectItem value="UNLISTED">Unlisted</SelectItem>
+                <SelectItem value="UNLISTED">
+                  Unlisted
+                </SelectItem>
 
-                <SelectItem value="PRIVATE">Private</SelectItem>
+                <SelectItem value="PRIVATE">
+                  Private
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+            <p className="text-sm text-destructive">
+              {error}
+            </p>
+          </div>
+        )}
 
         <div className="flex justify-end border-t pt-6">
           <Button
@@ -152,7 +209,10 @@ export function ProjectProfileEditor({ projectId }: ProjectProfileEditorProps) {
             }
           >
             <Save />
-            {isSaving ? "Saving..." : "Save changes"}
+
+            {isSaving
+              ? "Saving..."
+              : "Save changes"}
           </Button>
         </div>
       </div>

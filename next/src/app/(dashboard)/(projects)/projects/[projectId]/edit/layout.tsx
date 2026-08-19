@@ -1,3 +1,4 @@
+import PageWrapper from "@/components/page-wrapper";
 import { ProjectEditorLayout } from "@/modules/projects/frontend/components/editor/project-editor-layout";
 
 interface ProjectEditLayoutProps {
@@ -14,11 +15,10 @@ export default async function ProjectEditLayout({
   const { projectId } = await params;
 
   return (
-    <ProjectEditorLayout
-      projectId={projectId}
-      projectName="Project"
-    >
-      {children}
-    </ProjectEditorLayout>
+    <PageWrapper>
+      <ProjectEditorLayout projectId={projectId}>
+        {children}
+      </ProjectEditorLayout>{" "}
+    </PageWrapper>
   );
 }

@@ -1,3 +1,4 @@
+import PageWrapper from "@/components/page-wrapper";
 import { ProjectContentEditor } from "@/modules/projects/frontend/components/editor/content/project-content-editor";
 
 interface ProjectContentPageProps {
@@ -11,6 +12,9 @@ export default async function ProjectContentPage({
 }: ProjectContentPageProps) {
   const { projectId } = await params;
 
-//   return <>ererf</>
-  return <ProjectContentEditor projectId={projectId} />;
+  return (
+    // <PageWrapper>
+      <ProjectContentEditor projectId={projectId} />
+    // </PageWrapper>
+  );
 }
