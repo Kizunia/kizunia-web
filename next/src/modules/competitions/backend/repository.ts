@@ -1,4 +1,4 @@
-﻿import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import type { CreateCompetitionInput } from "../schemas/create-competition";
 import type { Prisma } from "@/generated/prisma";
 import { UpdateCompetitionInput } from "../schemas/update-competition";
@@ -291,11 +291,39 @@ export class CompetitionRepository {
     return competition;
   }
 
+  /**
+   * This method is different from existsBySlugExceptCompetition because it doesn't check for the competition id.
+   * It's only used for create method.
+   */
   static async existsBySlug(slug: string): Promise<boolean> {
     const exists = await prisma.competition.findUnique({
       where: {
         slug,
         deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return exists !== null;
+  }
+
+
+  static async existsBySlugExceptCompetition({
+    slug,
+    competitionId,
+  }: {
+    slug: string;
+    competitionId: string;
+  }): Promise<boolean> {
+    const exists = await prisma.competition.findFirst({
+      where: {
+        slug,
+        deletedAt: null,
+        id: {
+          not: competitionId,
+        },
       },
       select: {
         id: true,

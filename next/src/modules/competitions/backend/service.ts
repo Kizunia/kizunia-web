@@ -1,12 +1,9 @@
-﻿import { CompetitionMapper, competitionMapper } from "./mapper";
+import { CompetitionMapper, competitionMapper } from "./mapper";
 
 import type { CreateCompetitionInput } from "../schemas/create-competition";
-import type { SearchCompetitionsInput } from "../schemas/search.schema";
 import type { UpdateCompetitionInput } from "../schemas/update-competition";
 
 import { CompetitionRepository } from "./repository";
-
-import { COMPETITIONS_PAGE_SIZE } from "../constants";
 
 import type { PlatformContext } from "@/authorization/platform/context";
 import {
@@ -16,7 +13,6 @@ import {
 } from "./authorization";
 
 import { DuplicateSlugError } from "../errors";
-import { CompetitionSearchBuilder } from "../search/builder";
 import type { CompetitionSearchResult } from "../search/types";
 import type { CompetitionSearchInput } from "../search/schema";
 import type { CompetitionDetailDTO, CompetitionCardDTO } from "../types/dto";
@@ -68,63 +64,12 @@ export class CompetitionService {
    * ✗ Return NextResponse
    */
 
-  // ==========================================================================
-  // Queries
-  // ==========================================================================
-
-  // static async findPublic(filters: SearchCompetitionsInput) {
-  //   const skip = (filters.page - 1) * COMPETITIONS_PAGE_SIZE;
-
-  //   const competitions = await CompetitionRepository.findMany({
-  //     // TODO: add more filters here as needed
-  //     // open to all, payment, team size, location, user type, location
-  //     search: filters.search,
-
-  //     mode: filters.mode,
-
-  //     status: filters.status,
-
-  //     category: filters.category,
-
-  //     technology: filters.technology,
-
-  //     sort: filters.sort,
-
-  //     skip,
-
-  //     take: COMPETITIONS_PAGE_SIZE,
-  //   });
-
-  //   return competitionMapper.toCardDTOs(competitions);
-  // }
-  // ==========================================================================
-  // Queries
-  // ==========================================================================
-
   static async search(
     filters: CompetitionSearchInput,
   ): Promise<CompetitionSearchResult<CompetitionCardDTO>> {
     // ------------------------------------------------------------
-    // Build Prisma Query
-    // ------------------------------------------------------------
-
-    // const where =
-    //   CompetitionSearchBuilder.buildWhere(filters);
-
-    // const orderBy =
-    //   CompetitionSearchBuilder.buildOrderBy(
-    //     filters.sort,
-    //   );
-
-    // const { skip, take } =
-    //   CompetitionSearchBuilder.buildPagination(
-    //     filters,
-    //   );
-
-    // ------------------------------------------------------------
     // Execute Queries
     // ------------------------------------------------------------
-    console.log(filters);
 
     const [competitions, total] = await Promise.all([
       CompetitionRepository.findMany(filters),
@@ -299,7 +244,6 @@ export class CompetitionService {
   // Mutations
 
   static async create(options: CreateCompetitionOptions) {
-    await this.normalizeCreate(options);
     await this.validateCreate(options.data);
 
     return CompetitionRepository.create({
@@ -325,20 +269,6 @@ export class CompetitionService {
   static async update(options: UpdateCompetitionOptions) {
     await this.validateSlug(options.context, options.data);
 
-    // Future business rules
-    // --------------------------------
-    //
-    // await this.validateDates(...)
-    //
-    // await this.validateVisibility(...)
-    //
-    // await this.validateStatus(...)
-    //
-    // await this.validateRegistration(...)
-    //
-    // await this.validateTeamSize(...)
-    //
-
     return CompetitionRepository.update({
       id: options.context.competition.id,
       data: options.data,
@@ -358,15 +288,6 @@ export class CompetitionService {
   // ==========================================================================
 
   private static async validateCreate(data: CreateCompetitionInput) {
-    /**
-     * TODO: Implement business validation rules for creating a competition.
-     * Future
-     *
-     * - Validate slug
-     * - Validate dates
-     * - Validate registration
-     * - Validate organizer
-     */
     const exists = await CompetitionRepository.existsBySlug(data.slug);
 
     if (exists) {
@@ -378,26 +299,19 @@ export class CompetitionService {
     context: CompetitionContext,
     data: UpdateCompetitionInput,
   ) {
-    if (!data.slug || data.slug === context.competition.slug) {
+    if (!data.slug) {
       return;
     }
 
-    const exists = await CompetitionRepository.existsBySlug(data.slug);
+    const exists = await CompetitionRepository.existsBySlugExceptCompetition({
+      slug: data.slug,
+      competitionId: context.competition.id,
+    });
 
     if (exists) {
       throw new DuplicateSlugError(data.slug);
     }
   }
-
-  private static normalizeCreate(
-    //TODO: Implement normalization logic for creating a competition.
-    options: CreateCompetitionOptions,
-  ) {}
-
-  private static normalizeUpdate(
-    // TODO: Implement normalization logic for updating a competition.
-    options: UpdateCompetitionOptions,
-  ) {}
 }
 
 export const competitionService = new CompetitionService();

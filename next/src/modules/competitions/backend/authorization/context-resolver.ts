@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+
 
 import type { CompetitionContext } from "./context";
 import { AuthorizationActor } from "@/authorization";
@@ -21,26 +21,8 @@ export class CompetitionContextResolver {
       });
     }
     const [competition, membership] = await Promise.all([
-      // prisma.user.findUniqueOrThrow({ //TODO: use repo instead of directly using prisma
-      //   where: {
-      //     id: actorId,
-      //   },
-      // }),
-
-      prisma.competition.findUniqueOrThrow({
-        where: {
-          id: competitionId,
-        },
-      }),
-
-      prisma.competitionMember.findUnique({
-        where: {
-          competitionId_userId: {
-            competitionId,
-            userId: actor.id,
-          },
-        },
-      }),
+      CompetitionRepository.findByIdOrThrow(competitionId),
+      CompetitionRepository.findMembership(competitionId, actor.id),
     ]);
 
     return {
