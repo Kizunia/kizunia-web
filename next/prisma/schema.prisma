@@ -644,37 +644,8 @@ model CompetitionSuggestion {
   reviewedById String?
   reviewedBy   User?   @relation("competitionSuggestionReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
 
-  // ===========================================================================
-  // Contributor Editable Fields
-  // ===========================================================================
-
-  title String?
-
-  shortDescription String?
-
-  organizer String?
-
-  mode CompetitionMode?
-
-  location String?
-
-  registrationLink String?
-
-  website String?
-
-  startDate DateTime?
-
-  endDate DateTime?
-
-  registrationDeadline DateTime?
-
-  minTeamSize Int?
-
-  maxTeamSize Int?
-
-  prizePool String?
-
-  documentation String? @db.Text
+  
+  
 
   // ===========================================================================
   // Audit
