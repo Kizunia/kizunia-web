@@ -17,10 +17,9 @@ import {
   SettingsIcon,
   UsersIcon,
   Trophy,
-  FileUser
+  FileUser,
 } from "lucide-react";
 import type { ComponentType } from "react";
-
 
 type SidebarIcon = ComponentType<any>;
 
@@ -139,6 +138,17 @@ export const SideBarNavMain: SidebarNavSection[] = [
     isActive: true,
   },
   {
+    title: "Community",
+    icon: UsersIcon,
+    items: [
+      { title: "Suggest Competition", url: "/competitions/suggestions/new" },
+      {
+        title: "My Suggestions",
+        url: "/competitions/suggestions",
+      },
+    ],
+  },
+  {
     title: "Admin",
     // url: "#",
     icon: UsersIcon,
@@ -187,8 +197,8 @@ export const SideBarNavMain: SidebarNavSection[] = [
         title: "New Project",
         url: "/projects/new",
       },
-    ]
-  }
+    ],
+  },
 ];
 
 export const dashboardSidebarLinks: SidebarData = {

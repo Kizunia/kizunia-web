@@ -4,12 +4,14 @@ import { PlatformAction } from "./actions";
 export const PlatformPermissionSet = {
     [PlatformRole.USER]: new Set<PlatformAction>([
         PlatformAction.VIEW_PUBLIC_PROJECTS,
+        PlatformAction.CREATE_COMPETITION_SUGGESTION
     ]),
 
     [PlatformRole.ADMIN]: new Set<PlatformAction>([
         PlatformAction.CREATE_COMPETITION,
         PlatformAction.VIEW_ALL_COMPETITIONS,
-        PlatformAction.ACCESS_ADMIN_DASHBOARD,
+        PlatformAction.ACCESS_ADMIN_DASHBOARD,        
+        PlatformAction.CREATE_COMPETITION_SUGGESTION
     ]),
 
     [PlatformRole.SUPER_ADMIN]: new Set<PlatformAction>([
@@ -17,5 +19,6 @@ export const PlatformPermissionSet = {
         PlatformAction.VIEW_ALL_COMPETITIONS,
         PlatformAction.ACCESS_ADMIN_DASHBOARD,
         PlatformAction.MANAGE_USERS,
+        PlatformAction.CREATE_COMPETITION_SUGGESTION
     ]),
 } as const;

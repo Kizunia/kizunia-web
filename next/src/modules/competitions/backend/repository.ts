@@ -1,16 +1,17 @@
-﻿import prisma from "@/lib/prisma";
-import type { CreateCompetitionInput } from "../schemas/create-competition";
-import type { Prisma } from "@/generated/prisma";
-import { UpdateCompetitionInput } from "../schemas/update-competition";
-import { NotFoundError } from "@/lib/errors";
-import type { CompetitionSearchOptions } from "../search/types";
-import { CompetitionSearchInput } from "../search/schema";
-import { CompetitionSearchBuilder } from "../search/builder";
-import { CompetitionAssetSlot } from "../types/asset-slot";
-import { CompetitionNotFoundError } from "../errors";
+
 
 // interface FindCompetitionsOptions {
 //   search?: string;
+
+import { Prisma } from "@/generated/prisma";
+import prisma from "@/lib/prisma";
+import { CompetitionNotFoundError } from "../errors";
+import { CreateCompetitionInput } from "../schemas/create-competition";
+import { UpdateCompetitionInput } from "../schemas/update-competition";
+import { CompetitionSearchBuilder } from "../search/builder";
+import { CompetitionSearchInput } from "../search/schema";
+import { CompetitionAssetSlot } from "../types/asset-slot";
+
 
 //   mode?: Prisma.CompetitionWhereInput["mode"];
 
@@ -291,11 +292,39 @@ export class CompetitionRepository {
     return competition;
   }
 
+  /**
+   * This method is different from existsBySlugExceptCompetition because it doesn't check for the competition id.
+   * It's only used for create method.
+   */
   static async existsBySlug(slug: string): Promise<boolean> {
     const exists = await prisma.competition.findUnique({
       where: {
         slug,
         deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return exists !== null;
+  }
+
+
+  static async existsBySlugExceptCompetition({
+    slug,
+    competitionId,
+  }: {
+    slug: string;
+    competitionId: string;
+  }): Promise<boolean> {
+    const exists = await prisma.competition.findFirst({
+      where: {
+        slug,
+        deletedAt: null,
+        id: {
+          not: competitionId,
+        },
       },
       select: {
         id: true,

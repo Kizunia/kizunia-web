@@ -28,9 +28,6 @@ export class CompetitionController {
     return Route.execute(async () => {
       const body = await request.json();
 
-      console.dir(body, {
-        depth: null,
-      });
       const actor = await SessionService.getActor(request);
 
       const data = CreateCompetitionSchema.parse(body);

@@ -6,6 +6,8 @@ import {
   SquareArrowOutUpRight,
   Trophy,
   Users,
+  CreditCard,
+  Monitor,
 } from "lucide-react";
 import prisma from "@/lib/prisma";
 import PageWrapper from "@/components/page-wrapper";
@@ -62,7 +64,10 @@ export default async function CompetitionPage({
     competition.location ||
     competition.minTeamSize ||
     competition.maxTeamSize ||
-    competition.mode;
+    competition.mode ||
+    competition.registrationFee !== null ||
+    competition.registrationFeeType ||
+    competition.registrationPlatform;
 
   const isAboutSectionRequired =
     competition.content?.content &&
@@ -128,28 +133,48 @@ export default async function CompetitionPage({
                 </p>
               )}
 
-              {(competition.mode || competition.location) && (
-                <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
+                {competition.mode && (
                   <Badge variant="secondary">{competition.mode}</Badge>
+                )}
 
-                  {competition.location && (
-                    <Badge variant="outline">
-                      <MapPin className="mr-1 h-3 w-3" />
-                      {competition.location}
-                    </Badge>
-                  )}
+                {competition.difficulty && (
+                  <Badge variant="outline">{competition.difficulty.replaceAll("_", " ")}</Badge>
+                )}
 
-                  {competition.registrationLink && (
-                    <Badge asChild>
-                      <Link href={competition.registrationLink}>
-                        {" "}
-                        <SquareArrowOutUpRight />
-                        Regester
-                      </Link>
-                    </Badge>
-                  )}
-                </div>
-              )}
+                {/* {competition.certificateType && (
+                  <Badge variant="outline">{competition.certificateType.replaceAll("_", " ")}</Badge>
+                )} */}
+
+                {competition.organizerType && (
+                  <Badge variant="outline">{competition.organizerType.replaceAll("_", " ")}</Badge>
+                )}
+
+                {competition.location && (
+                  <Badge variant="outline">
+                    <MapPin className="mr-1 h-3 w-3" />
+                    {competition.location}
+                  </Badge>
+                )}
+
+                {competition.website && (
+                  <Badge asChild variant="default">
+                    <Link href={competition.website} target="_blank" rel="noopener noreferrer">
+                      <Globe className="mr-1 h-3 w-3" />
+                      Official Website
+                    </Link>
+                  </Badge>
+                )}
+
+                {competition.registrationLink && (
+                  <Badge asChild>
+                    <Link href={competition.registrationLink} target="_blank" rel="noopener noreferrer">
+                      <SquareArrowOutUpRight className="mr-1 h-3 w-3" />
+                      Register
+                    </Link>
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </Card>
@@ -203,6 +228,22 @@ export default async function CompetitionPage({
                   {competition.technologies.map((tech) => (
                     <Badge key={tech.technologyId} variant="outline">
                       {tech.technology.name}
+                    </Badge>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {competition.eligibilities && competition.eligibilities.length > 0 && (
+              <Card className="p-6 space-y-4">
+                <h2 className="text-xl font-semibold">Eligibilities</h2>
+
+                <Separator />
+
+                <div className="flex flex-wrap gap-2">
+                  {competition.eligibilities.map((el: any) => (
+                    <Badge key={el.type} variant="outline">
+                      {el.type.replaceAll("_", " ")}
                     </Badge>
                   ))}
                 </div>
@@ -300,6 +341,30 @@ export default async function CompetitionPage({
                       <p className="font-medium">Mode</p>
                       <p className="text-sm text-muted-foreground">
                         {competition.mode}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {(competition.registrationFee !== null || competition.registrationFeeType) && (
+                  <div className="flex gap-3">
+                    <CreditCard className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Registration Fee</p>
+                      <p className="text-sm text-muted-foreground">
+                        {competition.registrationFeeType === "FREE" ? "Free" : `${competition.registrationFee ?? ""} ${competition.registrationFeeType ?? ""}`.trim()}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {competition.registrationPlatform && (
+                  <div className="flex gap-3">
+                    <Monitor className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Registration Platform</p>
+                      <p className="text-sm text-muted-foreground">
+                        {competition.registrationPlatform}
                       </p>
                     </div>
                   </div>

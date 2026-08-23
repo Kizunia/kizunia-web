@@ -406,9 +406,7 @@ model Asset {
   competitionCover  Competition[] @relation("competitionCover")
 
   // Suggestion
-  suggestionLogo   CompetitionSuggestion[] @relation("suggestionLogo")
-  suggestionBanner CompetitionSuggestion[] @relation("suggestionBanner")
-  suggestionCover  CompetitionSuggestion[] @relation("suggestionCover")
+  suggestionAssets CompetitionSuggestionAsset[]
 
   // Project
   projectLogo  Project[] @relation("projectLogo")
@@ -425,7 +423,8 @@ model Asset {
 
   certificationAssets PortfolioCertification[] @relation("certificationAsset")
 
-  testimonialImages Testimonial[] @relation("testimonialImage")
+  testimonialImages           Testimonial[]                @relation("testimonialImage")
+  
 
   @@map("asset")
 }
@@ -441,7 +440,6 @@ model Technology {
   users                             UserTechnology[]
   competitions                      CompetitionTechnology[]
   projects                          ProjectTechnology[]
-  competitionSuggestionTechnologies CompetitionSuggestionTechnology[]
   portfolioTechnologies             PortfolioTechnology[]
 
   @@map("technology")
@@ -456,7 +454,6 @@ model Category {
   users                           UserCategory[]
   competitions                    CompetitionCategory[]
   projects                        ProjectCategory[]
-  competitionSuggestionCategories CompetitionSuggestionCategory[]
 
   @@map("category")
 }
@@ -617,6 +614,11 @@ model Competition {
 model CompetitionSuggestion {
   id String @id @default(cuid())
 
+  suggestionTitle String
+
+  suggestionContentId String?  @unique
+  suggestionContent   Content? @relation("CompetitionSuggestionContent", fields: [suggestionContentId], references: [id], onDelete: SetNull)
+
   // ===========================================================================
   // Workflow
   // ===========================================================================
@@ -636,45 +638,13 @@ model CompetitionSuggestion {
   // NULL => New Competition
   // NOT NULL => Edit Existing Competition
   competitionId String?
-  competition   Competition? @relation("competitionSuggestionTarget", fields: [competitionId], references: [id], onDelete: Cascade)
+  competition   Competition? @relation("competitionSuggestionTarget", fields: [competitionId], references: [id], onDelete: SetNull)
 
   submittedById String
   submittedBy   User   @relation("competitionSuggestionSubmittedBy", fields: [submittedById], references: [id], onDelete: Cascade)
 
   reviewedById String?
   reviewedBy   User?   @relation("competitionSuggestionReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
-
-  // ===========================================================================
-  // Contributor Editable Fields
-  // ===========================================================================
-
-  title String?
-
-  shortDescription String?
-
-  organizer String?
-
-  mode CompetitionMode?
-
-  location String?
-
-  registrationLink String?
-
-  website String?
-
-  startDate DateTime?
-
-  endDate DateTime?
-
-  registrationDeadline DateTime?
-
-  minTeamSize Int?
-
-  maxTeamSize Int?
-
-  prizePool String?
-
-  documentation String? @db.Text
 
   // ===========================================================================
   // Audit
@@ -688,18 +658,11 @@ model CompetitionSuggestion {
   // Relations
   // ===========================================================================
 
-  categories   CompetitionSuggestionCategory[]
-  technologies CompetitionSuggestionTechnology[]
 
   links       Link[]
-  logoAssetId String?
-  logoAsset   Asset?  @relation("suggestionLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
 
-  bannerAssetId String?
-  bannerAsset   Asset?  @relation("suggestionBanner", fields: [bannerAssetId], references: [id], onDelete: SetNull)
-
-  coverAssetId String?
-  coverAsset   Asset?  @relation("suggestionCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
+ 
+  assets CompetitionSuggestionAsset[]
 
   @@index([status])
   @@index([submittedById])
@@ -707,6 +670,24 @@ model CompetitionSuggestion {
   @@index([competitionId])
   @@index([createdAt])
   @@map("competition_suggestion")
+}
+
+model CompetitionSuggestionAsset {
+  suggestionId String
+  assetId      String
+
+  suggestion CompetitionSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  order Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@id([suggestionId, assetId])
+  @@index([suggestionId, order])
+  @@index([assetId])
+  @@map("competition_suggestion_asset")
 }
 
 // Competition members with role-based access. Replaces the old CompetitionMaintainer
@@ -765,27 +746,7 @@ model CompetitionBookmark {
   @@map("competition_bookmark")
 }
 
-model CompetitionSuggestionCategory {
-  suggestionId String
-  categoryId   String
 
-  suggestion CompetitionSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
-  category   Category              @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@id([suggestionId, categoryId])
-  @@map("competition_suggestion_category")
-}
-
-model CompetitionSuggestionTechnology {
-  suggestionId String
-  technologyId String
-
-  suggestion CompetitionSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
-  technology Technology            @relation(fields: [technologyId], references: [id], onDelete: Cascade)
-
-  @@id([suggestionId, technologyId])
-  @@map("competition_suggestion_technology")
-}
 
 // =============================================================================
 // Project Domain
@@ -1181,8 +1142,9 @@ model Content {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  competition Competition? @relation("CompetitionContent")
-  project     Project?     @relation("ProjectContent")
+  competition           Competition?           @relation("CompetitionContent")
+  project               Project?               @relation("ProjectContent")
   // team      Team?      @relation("TeamContent")
   // blog      Blog?      @relation("BlogContent")
+  competitionSuggestion CompetitionSuggestion? @relation("CompetitionSuggestionContent")
 }
