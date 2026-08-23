@@ -144,7 +144,7 @@ export const SideBarNavMain: SidebarNavSection[] = [
       { title: "Suggest Competition", url: "/competitions/suggestions/new" },
       {
         title: "My Suggestions",
-        url: "/competitions/suggestions/mine",
+        url: "/competitions/suggestions",
       },
     ],
   },

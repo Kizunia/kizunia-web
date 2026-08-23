@@ -46,7 +46,7 @@ export class SessionService {
     request: NextRequest,
   ): Promise<StrictAuthorizationActor>;
 
-  static async getStrictActor(): Promise<AuthorizationActor>;
+  static async getStrictActor(): Promise<StrictAuthorizationActor>;
 
   static async getStrictActor(
     request?: NextRequest,

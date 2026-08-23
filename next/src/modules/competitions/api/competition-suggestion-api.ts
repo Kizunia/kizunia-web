@@ -24,13 +24,18 @@ export class CompetitionSuggestionApi {
   // Read
   // ===========================================================================
 
-  static async findById(
-    id: string,
-  ): Promise<CompetitionSuggestionDTO> {
-    const response =
-      await HttpClient.get<CompetitionSuggestionDTO>(
-        `/api/v1/competition-suggestions/${id}`,
-      );
+  static async findById(id: string): Promise<CompetitionSuggestionDTO> {
+    const response = await HttpClient.get<CompetitionSuggestionDTO>(
+      `/api/v1/competition-suggestions/${id}`,
+    );
+
+    return response.data;
+  }
+
+  static async findMine(): Promise<CompetitionSuggestionDTO[]> {
+    const response = await HttpClient.get<CompetitionSuggestionDTO[]>(
+      "/api/v1/competition-suggestions/mine",
+    );
 
     return response.data;
   }
@@ -46,10 +51,7 @@ export class CompetitionSuggestionApi {
     const response = await HttpClient.patch<
       CompetitionSuggestionDTO,
       UpdateCompetitionSuggestionInput
-    >(
-      `/api/v1/competition-suggestions/${id}`,
-      data,
-    );
+    >(`/api/v1/competition-suggestions/${id}`, data);
 
     return response.data;
   }
@@ -58,13 +60,10 @@ export class CompetitionSuggestionApi {
   // Submit
   // ===========================================================================
 
-  static async submit(
-    id: string,
-  ): Promise<CompetitionSuggestionDTO> {
-    const response =
-      await HttpClient.post<CompetitionSuggestionDTO>(
-        `/api/v1/competition-suggestions/${id}/submit`,
-      );
+  static async submit(id: string): Promise<CompetitionSuggestionDTO> {
+    const response = await HttpClient.post<CompetitionSuggestionDTO>(
+      `/api/v1/competition-suggestions/${id}/submit`,
+    );
 
     return response.data;
   }
