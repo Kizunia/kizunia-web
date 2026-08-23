@@ -86,6 +86,24 @@ export class CompetitionSuggestionController {
     });
   }
 
+
+static async findMine(request: NextRequest) {
+  return Route.execute(async () => {
+    const actor = await SessionService.getStrictActor(request);
+
+    const suggestions =
+      await CompetitionSuggestionService.findMine({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+      });
+
+    return ApiResponse.ok(suggestions);
+  });
+}
+
   // ===========================================================================
   // Update
   // ===========================================================================
