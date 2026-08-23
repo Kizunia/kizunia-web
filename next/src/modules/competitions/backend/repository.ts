@@ -1,16 +1,17 @@
-import prisma from "@/lib/prisma";
-import type { CreateCompetitionInput } from "../schemas/create-competition";
-import type { Prisma } from "@/generated/prisma";
-import { UpdateCompetitionInput } from "../schemas/update-competition";
-import { NotFoundError } from "@/lib/errors";
-import type { CompetitionSearchOptions } from "../search/types";
-import { CompetitionSearchInput } from "../search/schema";
-import { CompetitionSearchBuilder } from "../search/builder";
-import { CompetitionAssetSlot } from "../types/asset-slot";
-import { CompetitionNotFoundError } from "../errors";
+
 
 // interface FindCompetitionsOptions {
 //   search?: string;
+
+import { Prisma } from "@/generated/prisma";
+import prisma from "@/lib/prisma";
+import { CompetitionNotFoundError } from "../errors";
+import { CreateCompetitionInput } from "../schemas/create-competition";
+import { UpdateCompetitionInput } from "../schemas/update-competition";
+import { CompetitionSearchBuilder } from "../search/builder";
+import { CompetitionSearchInput } from "../search/schema";
+import { CompetitionAssetSlot } from "../types/asset-slot";
+
 
 //   mode?: Prisma.CompetitionWhereInput["mode"];
 

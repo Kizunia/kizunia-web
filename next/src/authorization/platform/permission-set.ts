@@ -4,6 +4,7 @@ import { PlatformAction } from "./actions";
 export const PlatformPermissionSet = {
     [PlatformRole.USER]: new Set<PlatformAction>([
         PlatformAction.VIEW_PUBLIC_PROJECTS,
+        PlatformAction.CREATE_COMPETITION_SUGGESTION
     ]),
 
     [PlatformRole.ADMIN]: new Set<PlatformAction>([
