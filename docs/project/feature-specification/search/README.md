@@ -24,6 +24,7 @@ thesis below).
 | [04-module-adoption.md](04-module-adoption.md) | How Competitions, Projects and Blogs each adopt the core; what stays module-owned. |
 | [05-implementation-plan.md](05-implementation-plan.md) | Phased delivery with concrete files. |
 | [06-open-questions.md](06-open-questions.md) | Unresolved design areas — location/geo, full-text search, facets. Awaiting product input. |
+| [07-implementation-design.md](07-implementation-design.md) | Phase 1 build spec: verified environment facts, the full edge-case catalogue, corrected contracts. **Supersedes 02 where they differ.** |
 
 ---
 

@@ -8,6 +8,14 @@ Code below is **design intent**, not committed code. It is written to be
 type-correct against the real Prisma types in this repository so that
 implementation is transcription rather than reinterpretation.
 
+> **Superseded in parts.** Implementation investigation invalidated three
+> elements of this document — the single-parameter `FilterDescriptor`
+> contract (§3), the `RawSearchParams` shape, and the assumption that empty
+> filter collections are neutral in Prisma. See
+> [07-implementation-design.md §1](07-implementation-design.md#1-corrections-to-the-architecture-doc)
+> for the corrections. The principles, boundary, scope model and testing
+> strategy here remain current.
+
 ---
 
 ## 1. The boundary — what is generic, what stays module-owned

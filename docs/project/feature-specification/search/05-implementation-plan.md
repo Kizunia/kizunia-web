@@ -55,6 +55,15 @@ Independent of the core. Small, high value, shipped first.
    - `src/modules/competitions/search/builder.ts`
    - `src/modules/competitions/search/types.ts`
 
+**Follow-up required by item 1, done during review:** enabling the
+`VIEW_PUBLIC_PROJECTS` check exposed that the permission set granted it
+only to `USER`, so the change 403'd admins and crashed for moderators.
+`src/authorization/platform/permission-set.ts` and
+`src/authorization/evaluator.ts` were corrected as a result — see
+[07 §8.6](07-implementation-design.md#86-defects-found-in-post-implementation-review).
+Those two files are outside the search module and are in this branch only
+because Phase 0 made the latent bug reachable.
+
 **Still open from Phase 0:** the regression test asserting an anonymous
 caller cannot retrieve a non-`PUBLIC` project (item 1) has not been written
 — there is no existing test suite in the repo to extend yet. Worth deciding
@@ -62,31 +71,62 @@ whether to introduce one now or fold it into Phase 1's testing strategy.
 
 ---
 
-## Phase 1 — The shared core
+## Phase 1 — The shared core ✅ (core + proof done; cutover pending)
 
-No user-visible change. Pure infrastructure plus a proven-safe migration.
+No user-visible change intended for this phase. Pure infrastructure plus a
+proof that it behaves like the code it will replace.
 
-1. Build `src/lib/search/`: `types.ts`, `compose.ts`, `scope.ts`, `sort.ts`,
-   `pagination.ts`, `engine.ts`, `schema.ts`, `url.ts`, and
-   `filters/` (the eight primitives in
-   [02, §4](02-core-architecture.md#4-filter-primitives)).
-2. Write the **behaviour-preservation suite first**: assert the engine
-   reproduces `CompetitionWhereBuilder`'s output across a matrix of filter
-   combinations. This is what makes the migration provable rather than
-   hopeful.
-3. Author the Competitions registry:
-   `src/modules/competitions/search/definition.ts` (server) and `ui.ts`
-   (client-safe), plus `scopes.ts` and `sorts.ts`.
-4. Switch `CompetitionSearchBuilder` to delegate to the engine. Keep its
-   public signature so the service and repository are untouched.
-5. Resolve the client/server enum-import question
-   ([02, §10](02-core-architecture.md#10-the-clientserver-split)) and verify
-   against a real bundle — do not assume it works.
-6. Delete the superseded `where.ts` / `*-where.ts` / `order-by.ts` /
-   `pagination.ts` once the suite is green.
+**Done:**
 
-**Exit criterion:** the behaviour-preservation suite passes and
-`/competitions` renders identically to before.
+1. Built `src/lib/search/`: `types.ts`, `compose.ts`, `guards.ts`, `bind.ts`,
+   `scope.ts`, `sort.ts`, `pagination.ts`, `engine.ts`, `url.ts`, and
+   `filters/{multi,text,range,boolean}.ts` (nine primitives — one more than
+   planned; `booleanFilter` was added as a cheap completeness gain, not yet
+   used by Competitions). `schema.ts` was **not** built — see
+   [07 §8.5](07-implementation-design.md#85-corrections-made-during-implementation)
+   for why a Zod-derivation layer turned out redundant with `decode`.
+2. Wrote `scripts/verify-search-parity.ts` (no test runner exists yet — see
+   [07 §8](07-implementation-design.md#8-testing-approach--no-new-dependency)).
+   It runs both the legacy `CompetitionWhereBuilder` pipeline and the new
+   engine against the **real database** and diffs the resulting row-id
+   sequences (not raw object shape — the two nest `AND` differently by
+   design; see [07 §7](07-implementation-design.md#7-behaviour-preservation)),
+   plus invariant checks for the empty-`in`/`OR` guard, scope-leak
+   resistance, sort determinism, wildcard escaping, and codec round-tripping.
+   **51/51 checks pass.**
+3. Authored the Competitions registry at
+   `src/modules/competitions/search/definition.ts` — all 19 legacy filters,
+   in the legacy pipeline's exact order, plus the `public`/`management`/
+   `admin` scopes and the full sort registry. `ui.ts` was **not** split out
+   separately — see below.
+
+**Deliberately not done in this pass — the actual production cutover:**
+
+4. `CompetitionSearchBuilder` still runs the legacy hand-written pipeline;
+   it has not been switched to delegate to the engine. The new registry
+   exists and is proven correct, but nothing in production calls it yet.
+5. The `ui.ts` client-safe split
+   ([02 §10](02-core-architecture.md#10-the-clientserver-split)) was
+   deferred — there are no client components yet to import it, so splitting
+   now would be speculative. `server-only` is also not an installed
+   dependency; adding it is recommended once Phase 2 introduces client
+   components that could accidentally import `definition.ts`.
+6. `where.ts` / `*-where.ts` / `order-by.ts` (legacy) are still in place and
+   still what production runs.
+
+**Why the cutover is a separate step, not bundled here:** switching
+`CompetitionSearchBuilder` changes the live request path for `/competitions`
+and `/admin/competitions`. The parity script proves the engine's *filtering
+logic* matches, but flipping the switch is the point where a mistake would
+be user-visible, and it deserves its own isolated diff and its own explicit
+go-ahead rather than arriving bundled with a large amount of new
+infrastructure code.
+
+**Revised exit criterion for Phase 1:** the parity script passes (done).
+**New criterion for cutover:** `CompetitionSearchBuilder` delegates to the
+engine, the legacy files are deleted, and `/competitions` / `/admin/competitions`
+still return 200 with identical results for the same test matrix the parity
+script already covers.
 
 ---
 
