@@ -12,7 +12,7 @@ import { AdminCompetitionWhereBuilder } from "./admin-where";
 
 export interface CompetitionSearchQuery {
   where: Prisma.CompetitionWhereInput;
-  orderBy: Prisma.CompetitionOrderByWithRelationInput;
+  orderBy: Prisma.CompetitionOrderByWithRelationInput[];
   skip: number;
   take: number;
 }

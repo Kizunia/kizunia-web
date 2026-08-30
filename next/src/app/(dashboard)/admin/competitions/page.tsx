@@ -15,7 +15,6 @@ import { CompetitionManagementTableDTO } from "@/modules/competitions/backend/au
 
 import { CompetitionService } from "@/modules/competitions/backend/service";
 import CompetitionsCards from "@/modules/competitions/components/allCompititions/CompetitionsCards";
-import { searchCompetitionsSchema } from "@/modules/competitions/schemas/search.schema";
 import { CompetitionSearchSchema } from "@/modules/competitions/search/schema";
 import { CompetitionSearchResult } from "@/modules/competitions/search/types";
 
@@ -25,11 +24,7 @@ import { AuthenticationError } from "@/lib/errors";
 import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
 import { PlatformAction } from "@/authorization/platform/actions";
 interface Props {
-  searchParams: Promise<{
-    mode?: string;
-    page?: string;
-    category?: string;
-  }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
 export default async function CompetitionsPage({ searchParams }: Props) {
@@ -46,9 +41,6 @@ export default async function CompetitionsPage({ searchParams }: Props) {
         status: 401,
       });
     }
-    filters.sort = "newest";
-    filters.limit = 30;
-    filters.page = filters.page ?? 1;
     const strictActor: StrictAuthorizationActor = {
       id: actor.id,
       role: actor.role ?? "user",

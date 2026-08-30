@@ -500,6 +500,11 @@ export class ProjectRepository {
     return {
       deletedAt: null,
 
+      // Visibility is a scope, not a caller-supplied filter: findMany() is
+      // the public listing path, so it is always restricted to PUBLIC
+      // projects here rather than accepting a `visibility` query param.
+      visibility: "PUBLIC",
+
       ...(query.search && {
         OR: [
           {
@@ -519,10 +524,6 @@ export class ProjectRepository {
 
       ...(query.status && {
         status: query.status,
-      }),
-
-      ...(query.visibility && {
-        visibility: query.visibility,
       }),
 
       ...(query.category && {

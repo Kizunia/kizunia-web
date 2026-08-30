@@ -3,7 +3,7 @@ import type { Prisma } from "@/generated/prisma";
 export interface CompetitionSearchOptions {
   where: Prisma.CompetitionWhereInput;
 
-  orderBy: Prisma.CompetitionOrderByWithRelationInput;
+  orderBy: Prisma.CompetitionOrderByWithRelationInput[];
 
   skip: number;
 

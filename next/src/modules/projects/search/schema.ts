@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import {
   ProjectStatus,
-  ProjectVisibility,
 } from "@/generated/prisma";
 
 export const ProjectQuerySchema = z.object({
@@ -15,12 +14,9 @@ export const ProjectQuerySchema = z.object({
     .pipe(z.nativeEnum(ProjectStatus))
     .optional(),
 
-  visibility: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .pipe(z.nativeEnum(ProjectVisibility))
-    .optional(),
+  // Visibility is not a caller-supplied filter — the public findMany()
+  // path is always scoped to PUBLIC projects in the repository. Accepting
+  // it here would let a caller request non-public projects directly.
 
   category: z
     .string()

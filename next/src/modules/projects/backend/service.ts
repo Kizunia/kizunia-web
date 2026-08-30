@@ -132,11 +132,11 @@ export class ProjectService {
     query: ProjectQueryDto;
     actor: AuthorizationActor;
   }): Promise<ProjectSummaryDto[]> {
+    PlatformAuthorizer.can({ actor }, PlatformAction.VIEW_PUBLIC_PROJECTS);
+
     const projects = await this.repository.findMany({
       query,
     });
-
-    //  PlatformAuthorizer.can({actor}, PlatformAction.VIEW_PUBLIC_PROJECTS); //TODO: Implement this check in the future
 
     return ProjectMapper.toSummaryDtos(projects);
   }

@@ -12,17 +12,12 @@ import {
 
 import { CompetitionService } from "@/modules/competitions/backend/service";
 import CompetitionsCards from "@/modules/competitions/components/allCompititions/CompetitionsCards";
-import { searchCompetitionsSchema } from "@/modules/competitions/schemas/search.schema";
 import { CompetitionSearchSchema } from "@/modules/competitions/search/schema";
 import { CompetitionSearchResult } from "@/modules/competitions/search/types";
 
 import { CompetitionCardDTO } from "@/modules/competitions/types/dto";
 interface Props {
-  searchParams: Promise<{
-    mode?: string;
-    page?: string;
-    category?: string;
-  }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
 export default async function CompetitionsPage({ searchParams }: Props) {
@@ -31,14 +26,6 @@ export default async function CompetitionsPage({ searchParams }: Props) {
   try {
     const rawSearchParams = await searchParams;
     const filters = CompetitionSearchSchema.parse(rawSearchParams);
-    // {
-    //   sort: "start-date-asc",
-    //   page: filters.page,
-    //   limit: 10,
-    // }
-    filters.sort = "newest";
-    filters.limit = 10;
-    filters.page = filters.page ?? 1;
     const resp = await CompetitionService.search(filters);
 
     competitions = resp.items;

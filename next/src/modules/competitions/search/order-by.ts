@@ -3,7 +3,23 @@ import type { Prisma } from "@/generated/prisma";
 import { CompetitionSort } from "./sort";
 
 export class CompetitionOrderByBuilder {
+  /**
+   * `id` is always appended as a tiebreaker so that competitions sharing
+   * the same primary sort value (including two `null`s on a nullable date
+   * column) still resolve to a stable order across pages.
+   */
   static build(
+    sort: CompetitionSort,
+  ): Prisma.CompetitionOrderByWithRelationInput[] {
+    return [
+      this.primary(sort),
+      {
+        id: "asc",
+      },
+    ];
+  }
+
+  private static primary(
     sort: CompetitionSort,
   ): Prisma.CompetitionOrderByWithRelationInput {
     switch (sort) {
