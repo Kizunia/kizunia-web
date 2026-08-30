@@ -15,8 +15,8 @@ import { CompetitionManagementTableDTO } from "@/modules/competitions/backend/au
 
 import { CompetitionService } from "@/modules/competitions/backend/service";
 import CompetitionsCards from "@/modules/competitions/components/allCompititions/CompetitionsCards";
-import { CompetitionSearchSchema } from "@/modules/competitions/search/schema";
 import { CompetitionSearchResult } from "@/modules/competitions/search/types";
+import type { RawSearchParams } from "@/lib/search";
 
 import { CompetitionCardDTO } from "@/modules/competitions/types/dto";
 import AdminCompetitionsCards from "./_components/AdminCompetitionsCards";
@@ -24,7 +24,7 @@ import { AuthenticationError } from "@/lib/errors";
 import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
 import { PlatformAction } from "@/authorization/platform/actions";
 interface Props {
-  searchParams: Promise<Record<string, string | undefined>>;
+  searchParams: Promise<RawSearchParams>;
 }
 
 export default async function CompetitionsPage({ searchParams }: Props) {
@@ -32,7 +32,6 @@ export default async function CompetitionsPage({ searchParams }: Props) {
   let pagination: CompetitionSearchResult<CompetitionCardDTO>["pagination"];
   try {
     const rawSearchParams = await searchParams;
-    const filters = CompetitionSearchSchema.parse(rawSearchParams);
     const actor = await SessionService.getActor();
     if (!actor || !actor.role || !!actor.banned || !actor.id) {
       throw new AuthenticationError({
@@ -51,7 +50,7 @@ export default async function CompetitionsPage({ searchParams }: Props) {
 
     PlatformAuthorizer.can({actor: strictActor}, PlatformAction.VIEW_ALL_COMPETITIONS);
 
-    const resp = await CompetitionService.searchAdmin(strictActor, filters);
+    const resp = await CompetitionService.searchAdmin(strictActor, rawSearchParams);
    
     competitions = resp.items;
     pagination = resp.pagination;

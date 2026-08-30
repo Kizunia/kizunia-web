@@ -12,12 +12,12 @@ import {
 
 import { CompetitionService } from "@/modules/competitions/backend/service";
 import CompetitionsCards from "@/modules/competitions/components/allCompititions/CompetitionsCards";
-import { CompetitionSearchSchema } from "@/modules/competitions/search/schema";
 import { CompetitionSearchResult } from "@/modules/competitions/search/types";
+import type { RawSearchParams } from "@/lib/search";
 
 import { CompetitionCardDTO } from "@/modules/competitions/types/dto";
 interface Props {
-  searchParams: Promise<Record<string, string | undefined>>;
+  searchParams: Promise<RawSearchParams>;
 }
 
 export default async function CompetitionsPage({ searchParams }: Props) {
@@ -25,8 +25,7 @@ export default async function CompetitionsPage({ searchParams }: Props) {
   let pagination: CompetitionSearchResult<CompetitionCardDTO>["pagination"];
   try {
     const rawSearchParams = await searchParams;
-    const filters = CompetitionSearchSchema.parse(rawSearchParams);
-    const resp = await CompetitionService.search(filters);
+    const resp = await CompetitionService.search(rawSearchParams);
 
     competitions = resp.items;
     pagination = resp.pagination;

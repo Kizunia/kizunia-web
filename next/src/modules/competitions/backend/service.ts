@@ -14,7 +14,11 @@ import {
 
 import { DuplicateSlugError } from "../errors";
 import type { CompetitionSearchResult } from "../search/types";
-import type { CompetitionSearchInput } from "../search/schema";
+import {
+  buildPaginationMeta,
+  parsePagination,
+  type RawSearchParams,
+} from "@/lib/search";
 import type { CompetitionDetailDTO, CompetitionCardDTO } from "../types/dto";
 import { CreateAssetInput } from "@/modules/assets/schemas/create-asset";
 import { CompetitionAssetSlot } from "../types/asset-slot";
@@ -65,7 +69,7 @@ export class CompetitionService {
    */
 
   static async search(
-    filters: CompetitionSearchInput,
+    filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionCardDTO>> {
     // ------------------------------------------------------------
     // Execute Queries
@@ -85,25 +89,17 @@ export class CompetitionService {
     // ------------------------------------------------------------
     // Pagination
     // ------------------------------------------------------------
-
-    const totalPages = Math.ceil(total / filters.limit);
+    //
+    // Re-derives {page, limit} from the same raw params the repository's
+    // query was built from, via the shared engine's own clamping logic
+    // (parsePagination), so the reported page/limit always matches what
+    // was actually queried — including when an out-of-range value was
+    // clamped rather than rejected.
 
     return {
       items,
 
-      pagination: {
-        page: filters.page,
-
-        limit: filters.limit,
-
-        total,
-
-        totalPages,
-
-        hasNextPage: filters.page < totalPages,
-
-        hasPreviousPage: filters.page > 1,
-      },
+      pagination: buildPaginationMeta(parsePagination(filters), total),
     };
   }
 
@@ -112,7 +108,7 @@ export class CompetitionService {
    */
   static async searchManageable(
     actor: StrictAuthorizationActor,
-    filters: CompetitionSearchInput,
+    filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionManagementTableDTO>> {
     const [competitions, total] = await Promise.all([
       CompetitionRepository.findManyManageable(actor.id, filters),
@@ -146,24 +142,10 @@ export class CompetitionService {
       });
     });
 
-    const totalPages = Math.ceil(total / filters.limit);
-
     return {
       items,
 
-      pagination: {
-        page: filters.page,
-
-        limit: filters.limit,
-
-        total,
-
-        totalPages,
-
-        hasNextPage: filters.page < totalPages,
-
-        hasPreviousPage: filters.page > 1,
-      },
+      pagination: buildPaginationMeta(parsePagination(filters), total),
     };
   }
 
@@ -172,7 +154,7 @@ export class CompetitionService {
    */
   static async searchAdmin(
     actor: StrictAuthorizationActor,
-    filters: CompetitionSearchInput,
+    filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionManagementTableDTO>> {
     const [competitions, total] = await Promise.all([
       CompetitionRepository.findManyAdmin(actor.id!, filters),
@@ -198,24 +180,10 @@ export class CompetitionService {
       });
     });
 
-    const totalPages = Math.ceil(total / filters.limit);
-
     return {
       items,
 
-      pagination: {
-        page: filters.page,
-
-        limit: filters.limit,
-
-        total,
-
-        totalPages,
-
-        hasNextPage: filters.page < totalPages,
-
-        hasPreviousPage: filters.page > 1,
-      },
+      pagination: buildPaginationMeta(parsePagination(filters), total),
     };
   }
 

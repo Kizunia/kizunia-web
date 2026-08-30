@@ -9,7 +9,7 @@ import { CompetitionNotFoundError } from "../errors";
 import { CreateCompetitionInput } from "../schemas/create-competition";
 import { UpdateCompetitionInput } from "../schemas/update-competition";
 import { CompetitionSearchBuilder } from "../search/builder";
-import { CompetitionSearchInput } from "../search/schema";
+import type { RawSearchParams } from "@/lib/search";
 import { CompetitionAssetSlot } from "../types/asset-slot";
 
 
@@ -110,7 +110,7 @@ export class CompetitionRepository {
   //   });
   // }
 
-  static async findMany(filters: CompetitionSearchInput) {
+  static async findMany(filters: RawSearchParams) {
     const query = CompetitionSearchBuilder.build(filters);
 
     return prisma.competition.findMany({
@@ -125,7 +125,7 @@ export class CompetitionRepository {
 
   static async findManyManageable(
     actorId: string,
-    filters: CompetitionSearchInput,
+    filters: RawSearchParams,
   ) {
     const query = CompetitionSearchBuilder.buildManagement(actorId, filters);
 
@@ -152,7 +152,7 @@ export class CompetitionRepository {
     });
   }
 
-  static async findManyAdmin(actorId: string, filters: CompetitionSearchInput) {
+  static async findManyAdmin(actorId: string, filters: RawSearchParams) {
     const query = CompetitionSearchBuilder.buildAdmin(filters);
 
     return prisma.competition.findMany({
@@ -566,7 +566,7 @@ export class CompetitionRepository {
     });
   }
 
-  static async count(filters: CompetitionSearchInput) {
+  static async count(filters: RawSearchParams) {
     const { where } = CompetitionSearchBuilder.build(filters);
 
     return prisma.competition.count({
@@ -576,7 +576,7 @@ export class CompetitionRepository {
 
   static async countManageable(
     actorId: string,
-    filters: CompetitionSearchInput,
+    filters: RawSearchParams,
   ) {
     const { where } = CompetitionSearchBuilder.buildManagement(
       actorId,
@@ -588,7 +588,7 @@ export class CompetitionRepository {
     });
   }
 
-  static async countAdmin(filters: CompetitionSearchInput) {
+  static async countAdmin(filters: RawSearchParams) {
     const { where } = CompetitionSearchBuilder.buildAdmin(filters);
 
     return prisma.competition.count({

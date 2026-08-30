@@ -18,7 +18,6 @@ import { ApiResponse, Route } from "@/lib/http";
 import { SessionService } from "@/lib/auth/index";
 import { UpdateCompetitionSchema } from "../schemas/update-competition";
 import { CompetitionContextResolver } from "./authorization";
-import { CompetitionSearchSchema } from "../search/schema";
 import { SlugSchema } from "@/lib/validation/index";
 import { CreateAssetSchema } from "@/modules/assets/schemas/create-asset";
 import { CompetitionAssetSlot } from "../types/asset-slot";
@@ -48,9 +47,7 @@ export class CompetitionController {
     return Route.execute(async () => {
       const query = Object.fromEntries(request.nextUrl.searchParams.entries());
 
-      const filters = CompetitionSearchSchema.parse(query);
-
-      const competitions = await CompetitionService.search(filters);
+      const competitions = await CompetitionService.search(query);
 
       return ApiResponse.ok(competitions);
     });
@@ -74,14 +71,13 @@ export class CompetitionController {
       // -----------------------------------------------------------------
 
       const query = Object.fromEntries(request.nextUrl.searchParams.entries());
-      const filters = CompetitionSearchSchema.parse(query);
 
       // -----------------------------------------------------------------
       // Business Logic
       // -----------------------------------------------------------------
       const competitions = await CompetitionService.searchManageable(
         { id: actor.id, role: actor.role, banned: actor.banned },
-        filters,
+        query,
       );
 
       // -----------------------------------------------------------------
@@ -110,14 +106,13 @@ export class CompetitionController {
       // -----------------------------------------------------------------
 
       const query = Object.fromEntries(request.nextUrl.searchParams.entries());
-      const filters = CompetitionSearchSchema.parse(query);
 
       // -----------------------------------------------------------------
       // Business Logic
       // -----------------------------------------------------------------
       const competitions = await CompetitionService.searchAdmin(
         { id: actor.id, role: actor.role, banned: actor.banned },
-        filters,
+        query,
       );
 
       // -----------------------------------------------------------------

@@ -1,28 +1,37 @@
 /**
- * Verifies the new `src/lib/search` engine, wired up for Competitions via
- * `competitionSearchDefinition`, reproduces the legacy hand-written
- * `CompetitionWhereBuilder` pipeline's *behaviour* — not its literal object
- * shape (the two nest `AND` differently; see
- * docs/project/feature-specification/search/07-implementation-design.md §7)
- * — by running both against the real database and comparing the resulting
- * row id sequences.
+ * Standing regression suite for the Competition search engine
+ * (`src/lib/search` + `competitionSearchDefinition`), which is now the
+ * production implementation behind `/competitions`, `/admin/competitions`,
+ * and the `/api/v1/competitions*` routes — the legacy hand-written
+ * `CompetitionWhereBuilder` pipeline this replaced has been deleted.
  *
- * There is no test runner in this repository yet (see 07 §8), so this is a
- * standalone script rather than a `describe`/`it` suite. Run with:
+ * Before deletion, this script instead ran the legacy pipeline and the new
+ * engine side by side against the real database and diffed row-id
+ * sequences (65/65 passed — see
+ * docs/project/feature-specification/search/07-implementation-design.md §7
+ * and the git history of this file for that comparison). With no legacy
+ * implementation left to compare against, this script now asserts the
+ * engine's own behavioural invariants directly against the database instead.
+ *
+ * There is no test runner in this repository yet (see 07 §8), so this
+ * remains a standalone script rather than a `describe`/`it` suite. Run with:
  *
  *   pnpm exec tsx scripts/verify-search-parity.ts
  *
- * It also asserts invariants that must hold regardless of parity:
- *   - no filter ever reaches Prisma as an empty `in`/`OR` (would match 0 rows)
- *   - every registered scope rejects filters on its own guarded keys
- *   - every resolved sort ends in the tiebreaker
- *   - encode(decode(x)) is stable for representative filters
+ * Invariants asserted:
+ *   - text filters match case-insensitively (the exact defect a prior
+ *     version of this suite could not catch, because its only case came
+ *     from a fixture whose casing happened to match)
+ *   - no filter ever reaches Prisma as an empty `in`/`OR` (both match 0 rows)
+ *   - scope guards cannot be bypassed by a same-named filter
+ *   - defineSearch() rejects malformed registries (6 cases)
+ *   - every resolved sort ends in the tiebreaker; unknown sorts degrade
+ *   - free-text filters escape LIKE wildcards, verified against the DB
+ *   - normalize() is idempotent (canonical URLs are stable)
+ *   - inputs that used to 400 the legacy schema now degrade gracefully
  */
 
 import { PrismaClient } from "../src/generated/prisma";
-import { CompetitionSearchSchema } from "../src/modules/competitions/search/schema";
-import { PublicCompetitionWhereBuilder } from "../src/modules/competitions/search/public-where";
-import { CompetitionOrderByBuilder } from "../src/modules/competitions/search/order-by";
 import {
   competitionSearchDefinition,
   type CompetitionSearchContext,
@@ -52,93 +61,15 @@ function report(label: string, ok: boolean, detail?: string): void {
   console.log(`  FAIL ${label}${detail ? ` — ${detail}` : ""}`);
 }
 
-// =============================================================================
-// Part 1 — behavioural parity against the real database
-// =============================================================================
-
-type Case = { name: string; raw: RawSearchParams };
-
-const cases: Case[] = [
-  { name: "no filters", raw: {} },
-  { name: "search text", raw: { search: "ETH" } },
-  { name: "single mode", raw: { modes: "OFFLINE" } },
-  { name: "multi mode", raw: { modes: "ONLINE,HYBRID" } },
-  { name: "mode + category", raw: { modes: "OFFLINE", categories: "web3" } },
-  { name: "category OR", raw: { categories: "ai,web3" } },
-  { name: "technology", raw: { technologies: "react" } },
-  { name: "team size bounds", raw: { minTeamSize: "1", maxTeamSize: "5" } },
-  {
-    name: "date range",
-    raw: { startDateFrom: "2026-01-01", startDateTo: "2026-12-31" },
-  },
-  { name: "organizer contains", raw: { organizers: "ETHGlobal" } },
-  { name: "combined", raw: { modes: "OFFLINE", technologies: "react", search: "ETH" } },
-  { name: "sort alphabetical", raw: { sort: "alphabetical-asc" } },
-  { name: "sort start date", raw: { sort: "start-date-asc" } },
-  { name: "pagination page 2", raw: { page: "2", limit: "5" } },
-  { name: "empty modes param", raw: { modes: "" } },
-  { name: "location contains", raw: { location: "Delhi" } },
-  { name: "difficulty + fee", raw: { difficultyLevels: "BEGINNER", registrationFeeTypes: "FREE" } },
-
-  // Case-varied inputs for every filter the legacy builder matches
-  // case-insensitively. Without these, a dropped `mode: "insensitive"`
-  // passes parity whenever the fixture data happens to match the test's
-  // casing — which is exactly how the `location` filter shipped broken and
-  // was only caught by reading the two implementations side by side.
-  { name: "location lowercase", raw: { location: "delhi" } },
-  { name: "location uppercase", raw: { location: "DELHI" } },
-  { name: "search lowercase", raw: { search: "eth" } },
-  { name: "search uppercase", raw: { search: "ETHGLOBAL" } },
-  { name: "organizers lowercase", raw: { organizers: "ethglobal" } },
-
-  // Inputs the legacy Zod schema REJECTS outright — excluded from the
-  // deep-equal loop below and asserted separately to degrade gracefully
-  // instead (07 §7's documented, deliberate exception).
-];
-
-const gracefulOnlyCases: Case[] = [
-  { name: "invalid enum value", raw: { modes: "BANANA" } },
-  { name: "repeated param (array)", raw: { modes: ["ONLINE", "HYBRID"] } },
-  { name: "out-of-range page", raw: { page: "0" } },
-  { name: "out-of-range limit", raw: { limit: "1000" } },
-  { name: "garbage date", raw: { startDateFrom: "not-a-date" } },
-];
-
-async function runLegacy(raw: RawSearchParams) {
-  // Only used for the `cases` matrix below, none of which contain array
-  // values — array-valued params are exercised separately in
-  // `verifyGracefulDegradation`, which passes them to the schema unfiltered.
-  const stringRaw: Record<string, string> = {};
-
-  for (const [key, value] of Object.entries(raw)) {
-    if (typeof value === "string") stringRaw[key] = value;
-  }
-
-  const filters = CompetitionSearchSchema.parse(stringRaw);
-
-  const where = PublicCompetitionWhereBuilder.build(filters);
-  const orderBy = CompetitionOrderByBuilder.build(filters.sort);
-  const skip = (filters.page - 1) * filters.limit;
-  const take = filters.limit;
-
-  const rows = await prisma.competition.findMany({
-    where,
-    orderBy,
-    skip,
-    take,
-    select: { id: true },
-  });
-
-  return rows.map((r) => r.id);
-}
-
-async function runEngine(raw: RawSearchParams) {
-  const context: CompetitionSearchContext = {};
-
+async function runEngine(
+  raw: RawSearchParams,
+  scope: string = "public",
+  context: CompetitionSearchContext = {},
+) {
   const query = buildSearchQuery({
     definition: competitionSearchDefinition,
     params: raw,
-    scope: "public",
+    scope,
     context,
     baseClauses: [{ deletedAt: null }],
   });
@@ -154,68 +85,105 @@ async function runEngine(raw: RawSearchParams) {
   return rows.map((r) => r.id);
 }
 
-async function verifyParity(): Promise<void> {
-  console.log("\n== Behavioural parity (legacy vs. engine, same DB) ==");
+// =============================================================================
+// Case-insensitivity — the exact class of bug a naive parity check missed
+// =============================================================================
 
-  for (const testCase of cases) {
-    const [legacyIds, engineIds] = await Promise.all([
-      runLegacy(testCase.raw),
-      runEngine(testCase.raw),
+async function verifyCaseInsensitivity(): Promise<void> {
+  console.log("\n== Invariant: text filters match case-insensitively ==");
+
+  const sample = await prisma.competition.findFirst({
+    where: { deletedAt: null, visibility: "PUBLIC", location: { not: null } },
+    select: { location: true },
+  });
+
+  if (!sample?.location) {
+    report("location case-insensitivity (needs fixture data)", false, "no public competition has a location");
+  } else {
+    const [lower, upper, exact] = await Promise.all([
+      runEngine({ location: sample.location.toLowerCase() }),
+      runEngine({ location: sample.location.toUpperCase() }),
+      runEngine({ location: sample.location }),
     ]);
 
-    const equal =
-      legacyIds.length === engineIds.length &&
-      legacyIds.every((id, i) => id === engineIds[i]);
-
     report(
-      testCase.name,
-      equal,
-      equal
-        ? undefined
-        : `legacy=[${legacyIds.join(",")}] engine=[${engineIds.join(",")}]`,
+      `location matches regardless of case (fixture: ${JSON.stringify(sample.location)})`,
+      lower.length > 0 &&
+        JSON.stringify(lower) === JSON.stringify(upper) &&
+        JSON.stringify(lower) === JSON.stringify(exact),
+      `lower=${lower.length} upper=${upper.length} exact=${exact.length} rows`,
     );
   }
+
+  const org = await prisma.competition.findFirst({
+    where: { deletedAt: null, visibility: "PUBLIC", organizer: { not: null } },
+    select: { organizer: true },
+  });
+
+  if (!org?.organizer) {
+    report("search/organizer case-insensitivity (needs fixture data)", false, "no public competition has an organizer");
+    return;
+  }
+
+  const [searchLower, searchUpper] = await Promise.all([
+    runEngine({ search: org.organizer.toLowerCase() }),
+    runEngine({ search: org.organizer.toUpperCase() }),
+  ]);
+
+  report(
+    `free-text search matches regardless of case (fixture: ${JSON.stringify(org.organizer)})`,
+    searchLower.length > 0 && JSON.stringify(searchLower) === JSON.stringify(searchUpper),
+    `lower=${searchLower.length} upper=${searchUpper.length} rows`,
+  );
+
+  const [orgLower, orgUpper] = await Promise.all([
+    runEngine({ organizers: org.organizer.toLowerCase() }),
+    runEngine({ organizers: org.organizer.toUpperCase() }),
+  ]);
+
+  report(
+    `organizers filter matches regardless of case (fixture: ${JSON.stringify(org.organizer)})`,
+    orgLower.length > 0 && JSON.stringify(orgLower) === JSON.stringify(orgUpper),
+    `lower=${orgLower.length} upper=${orgUpper.length} rows`,
+  );
 }
 
+// =============================================================================
+// Inputs that used to 400 the legacy Zod schema — must now degrade gracefully
+// =============================================================================
+
 async function verifyGracefulDegradation(): Promise<void> {
-  console.log("\n== Graceful degradation (inputs the legacy schema rejects) ==");
+  console.log("\n== Invariant: malformed input degrades instead of failing the request ==");
 
-  for (const testCase of gracefulOnlyCases) {
-    let legacyThrew = false;
+  const cases: Array<{ name: string; raw: RawSearchParams }> = [
+    { name: "invalid enum value", raw: { modes: "BANANA" } },
+    { name: "repeated param (array)", raw: { modes: ["ONLINE", "HYBRID"] } },
+    { name: "out-of-range page", raw: { page: "0" } },
+    { name: "out-of-range limit", raw: { limit: "1000" } },
+    { name: "garbage date", raw: { startDateFrom: "not-a-date" } },
+    { name: "mixed valid/invalid enum tokens", raw: { modes: "ONLINE,BANANA" } },
+  ];
 
-    try {
-      // Passed as-is, including arrays: this is what Next.js's App Router
-      // `searchParams` prop actually delivers for a repeated key (verified
-      // live in Phase 0 — `?modes=ONLINE&modes=HYBRID` renders the error
-      // page). Stripping arrays first, as `runLegacy` does for the DB
-      // parity cases below, would hide exactly the failure this case
-      // exists to demonstrate.
-      CompetitionSearchSchema.parse(testCase.raw);
-    } catch {
-      legacyThrew = true;
-    }
-
-    report(`legacy throws on: ${testCase.name}`, legacyThrew);
-
-    let engineThrew = false;
+  for (const testCase of cases) {
+    let threw = false;
     let ids: string[] = [];
 
     try {
       ids = await runEngine(testCase.raw);
     } catch {
-      engineThrew = true;
+      threw = true;
     }
 
     report(
-      `engine degrades gracefully on: ${testCase.name}`,
-      !engineThrew,
-      engineThrew ? "engine threw instead of degrading" : `returned ${ids.length} rows`,
+      testCase.name,
+      !threw,
+      threw ? "engine threw instead of degrading" : `returned ${ids.length} rows`,
     );
   }
 }
 
 // =============================================================================
-// Part 2 — structural invariants
+// No filter ever reaches Prisma as an empty `in`/`OR`
 // =============================================================================
 
 function containsEmptyInOrOr(value: unknown, path = "where"): string | null {
@@ -269,11 +237,6 @@ async function verifyNoEmptyInOrOr(): Promise<void> {
 async function verifyScopeGuardEnforcement(): Promise<void> {
   console.log("\n== Invariant: scope guards cannot be bypassed by a filter ==");
 
-  // The public scope guards "visibility". No registered filter may share
-  // that key — defineSearch() would have thrown at import time if one did,
-  // which this process reaching this line already proves. Assert it
-  // explicitly anyway so a future refactor that reintroduces the collision
-  // fails loudly here too, not only via import-time crash.
   const filterKeys = new Set(
     competitionSearchDefinition.filters.map((f) => f.key),
   );
@@ -283,7 +246,6 @@ async function verifyScopeGuardEnforcement(): Promise<void> {
     !filterKeys.has("visibility"),
   );
 
-  // Unknown scope must throw, not silently fall back to unscoped.
   let threw = false;
   try {
     buildSearchQuery({
@@ -297,7 +259,6 @@ async function verifyScopeGuardEnforcement(): Promise<void> {
   }
   report("unknown scope id throws", threw);
 
-  // Management scope without an actorId must throw, not leak.
   let managementThrew = false;
   try {
     buildSearchQuery({
@@ -310,6 +271,25 @@ async function verifyScopeGuardEnforcement(): Promise<void> {
     managementThrew = true;
   }
   report("management scope with no actorId throws", managementThrew);
+
+  // Every scope actually restricts what it claims to. Public rows must
+  // never include a non-PUBLIC visibility; admin may return any.
+  const publicRows = await prisma.competition.findMany({
+    where: buildSearchQuery({
+      definition: competitionSearchDefinition,
+      params: {},
+      scope: "public",
+      context: {},
+      baseClauses: [{ deletedAt: null }],
+    }).where,
+    select: { visibility: true },
+  });
+
+  report(
+    "public scope never returns a non-PUBLIC row",
+    publicRows.every((r) => r.visibility === "PUBLIC"),
+    `visibilities seen: ${JSON.stringify([...new Set(publicRows.map((r) => r.visibility))])}`,
+  );
 }
 
 async function verifyDefinitionValidation(): Promise<void> {
@@ -529,7 +509,6 @@ async function verifyWildcardEscaping(): Promise<void> {
     `matched ${escapedMatches}`,
   );
 
-  // ...and escaping must not break ordinary searches.
   const plain = buildSearchQuery({
     definition: competitionSearchDefinition,
     params: { search: sample.title },
@@ -578,7 +557,7 @@ function normalizeAll(raw: RawSearchParams): Record<string, string | undefined> 
 }
 
 async function main(): Promise<void> {
-  await verifyParity();
+  await verifyCaseInsensitivity();
   await verifyGracefulDegradation();
   await verifyNoEmptyInOrOr();
   await verifyScopeGuardEnforcement();
