@@ -39,12 +39,8 @@ export const UpdateCompetitionSchema = z
     // ---------------------------------------------------------------------
 
     website: UrlSchema.nullable().optional(),
-    location: z
-      .string()
-      .trim()
-      .max(150, "Location cannot exceed 150 characters.")
-      .nullable()
-      .optional(),
+    // Locations are not part of this payload — they are managed through
+    // /admin/competitions/[id]/locations, which owns their ordering and dates.
     registrationLink: UrlSchema.nullable().optional(),
     prizePool: z
       .string()
