@@ -43,11 +43,15 @@ import {
   dateRangeFilter,
   enumMultiFilter,
   enumRelationMultiFilter,
+  escapeLikeWildcards,
   multiFieldTextFilter,
+  normalizeList,
+  normalizeText,
   numberBoundFilter,
   relationSlugMultiFilter,
   textContainsAnyFilter,
-  textContainsFilter,
+  type FilterDescriptor,
+  type FilterUiMeta,
 } from "@/lib/search";
 
 type CompetitionWhere = Prisma.CompetitionWhereInput;
@@ -206,11 +210,117 @@ const registrationDeadline = dateRangeFilter<CompetitionWhere>({
   ui: { label: "Registration Deadline", group: "advanced", weight: 92 },
 });
 
-const location = textContainsFilter<CompetitionWhere>({
-  key: "location",
-  toWhere: (value) => ({
-    location: { contains: value, mode: "insensitive" },
-  }),
+/**
+ * Location owns four keys (`location`, `countries`, `states`, `cities`)
+ * rather than four separate filters, for the same reason `dateRangeFilter`
+ * owns two: independently-composed filters would each get AND-ed in at the
+ * top level, so a `countries=India&cities=Pune` query could be satisfied by
+ * two *different* locations on the same competition. Bundling them into one
+ * filter that emits a single `locations: { some: { location: { AND: [...] } } }`
+ * clause keeps every condition scoped to the same location row — see
+ * docs/architecture/domain/location.md ("Search Integration Plan").
+ *
+ * A competition with zero locations never matches any of these — correct,
+ * since the platform genuinely doesn't know where it is.
+ */
+interface LocationFilterValue {
+  readonly text?: string;
+  readonly countries?: string[];
+  readonly states?: string[];
+  readonly cities?: string[];
+}
+
+function locationFilter(config: {
+  ui: FilterUiMeta;
+}): FilterDescriptor<CompetitionWhere, LocationFilterValue> {
+  const keys = ["location", "countries", "states", "cities"];
+
+  return {
+    key: "location",
+
+    keys,
+
+    // Closest existing UI kind: fundamentally free text plus multi-select
+    // over a related entity. Worth a dedicated kind once the frontend
+    // filter UI (still unbuilt) needs to render this as its own control.
+    kind: "text",
+
+    decode: (params) => {
+      const text = normalizeText(params.location);
+      const countries = normalizeList(params.countries);
+      const states = normalizeList(params.states);
+      const cities = normalizeList(params.cities);
+
+      if (!text && !countries && !states && !cities) {
+        return undefined;
+      }
+
+      return { text, countries, states, cities };
+    },
+
+    encode: (value) => ({
+      location: value.text,
+      countries: value.countries?.join(","),
+      states: value.states?.join(","),
+      cities: value.cities?.join(","),
+    }),
+
+    toWhere: (value) => {
+      const conditions: Prisma.LocationWhereInput[] = [];
+
+      if (value.text) {
+        const escaped = escapeLikeWildcards(value.text);
+
+        conditions.push({
+          OR: [
+            { displayName: { contains: escaped, mode: "insensitive" } },
+            { city: { contains: escaped, mode: "insensitive" } },
+            { state: { contains: escaped, mode: "insensitive" } },
+            { country: { contains: escaped, mode: "insensitive" } },
+          ],
+        });
+      }
+
+      if (value.countries?.length) {
+        conditions.push({
+          OR: value.countries.flatMap((country) => [
+            { country: { equals: country, mode: "insensitive" as const } },
+            { countryCode: { equals: country, mode: "insensitive" as const } },
+          ]),
+        });
+      }
+
+      if (value.states?.length) {
+        conditions.push({
+          OR: value.states.flatMap((state) => [
+            { state: { equals: state, mode: "insensitive" as const } },
+            { stateCode: { equals: state, mode: "insensitive" as const } },
+          ]),
+        });
+      }
+
+      if (value.cities?.length) {
+        conditions.push({
+          OR: value.cities.map((city) => ({
+            city: { equals: city, mode: "insensitive" as const },
+          })),
+        });
+      }
+
+      return {
+        locations: {
+          some: {
+            location: { AND: conditions },
+          },
+        },
+      };
+    },
+
+    ui: config.ui,
+  };
+}
+
+const location = locationFilter({
   ui: { label: "Location", group: "quick", weight: 20 },
 });
 

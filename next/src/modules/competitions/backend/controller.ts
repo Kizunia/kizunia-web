@@ -22,6 +22,12 @@ import { SlugSchema } from "@/lib/validation/index";
 import { CreateAssetSchema } from "@/modules/assets/schemas/create-asset";
 import { CompetitionAssetSlot } from "../types/asset-slot";
 import { AppError, UnauthorizedError } from "@/lib/errors";
+import {
+  CreateCompetitionLocationSchema,
+  ReorderCompetitionLocationsSchema,
+  UpdateCompetitionLocationSchema,
+} from "../schemas/competition-location";
+import { CompetitionLocationService } from "./competition-location.service";
 export class CompetitionController {
   static async create(request: NextRequest) {
     return Route.execute(async () => {
@@ -298,6 +304,242 @@ export class CompetitionController {
       // -----------------------------------------------------------------
 
       return ApiResponse.ok(competition);
+    });
+  }
+
+  // ==========================================================================
+  // Locations
+  // ==========================================================================
+
+  static async listLocations(request: NextRequest, competitionId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+
+      // -----------------------------------------------------------------
+      // Context
+      // -----------------------------------------------------------------
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+
+      CompetitionAuthorizer.edit(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const locations = await CompetitionLocationService.list(
+        context.competition.id,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(locations);
+    });
+  }
+
+  static async addLocation(request: NextRequest, competitionId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const body = await request.json();
+
+      const data = CreateCompetitionLocationSchema.parse(body);
+
+      // -----------------------------------------------------------------
+      // Context
+      // -----------------------------------------------------------------
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+
+      CompetitionAuthorizer.edit(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const locations = await CompetitionLocationService.add(
+        context.competition.id,
+        data,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.created(locations);
+    });
+  }
+
+  static async updateLocation(
+    request: NextRequest,
+    competitionId: string,
+    competitionLocationId: string,
+  ) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const body = await request.json();
+
+      const data = UpdateCompetitionLocationSchema.parse(body);
+
+      // -----------------------------------------------------------------
+      // Context
+      // -----------------------------------------------------------------
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+
+      CompetitionAuthorizer.edit(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const locations = await CompetitionLocationService.update(
+        context.competition.id,
+        competitionLocationId,
+        data,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(locations);
+    });
+  }
+
+  static async removeLocation(
+    request: NextRequest,
+    competitionId: string,
+    competitionLocationId: string,
+  ) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+
+      // -----------------------------------------------------------------
+      // Context
+      // -----------------------------------------------------------------
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+
+      CompetitionAuthorizer.edit(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const locations = await CompetitionLocationService.remove(
+        context.competition.id,
+        competitionLocationId,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(locations);
+    });
+  }
+
+  static async reorderLocations(request: NextRequest, competitionId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const body = await request.json();
+
+      const data = ReorderCompetitionLocationsSchema.parse(body);
+
+      // -----------------------------------------------------------------
+      // Context
+      // -----------------------------------------------------------------
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+
+      CompetitionAuthorizer.edit(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const locations = await CompetitionLocationService.reorder(
+        context.competition.id,
+        data,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(locations);
     });
   }
 }

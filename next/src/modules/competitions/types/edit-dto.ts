@@ -10,6 +10,7 @@ import {
   RegistrationPlatform,
 } from "@/generated/prisma";
 import { CompetitionPermissionsDTO } from "../backend/authorization/dto";
+import type { CompetitionLocationDTO } from "./competition-location.dto";
 
 
 export interface CompetitionEditDTO {
@@ -60,7 +61,12 @@ export interface CompetitionEditDTO {
 
   prizePool: string | null;
 
-  location: string | null;
+  /**
+   * Managed through the dedicated locations endpoints, not the competition
+   * PATCH — each entry owns its own place row, dates, and ordering, which a
+   * whole-object save could not reconcile safely.
+   */
+  locations: CompetitionLocationDTO[];
 
   // ---------------------------------------------------------------------------
   // Schedule

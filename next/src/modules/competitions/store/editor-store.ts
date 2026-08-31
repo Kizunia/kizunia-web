@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import type { CompetitionEditDTOWithPermissions } from "../types/edit-dto";
+import type { CompetitionLocationDTO } from "../types/competition-location.dto";
 import { CompetitionApi } from "../api/competition-api";
 import { ApiError } from "@/lib/http";
 
@@ -19,6 +20,17 @@ interface CompetitionEditorStore {
   save: () => Promise<void>;
 
   updateCompetition(partial: Partial<CompetitionEditDTOWithPermissions>): void;
+
+  /**
+   * Replaces the location list after a locations endpoint has already
+   * persisted it.
+   *
+   * Writes to both `competition` and `original` and leaves `dirty` alone:
+   * locations save through their own endpoints, so treating them as unsaved
+   * edits would strand the save bar and let Reset silently undo work that is
+   * already committed on the server.
+   */
+  setLocations(locations: CompetitionLocationDTO[]): void;
 
   deleteCompetition: () => Promise<void>;
   setCompetition(competition: CompetitionEditDTOWithPermissions): void;
@@ -53,6 +65,27 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
             ...partial,
           },
           dirty: true,
+        };
+      }),
+
+    setLocations: (locations) =>
+      set((state) => {
+        if (!state.competition) {
+          return state;
+        }
+
+        return {
+          competition: {
+            ...state.competition,
+            locations,
+          },
+
+          original: state.original
+            ? {
+                ...state.original,
+                locations,
+              }
+            : state.original,
         };
       }),
 
@@ -99,7 +132,6 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
           mode: state.competition.mode,
           visibility: state.competition.visibility,
           status: state.competition.status,
-          location: state.competition.location,
           prizePool: state.competition.prizePool,
           minTeamSize: state.competition.minTeamSize,
           maxTeamSize: state.competition.maxTeamSize,

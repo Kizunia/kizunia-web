@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { GeneralTab } from "./general-tab";
 import { DocumentationTab } from "./documentation-tab";
 import { DetailsTab } from "./details-tab";
+import { LocationsTab } from "./locations-tab";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { DangerTab } from "./danger-tab";
 
@@ -59,6 +60,8 @@ export function CompetitionEditor({
 
               <TabsTrigger value="documentation">Documentation</TabsTrigger>
 
+              <TabsTrigger value="locations">Locations</TabsTrigger>
+
               <TabsTrigger value="details">Details</TabsTrigger>
 
               <TabsTrigger value="danger">Danger</TabsTrigger>
@@ -70,6 +73,10 @@ export function CompetitionEditor({
 
             <TabsContent value="documentation">
               <DocumentationTab />
+            </TabsContent>
+
+            <TabsContent value="locations">
+              <LocationsTab />
             </TabsContent>
 
             <TabsContent value="details">

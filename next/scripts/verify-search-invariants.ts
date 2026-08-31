@@ -93,21 +93,23 @@ async function verifyCaseInsensitivity(): Promise<void> {
   console.log("\n== Invariant: text filters match case-insensitively ==");
 
   const sample = await prisma.competition.findFirst({
-    where: { deletedAt: null, visibility: "PUBLIC", location: { not: null } },
-    select: { location: true },
+    where: { deletedAt: null, visibility: "PUBLIC", locations: { some: {} } },
+    select: { locations: { take: 1, select: { location: { select: { displayName: true } } } } },
   });
 
-  if (!sample?.location) {
+  const displayName = sample?.locations[0]?.location.displayName;
+
+  if (!displayName) {
     report("location case-insensitivity (needs fixture data)", false, "no public competition has a location");
   } else {
     const [lower, upper, exact] = await Promise.all([
-      runEngine({ location: sample.location.toLowerCase() }),
-      runEngine({ location: sample.location.toUpperCase() }),
-      runEngine({ location: sample.location }),
+      runEngine({ location: displayName.toLowerCase() }),
+      runEngine({ location: displayName.toUpperCase() }),
+      runEngine({ location: displayName }),
     ]);
 
     report(
-      `location matches regardless of case (fixture: ${JSON.stringify(sample.location)})`,
+      `location matches regardless of case (fixture: ${JSON.stringify(displayName)})`,
       lower.length > 0 &&
         JSON.stringify(lower) === JSON.stringify(upper) &&
         JSON.stringify(lower) === JSON.stringify(exact),

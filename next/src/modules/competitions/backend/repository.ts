@@ -110,6 +110,27 @@ export class CompetitionRepository {
   //   });
   // }
 
+  /**
+   * Locations, ordered for presentation.
+   *
+   * `order` is the contract; `createdAt` only breaks ties so equal orders stay
+   * stable across requests instead of following row order.
+   */
+  private static readonly locationsInclude = {
+    include: {
+      location: true,
+    },
+
+    orderBy: [
+      {
+        order: "asc",
+      },
+      {
+        createdAt: "asc",
+      },
+    ],
+  } satisfies Prisma.Competition$locationsArgs;
+
   static async findMany(filters: RawSearchParams) {
     const query = CompetitionSearchBuilder.build(filters);
 
@@ -119,6 +140,7 @@ export class CompetitionRepository {
       include: {
         logoAsset: true,
         coverAsset: true,
+        locations: this.locationsInclude,
       },
     });
   }
@@ -202,6 +224,8 @@ export class CompetitionRepository {
         },
 
         eligibilities: true,
+
+        locations: this.locationsInclude,
       },
     });
   }
@@ -225,6 +249,12 @@ export class CompetitionRepository {
         };
 
         eligibilities: true;
+
+        locations: {
+          include: {
+            location: true;
+          };
+        };
       };
     }>
   > {
@@ -282,6 +312,8 @@ export class CompetitionRepository {
             technology: true,
           },
         },
+
+        locations: this.locationsInclude,
       },
     });
 

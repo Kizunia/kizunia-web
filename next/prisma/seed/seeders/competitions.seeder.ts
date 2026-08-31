@@ -25,7 +25,6 @@ export async function seedCompetitions(
         shortDescription: h.shortDescription,
         organizer: h.organizer,
         mode: h.mode,
-        location: h.location,
         status: h.status,
         visibility: h.visibility,
         startDate: h.startDate,
@@ -50,7 +49,6 @@ export async function seedCompetitions(
         shortDescription: h.shortDescription,
         organizer: h.organizer,
         mode: h.mode,
-        location: h.location,
         status: h.status,
         visibility: h.visibility,
         startDate: h.startDate,
@@ -138,6 +136,34 @@ export async function seedCompetitions(
       await prisma.competitionEligibility
         .create({ data: { competitionId: hack.id, type } })
         .catch(() => {}); // ignore duplicate
+    }
+
+    // ── 7. Location ───────────────────────────────────────────
+    // Seed locations are free text, so they are stored exactly as a manual
+    // entry would be: a display name at UNKNOWN precision, with no structured
+    // fields invented. Cleared first so re-seeding does not stack duplicates.
+    const staleLinks = await prisma.competitionLocation.findMany({
+      where: { competitionId: hack.id },
+      select: { locationId: true },
+    });
+
+    await prisma.competitionLocation.deleteMany({
+      where: { competitionId: hack.id },
+    });
+
+    // Locations belong to one competition, so unlinking makes them unreachable.
+    await prisma.location.deleteMany({
+      where: { id: { in: staleLinks.map((link) => link.locationId) } },
+    });
+
+    if (h.location) {
+      const place = await prisma.location.create({
+        data: { displayName: h.location },
+      });
+
+      await prisma.competitionLocation.create({
+        data: { competitionId: hack.id, locationId: place.id, order: 0 },
+      });
     }
 
     console.log(`     ✓ ${h.title} [${h.status}] [${h.visibility}]`);
