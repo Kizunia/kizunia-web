@@ -8,6 +8,7 @@ import type {
   CompetitionCategory,
   Prisma,
 } from "@/generated/prisma";
+import type { CompetitionLocationSummaryDTO } from "./competition-location.dto";
 
 /**
  * Data required by the Competition Card.
@@ -22,7 +23,11 @@ export interface CompetitionCardDTO {
   shortDescription: string | null;
   organizer: string | null;
   registrationPlatform: RegistrationPlatform | null;
-  location: string | null;
+  /**
+   * Ordered by the competition's own presentation order. Empty means no
+   * location is known yet — not that the competition is online; that is `mode`.
+   */
+  locations: CompetitionLocationSummaryDTO[];
   mode: CompetitionMode | null;
   status: string | null;
   startDate: Date | null;
@@ -57,6 +62,12 @@ export type CompetitionDetailDTO = Prisma.CompetitionGetPayload<{ //Public DTO f
     };
 
     eligibilities: true;
+
+    locations: {
+      include: {
+        location: true;
+      };
+    };
   };
 }>;
 

@@ -141,7 +141,20 @@ export const CompetitionSearchSchema = z.object({
   // Location
   // ---------------------------------------------------------------------------
 
+  // Free text, matched against a location's display name, city, state, and
+  // country so "Pune", "Maharashtra", and "India" all work without the caller
+  // knowing which level of the hierarchy was actually recorded.
   location: z.string().trim().optional(),
+
+  // Structured filters. Values within a list are OR-ed; separate lists are
+  // AND-ed, and every condition must be satisfied by the *same* location — a
+  // competition with a Pune qualifier and a Delhi final is not "in Pune, India
+  // and Delhi, India" arbitrarily recombined.
+  countries: csv.optional(),
+
+  states: csv.optional(),
+
+  cities: csv.optional(),
 
   // ---------------------------------------------------------------------------
   // Certificate

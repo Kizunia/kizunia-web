@@ -44,8 +44,6 @@ export interface UpdateCompetitionRequestDTO {
 
   prizePool?: string | null;
 
-  location?: string | null;
-
   registrationDeadline?: string | null;
 
   startDate?: string | null;

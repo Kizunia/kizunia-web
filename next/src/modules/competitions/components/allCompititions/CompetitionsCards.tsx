@@ -71,7 +71,7 @@ export default function CompetitionsCards({
               </CardHeader>
 
               {(competition.startDate ||
-                competition.location ||
+                competition.locations.length > 0 ||
                 competition.registrationDeadline) && (
                 <CardContent className="space-y-3 ">
                   {competition.startDate && (
@@ -81,10 +81,16 @@ export default function CompetitionsCards({
                     </div>
                   )}
 
-                  {competition.location && (
+                  {competition.locations.length > 0 && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4" />
-                      {competition.location}
+
+                      {/* A card has room for one place; the rest are counted so
+                          a multi-city competition still reads as multi-city. */}
+                      {competition.locations[0].displayName}
+
+                      {competition.locations.length > 1 &&
+                        ` +${competition.locations.length - 1} more`}
                     </div>
                   )}
 

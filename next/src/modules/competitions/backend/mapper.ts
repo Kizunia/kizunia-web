@@ -17,6 +17,7 @@ import {
   CompetitionPermissionsDTO,
   CompetitionManagementTableDTO,
 } from "./authorization/dto";
+import { competitionLocationMapper } from "./competition-location.mapper";
 
 /**
  * Prisma payload used when loading Competition cards.
@@ -27,6 +28,12 @@ type CompetitionWithAssets = Prisma.CompetitionGetPayload<{
   include: {
     logoAsset: true;
     coverAsset: true;
+
+    locations: {
+      include: {
+        location: true;
+      };
+    };
   };
 }>;
 
@@ -61,7 +68,7 @@ export class CompetitionMapper {
       startDate: competition.startDate,
       logoUrl: competition.logoAsset?.secureUrl ?? null,
       coverUrl: competition.coverAsset?.secureUrl ?? null,
-      location: competition.location,
+      locations: competitionLocationMapper.toSummaryDTOs(competition.locations),
       registrationDeadline: competition.registrationDeadline,
       minTeamSize: competition.minTeamSize,
       maxTeamSize: competition.maxTeamSize,
@@ -154,7 +161,7 @@ export class CompetitionMapper {
 
       status: competition.status,
 
-      location: competition.location,
+      locations: competitionLocationMapper.toDTOs(competition.locations),
 
       prizePool: competition.prizePool?.toString() ?? null,
 
@@ -247,7 +254,7 @@ export class CompetitionMapper {
 
       status: competition.status,
 
-      location: competition.location,
+      locations: competitionLocationMapper.toDTOs(competition.locations),
 
       prizePool: competition.prizePool?.toString() ?? null,
 

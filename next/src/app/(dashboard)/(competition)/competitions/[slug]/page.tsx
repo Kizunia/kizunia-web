@@ -61,7 +61,7 @@ export default async function CompetitionPage({
     competition.startDate ||
     competition.endDate ||
     competition.prizePool ||
-    competition.location ||
+    competition.locations.length > 0 ||
     competition.minTeamSize ||
     competition.maxTeamSize ||
     competition.mode ||
@@ -150,12 +150,12 @@ export default async function CompetitionPage({
                   <Badge variant="outline">{competition.organizerType.replaceAll("_", " ")}</Badge>
                 )}
 
-                {competition.location && (
-                  <Badge variant="outline">
+                {competition.locations.map((competitionLocation) => (
+                  <Badge key={competitionLocation.id} variant="outline">
                     <MapPin className="mr-1 h-3 w-3" />
-                    {competition.location}
+                    {competitionLocation.location.displayName}
                   </Badge>
-                )}
+                ))}
 
                 {competition.website && (
                   <Badge asChild variant="default">
@@ -308,14 +308,44 @@ export default async function CompetitionPage({
                   </div>
                 )}
 
-                {competition.location && (
+                {competition.locations.length > 0 && (
                   <div className="flex gap-3">
                     <MapPin className="mt-0.5 h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Location</p>
-                      <p className="text-sm text-muted-foreground">
-                        {competition.location}
+                    <div className="space-y-3">
+                      <p className="font-medium">
+                        {competition.locations.length > 1
+                          ? "Locations"
+                          : "Location"}
                       </p>
+
+                      {competition.locations.map((competitionLocation) => (
+                        <div key={competitionLocation.id}>
+                          {competitionLocation.label && (
+                            <p className="text-sm font-medium">
+                              {competitionLocation.label}
+                            </p>
+                          )}
+
+                          <p className="text-sm text-muted-foreground">
+                            {competitionLocation.venueName
+                              ? `${competitionLocation.venueName}, ${competitionLocation.location.displayName}`
+                              : competitionLocation.location.displayName}
+                          </p>
+
+                          {competitionLocation.startDate && (
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(
+                                competitionLocation.startDate,
+                              ).toLocaleDateString()}
+
+                              {competitionLocation.endDate &&
+                                ` – ${new Date(
+                                  competitionLocation.endDate,
+                                ).toLocaleDateString()}`}
+                            </p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}

@@ -308,16 +308,113 @@ export class CompetitionWhereBuilder {
   // Location
   // ===========================================================================
 
+  /**
+   * Filters competitions by the places they are held at.
+   *
+   * All conditions are collected into a single `some`, so they must be met by
+   * one location rather than spread across several. Filtering a multi-city
+   * competition by "Pune" should surface it because it genuinely runs in Pune —
+   * not because it runs in Maharashtra and, separately, somewhere named Pune.
+   *
+   * A competition with no locations never matches a location filter. That is
+   * correct: the platform does not know where it is, and guessing would be
+   * worse than omitting it.
+   */
   private static buildLocation(
     filters: CompetitionSearchInput,
     AND: Prisma.CompetitionWhereInput[],
   ) {
-    if (!filters.location) return;
+    const conditions: Prisma.LocationWhereInput[] = [];
+
+    if (filters.location) {
+      conditions.push({
+        OR: [
+          {
+            displayName: {
+              contains: filters.location,
+              mode: "insensitive",
+            },
+          },
+          {
+            city: {
+              contains: filters.location,
+              mode: "insensitive",
+            },
+          },
+          {
+            state: {
+              contains: filters.location,
+              mode: "insensitive",
+            },
+          },
+          {
+            country: {
+              contains: filters.location,
+              mode: "insensitive",
+            },
+          },
+        ],
+      });
+    }
+
+    if (filters.countries?.length) {
+      conditions.push({
+        OR: filters.countries.flatMap((country) => [
+          {
+            country: {
+              equals: country,
+              mode: "insensitive" as const,
+            },
+          },
+          {
+            countryCode: {
+              equals: country,
+              mode: "insensitive" as const,
+            },
+          },
+        ]),
+      });
+    }
+
+    if (filters.states?.length) {
+      conditions.push({
+        OR: filters.states.flatMap((state) => [
+          {
+            state: {
+              equals: state,
+              mode: "insensitive" as const,
+            },
+          },
+          {
+            stateCode: {
+              equals: state,
+              mode: "insensitive" as const,
+            },
+          },
+        ]),
+      });
+    }
+
+    if (filters.cities?.length) {
+      conditions.push({
+        OR: filters.cities.map((city) => ({
+          city: {
+            equals: city,
+            mode: "insensitive" as const,
+          },
+        })),
+      });
+    }
+
+    if (conditions.length === 0) return;
 
     AND.push({
-      location: {
-        contains: filters.location,
-        mode: "insensitive",
+      locations: {
+        some: {
+          location: {
+            AND: conditions,
+          },
+        },
       },
     });
   }

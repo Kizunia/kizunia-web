@@ -53,6 +53,33 @@ enum CompetitionMode {
   HYBRID
 }
 
+// =============================================================================
+// Enums — Location
+// =============================================================================
+
+// How precisely a Location pins down a real-world place.
+// Locations are intentionally allowed to be broad — a competition may only
+// publish "India" while another publishes an exact auditorium.
+//
+// UNKNOWN covers free-text entry with no structured fields. Search must not
+// treat those as city matches: claiming precision we do not have would mislead
+// users more than admitting the location is vague.
+enum LocationPrecision {
+  UNKNOWN
+  COUNTRY
+  STATE
+  CITY
+  VENUE
+}
+
+// Where a Location's structured data came from.
+// MANUAL is the resilience fallback and must always remain supported:
+// an outage of any external provider can never block competition editing.
+enum LocationProvider {
+  MANUAL
+  NOMINATIM
+}
+
 enum CompetitionVisibility {
   PUBLIC
   UNLISTED
@@ -534,7 +561,6 @@ model Competition {
 
   organizer            String?
   mode                 CompetitionMode?
-  location             String?
   minTeamSize          Int?
   maxTeamSize          Int?
   registrationLink     String?
@@ -577,6 +603,9 @@ model Competition {
   members      CompetitionMember[]
   bookmarks    CompetitionBookmark[]
   projects     CompetitionProject[]
+  // Zero locations is valid — it means no location is known yet, not that the
+  // competition is online. Participation mode lives on `mode`.
+  locations    CompetitionLocation[]
 
   links Link[]
   // ---------------------------------------------------------------------------
@@ -746,7 +775,95 @@ model CompetitionBookmark {
   @@map("competition_bookmark")
 }
 
+// =============================================================================
+// Location Domain
+// =============================================================================
 
+/// A real-world place, stored at whatever precision is actually known.
+///
+/// Locations are deliberately NOT deduplicated across competitions. Two
+/// competitions in Pune each own a private Location row, so editing one can
+/// never silently rewrite another competition's data. The cost of duplicate
+/// rows is far lower than the cost of fuzzy place matching.
+model Location {
+  id String @id @default(cuid())
+
+  /// Human-readable name shown in the UI, e.g. "Pune, Maharashtra, India".
+  /// This is the only field an admin is ever required to supply.
+  displayName String
+
+  precision LocationPrecision @default(UNKNOWN)
+
+  country     String?
+  /// ISO 3166-1 alpha-2, uppercase.
+  countryCode String? @db.VarChar(2)
+  state       String?
+  stateCode   String?
+  city        String?
+  postalCode  String?
+
+  /// Decimal rather than Float so stored coordinates round-trip exactly.
+  /// 6 decimal places is roughly 0.11 m at the equator.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  /// IANA timezone identifier, e.g. "Asia/Kolkata".
+  timezone String?
+
+  provider           LocationProvider @default(MANUAL)
+  /// Opaque id from the external provider. Kept for re-enrichment only —
+  /// never required to read a Location back.
+  providerLocationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  competitions CompetitionLocation[]
+
+  @@index([countryCode])
+  @@index([city])
+  @@index([state])
+  @@index([provider, providerLocationId])
+  @@map("location")
+}
+
+/// How one competition uses one location.
+///
+/// Carries its own identity rather than a composite key because the same place
+/// can legitimately host two stages of one competition (a Pune qualifier and a
+/// Pune final), and because label/venue/dates describe the *usage*, not the place.
+model CompetitionLocation {
+  id String @id @default(cuid())
+
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  /// Free-form context for this stop, e.g. "Qualifier", "Final",
+  /// "Opening Ceremony". Deliberately not an enum — competition structures vary
+  /// too widely to enumerate, and nothing in the system branches on this value.
+  label String?
+
+  venueName String?
+  address   String?
+
+  /// Dates for this location specifically. May differ from the competition's
+  /// overall window, e.g. a regional qualifier inside a three-month event.
+  startDate DateTime?
+  endDate   DateTime?
+
+  /// Admin-defined display order. Database row order is never relied upon.
+  order Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([competitionId, order])
+  @@index([locationId])
+  @@map("competition_location")
+}
 
 // =============================================================================
 // Project Domain
