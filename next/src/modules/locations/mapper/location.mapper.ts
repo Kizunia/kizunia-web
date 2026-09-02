@@ -39,10 +39,12 @@ export class LocationMapper {
     };
   }
 
-  toDTOs(locations: Location[]): LocationDTO[] {
-    return locations.map((location) => this.toDTO(location));
-  }
-
+  /**
+   * Unwraps a stored coordinate into a plain number.
+   *
+   * `Prisma.Decimal` serializes to an object rather than a number, so a DTO
+   * that forwarded it unchanged would reach the client as unusable JSON.
+   */
   private toNumber(value: Prisma.Decimal | null): number | null {
     return value === null ? null : value.toNumber();
   }

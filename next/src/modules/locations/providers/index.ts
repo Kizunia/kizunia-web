@@ -1,41 +1,31 @@
-import type { LocationSearchProvider } from "../types/provider";
-import { NominatimLocationProvider } from "./nominatim.provider";
-
-const DEFAULT_NOMINATIM_BASE_URL = "https://nominatim.openstreetmap.org";
+import type { PlaceProvider } from "../types/place";
+import { GooglePlaceProvider } from "./google.provider";
 
 /**
- * Resolves the configured external provider, or `null` when none is set up.
+ * Resolves the configured place provider, or `null` when none is set up.
  *
- * `null` is a supported, fully functional state — not a misconfiguration.
- * Location search falls back to internal results and manual entry, so a
- * deployment can run indefinitely without any third-party geocoding.
+ * `null` is a supported state, not a misconfiguration. Without a provider an
+ * admin can still enter a location manually and the competition saves normally;
+ * only discovery is narrower, because a manually-typed place yields no verified
+ * containment and therefore only its own SearchArea.
  *
  * Environment
  * -----------
- * LOCATION_PROVIDER            "nominatim" to enable; anything else disables.
- * LOCATION_PROVIDER_USER_AGENT Contact string required by Nominatim's policy.
- * NOMINATIM_BASE_URL           Override to point at a self-hosted instance.
+ * GOOGLE_MAPS_API_KEY   Server-side key. Never expose via NEXT_PUBLIC_.
+ * GOOGLE_PLACES_BASE_URL Override for testing against a stub.
  */
-export function resolveLocationProvider(): LocationSearchProvider | null {
-  const configured = process.env.LOCATION_PROVIDER?.trim().toLowerCase();
+export function resolvePlaceProvider(): PlaceProvider | null {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
 
-  if (configured !== "nominatim") {
+  if (!apiKey) {
     return null;
   }
 
-  const userAgent = process.env.LOCATION_PROVIDER_USER_AGENT?.trim();
+  const baseUrl = process.env.GOOGLE_PLACES_BASE_URL?.trim();
 
-  // Nominatim blocks unidentified clients, so an unset User-Agent would fail
-  // on every request. Refusing to construct the provider degrades to internal
-  // search immediately instead of burning a timeout per search.
-  if (!userAgent) {
-    return null;
-  }
-
-  return new NominatimLocationProvider(
-    process.env.NOMINATIM_BASE_URL?.trim() || DEFAULT_NOMINATIM_BASE_URL,
-    userAgent,
-  );
+  return baseUrl
+    ? new GooglePlaceProvider(apiKey, baseUrl)
+    : new GooglePlaceProvider(apiKey);
 }
 
-export { NominatimLocationProvider };
+export { GooglePlaceProvider };
