@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, MapPin, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,59 +18,54 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { LocationApi } from "@/modules/locations/api/location-api";
-import type { LocationSuggestion } from "@/modules/locations";
-import type { LocationInputRequestDTO } from "@/modules/competitions/types/competition-location-request.dto";
+import type { PlaceSuggestion } from "@/modules/locations";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
 const MIN_QUERY_LENGTH = 2;
 
 /**
- * Strips the transient `key` a suggestion carries for list rendering.
+ * What the picker hands back: either a place to resolve server-side, or a
+ * name typed by hand.
  *
- * What gets saved is a copy of the suggestion's data, never a pointer to the
- * provider's record — that is what lets a competition outlive the provider.
+ * The selected place is passed as an id rather than a hydrated object because
+ * resolution is what produces the verified containment behind discovery, and
+ * that has to happen on the server where the API key lives.
  */
-function toLocationInput(suggestion: LocationSuggestion): LocationInputRequestDTO {
-  return {
-    displayName: suggestion.displayName,
-    precision: suggestion.precision,
-    country: suggestion.country,
-    countryCode: suggestion.countryCode,
-    state: suggestion.state,
-    stateCode: suggestion.stateCode,
-    city: suggestion.city,
-    postalCode: suggestion.postalCode,
-    latitude: suggestion.latitude,
-    longitude: suggestion.longitude,
-    provider: suggestion.provider,
-    providerLocationId: suggestion.providerLocationId,
-  };
-}
+export type PickedLocation =
+  | { providerPlaceId: string }
+  | { manualDisplayName: string };
 
 /**
  * Search-and-select for places, with typed entry always available.
  *
- * The manual option is not a fallback that appears on failure — it is offered
- * unconditionally, so an admin who knows the answer never has to wait for a
- * lookup, and an outage changes nothing about how they work.
+ * Manual entry is not a failure path that appears when lookup breaks — it is
+ * offered on every search. An admin who knows the place should never have to
+ * wait for a lookup, and an outage should change nothing about how they work.
  */
 export function LocationPicker({
   onSelect,
   disabled,
 }: {
-  onSelect(location: LocationInputRequestDTO): void;
+  onSelect(picked: PickedLocation): void;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
   const [query, setQuery] = useState("");
 
-  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
 
   const [searching, setSearching] = useState(false);
 
   const [providerAvailable, setProviderAvailable] = useState(true);
+
+  /**
+   * Groups this picker's keystrokes and the eventual details call into one
+   * billed provider session. Regenerated per picker mount, which is the
+   * granularity a session is meant to cover.
+   */
+  const sessionToken = useMemo(() => crypto.randomUUID(), []);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -81,7 +76,7 @@ export function LocationPicker({
       return;
     }
 
-    // Ignores results from a superseded query so a slow response cannot
+    // Ignores results from a superseded query, so a slow response cannot
     // overwrite the list for what the admin is typing now.
     let active = true;
 
@@ -89,7 +84,9 @@ export function LocationPicker({
 
     const timer = setTimeout(async () => {
       try {
-        const result = await LocationApi.search(trimmed);
+        const result = await LocationApi.autocomplete(trimmed, {
+          sessionToken,
+        });
 
         if (!active) return;
 
@@ -97,8 +94,8 @@ export function LocationPicker({
 
         setProviderAvailable(result.providerAvailable);
       } catch {
-        // Search is an enhancement; a failure here must not block the admin,
-        // who can still type the place manually.
+        // Lookup is an enhancement; failing it must not block the admin, who
+        // can still type the place manually.
         if (!active) return;
 
         setSuggestions([]);
@@ -116,10 +113,10 @@ export function LocationPicker({
 
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, sessionToken]);
 
-  function select(location: LocationInputRequestDTO) {
-    onSelect(location);
+  function select(picked: PickedLocation) {
+    onSelect(picked);
 
     setOpen(false);
 
@@ -172,35 +169,37 @@ export function LocationPicker({
               <CommandGroup heading="Places">
                 {suggestions.map((suggestion) => (
                   <CommandItem
-                    key={suggestion.key}
-                    value={suggestion.key}
-                    onSelect={() => select(toLocationInput(suggestion))}
+                    key={suggestion.providerPlaceId}
+                    value={suggestion.providerPlaceId}
+                    onSelect={() =>
+                      select({ providerPlaceId: suggestion.providerPlaceId })
+                    }
                   >
                     <MapPin className="mr-2 h-4 w-4 shrink-0" />
 
-                    <span className="flex-1 truncate">
-                      {suggestion.displayName}
-                    </span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{suggestion.primaryText}</span>
 
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {suggestion.precision.toLowerCase()}
+                      {/* The secondary line is what separates two places that
+                          share a name — without it the choice is a coin flip. */}
+                      {suggestion.secondaryText && (
+                        <span className="truncate text-xs text-muted-foreground">
+                          {suggestion.secondaryText}
+                        </span>
+                      )}
                     </span>
                   </CommandItem>
                 ))}
               </CommandGroup>
             )}
 
-            {/* Offered on every search, not just on failure — the admin may
+            {/* Offered on every search, not only on failure — the admin may
                 simply know the place better than the provider does. */}
             {!searching && trimmedQuery.length >= MIN_QUERY_LENGTH && (
               <CommandGroup heading="Manual entry">
                 <CommandItem
                   value={`manual:${trimmedQuery}`}
-                  onSelect={() =>
-                    select({
-                      displayName: trimmedQuery,
-                    })
-                  }
+                  onSelect={() => select({ manualDisplayName: trimmedQuery })}
                 >
                   <Check className="mr-2 h-4 w-4 shrink-0" />
 
@@ -213,8 +212,9 @@ export function LocationPicker({
 
             {!searching && !providerAvailable && (
               <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-                Location lookup is unavailable right now. Showing places already
-                on Kizunia — you can still add any location manually.
+                Place lookup is unavailable right now. You can still add any
+                location manually — it just won&rsquo;t be discoverable through
+                a wider region until lookup is working.
               </p>
             )}
           </CommandList>
