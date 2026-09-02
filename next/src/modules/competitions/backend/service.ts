@@ -12,10 +12,16 @@ import {
   type CompetitionContext,
 } from "./authorization";
 
+import { ExternalServiceError } from "@/lib/errors";
+import { PlaceMatchService } from "@/modules/locations";
+
 import { DuplicateSlugError } from "../errors";
+import { buildLocationClause } from "../search/location-clause";
+import { CompetitionErrorCode } from "../errors/error-code";
 import type { CompetitionSearchResult } from "../search/types";
 import {
   buildPaginationMeta,
+  normalizeScalar,
   parsePagination,
   type RawSearchParams,
 } from "@/lib/search";
@@ -72,12 +78,27 @@ export class CompetitionService {
     filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionCardDTO>> {
     // ------------------------------------------------------------
+    // Resolve Location
+    // ------------------------------------------------------------
+    //
+    // Happens before any query is built, because the search engine is
+    // synchronous and pure — a filter cannot call a provider or read the
+    // database. Resolved once here, then handed to both queries below.
+
+    const locationClause = await this.resolveLocationClause(filters);
+
+    const extraBaseClauses = locationClause ? [locationClause] : undefined;
+
+    // ------------------------------------------------------------
     // Execute Queries
     // ------------------------------------------------------------
+    //
+    // Both calls receive the same clause. Passing it to one and not the other
+    // would make the reported total disagree with the rows returned.
 
     const [competitions, total] = await Promise.all([
-      CompetitionRepository.findMany(filters),
-      CompetitionRepository.count(filters),
+      CompetitionRepository.findMany(filters, extraBaseClauses),
+      CompetitionRepository.count(filters, extraBaseClauses),
     ]);
 
     // ------------------------------------------------------------
@@ -101,6 +122,44 @@ export class CompetitionService {
 
       pagination: buildPaginationMeta(parsePagination(filters), total),
     };
+  }
+
+  /**
+   * Turns a requested place into the clause that restricts results to it.
+   *
+   * Three outcomes, kept distinct because conflating them misinforms the user:
+   *
+   *   - no place requested        -> `undefined`, results are unrestricted
+   *   - place resolved            -> a clause, even when it matched no areas,
+   *                                  so a real place with no competitions
+   *                                  returns nothing rather than everything
+   *   - place could not resolve   -> throws, because "we could not find out"
+   *                                  must never be shown as "there is nothing"
+   */
+  private static async resolveLocationClause(filters: RawSearchParams) {
+    const placeId = normalizeScalar(filters.placeId);
+
+    if (!placeId) {
+      return undefined;
+    }
+
+    const resolution = await PlaceMatchService.resolve(placeId);
+
+    if (resolution.status === "RESOLUTION_FAILED") {
+      throw new ExternalServiceError({
+        code: CompetitionErrorCode.LOCATION_RESOLUTION_FAILED,
+        message:
+          "Could not look up that location right now. Please try again shortly.",
+        details: { reason: resolution.reason },
+      });
+    }
+
+    return buildLocationClause({
+      requested: true,
+      searchAreaIds: resolution.searchAreaIds,
+      includeOnline:
+        normalizeScalar(filters.includeOnline)?.toLowerCase() === "true",
+    });
   }
 
   /**

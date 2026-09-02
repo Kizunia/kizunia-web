@@ -8,7 +8,7 @@ import prisma from "@/lib/prisma";
 import { CompetitionNotFoundError } from "../errors";
 import { CreateCompetitionInput } from "../schemas/create-competition";
 import { UpdateCompetitionInput } from "../schemas/update-competition";
-import { CompetitionSearchBuilder } from "../search/builder";
+import { type ExtraBaseClauses, CompetitionSearchBuilder } from "../search/builder";
 import type { RawSearchParams } from "@/lib/search";
 import { CompetitionAssetSlot } from "../types/asset-slot";
 
@@ -131,8 +131,11 @@ export class CompetitionRepository {
     ],
   } satisfies Prisma.Competition$locationsArgs;
 
-  static async findMany(filters: RawSearchParams) {
-    const query = CompetitionSearchBuilder.build(filters);
+  static async findMany(
+    filters: RawSearchParams,
+    extraBaseClauses?: ExtraBaseClauses,
+  ) {
+    const query = CompetitionSearchBuilder.build(filters, extraBaseClauses);
 
     return prisma.competition.findMany({
       ...query,
@@ -598,8 +601,13 @@ export class CompetitionRepository {
     });
   }
 
-  static async count(filters: RawSearchParams) {
-    const { where } = CompetitionSearchBuilder.build(filters);
+  static async count(
+    filters: RawSearchParams,
+    extraBaseClauses?: ExtraBaseClauses,
+  ) {
+    // Must receive exactly what `findMany` received: a clause applied to one
+    // and not the other makes the reported total disagree with the rows.
+    const { where } = CompetitionSearchBuilder.build(filters, extraBaseClauses);
 
     return prisma.competition.count({
       where,

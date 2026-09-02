@@ -43,15 +43,10 @@ import {
   dateRangeFilter,
   enumMultiFilter,
   enumRelationMultiFilter,
-  escapeLikeWildcards,
   multiFieldTextFilter,
-  normalizeList,
-  normalizeText,
   numberBoundFilter,
   relationSlugMultiFilter,
   textContainsAnyFilter,
-  type FilterDescriptor,
-  type FilterUiMeta,
 } from "@/lib/search";
 
 type CompetitionWhere = Prisma.CompetitionWhereInput;
@@ -211,118 +206,23 @@ const registrationDeadline = dateRangeFilter<CompetitionWhere>({
 });
 
 /**
- * Location owns four keys (`location`, `countries`, `states`, `cities`)
- * rather than four separate filters, for the same reason `dateRangeFilter`
- * owns two: independently-composed filters would each get AND-ed in at the
- * top level, so a `countries=India&cities=Pune` query could be satisfied by
- * two *different* locations on the same competition. Bundling them into one
- * filter that emits a single `locations: { some: { location: { AND: [...] } } }`
- * clause keeps every condition scoped to the same location row — see
- * docs/architecture/domain/location.md ("Search Integration Plan").
+ * Location is deliberately NOT a filter in this registry.
  *
- * A competition with zero locations never matches any of these — correct,
- * since the platform genuinely doesn't know where it is.
+ * The engine drops any filter whose `decode` returns `undefined`, and
+ * `normalizeList` maps an empty list to `undefined` by design — "empty is
+ * indistinguishable from absent". That is right for every other filter, but
+ * fatal here: a user selecting a real place with no competitions resolves to
+ * zero search areas, and a dropped filter would return *every* competition
+ * instead of none.
+ *
+ * So the location condition is passed to `buildSearchQuery` as a base clause
+ * instead, alongside `deletedAt: null`. Base clauses are applied
+ * unconditionally, so "matched nothing" cannot decay into "no restriction".
+ * `buildLocationClause` in `search/location-clause.ts` builds it, and
+ * `CompetitionService` resolves the place before any query is built — the
+ * engine stays synchronous and pure, unable to call a provider or the database
+ * from inside a filter.
  */
-interface LocationFilterValue {
-  readonly text?: string;
-  readonly countries?: string[];
-  readonly states?: string[];
-  readonly cities?: string[];
-}
-
-function locationFilter(config: {
-  ui: FilterUiMeta;
-}): FilterDescriptor<CompetitionWhere, LocationFilterValue> {
-  const keys = ["location", "countries", "states", "cities"];
-
-  return {
-    key: "location",
-
-    keys,
-
-    // Closest existing UI kind: fundamentally free text plus multi-select
-    // over a related entity. Worth a dedicated kind once the frontend
-    // filter UI (still unbuilt) needs to render this as its own control.
-    kind: "text",
-
-    decode: (params) => {
-      const text = normalizeText(params.location);
-      const countries = normalizeList(params.countries);
-      const states = normalizeList(params.states);
-      const cities = normalizeList(params.cities);
-
-      if (!text && !countries && !states && !cities) {
-        return undefined;
-      }
-
-      return { text, countries, states, cities };
-    },
-
-    encode: (value) => ({
-      location: value.text,
-      countries: value.countries?.join(","),
-      states: value.states?.join(","),
-      cities: value.cities?.join(","),
-    }),
-
-    toWhere: (value) => {
-      const conditions: Prisma.LocationWhereInput[] = [];
-
-      if (value.text) {
-        const escaped = escapeLikeWildcards(value.text);
-
-        conditions.push({
-          OR: [
-            { displayName: { contains: escaped, mode: "insensitive" } },
-            { city: { contains: escaped, mode: "insensitive" } },
-            { state: { contains: escaped, mode: "insensitive" } },
-            { country: { contains: escaped, mode: "insensitive" } },
-          ],
-        });
-      }
-
-      if (value.countries?.length) {
-        conditions.push({
-          OR: value.countries.flatMap((country) => [
-            { country: { equals: country, mode: "insensitive" as const } },
-            { countryCode: { equals: country, mode: "insensitive" as const } },
-          ]),
-        });
-      }
-
-      if (value.states?.length) {
-        conditions.push({
-          OR: value.states.flatMap((state) => [
-            { state: { equals: state, mode: "insensitive" as const } },
-            { stateCode: { equals: state, mode: "insensitive" as const } },
-          ]),
-        });
-      }
-
-      if (value.cities?.length) {
-        conditions.push({
-          OR: value.cities.map((city) => ({
-            city: { equals: city, mode: "insensitive" as const },
-          })),
-        });
-      }
-
-      return {
-        locations: {
-          some: {
-            location: { AND: conditions },
-          },
-        },
-      };
-    },
-
-    ui: config.ui,
-  };
-}
-
-const location = locationFilter({
-  ui: { label: "Location", group: "quick", weight: 20 },
-});
 
 function dateBounds(range: {
   from?: Date;
@@ -462,8 +362,7 @@ export const competitionSearchDefinition = defineSearch<
     bindFilter(startDate),
     bindFilter(endDate),
     bindFilter(registrationDeadline),
-    bindFilter(location),
-  ],
+    ],
 
   sorts,
 

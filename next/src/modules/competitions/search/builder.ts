@@ -15,6 +15,23 @@ const BASE_CLAUSES: readonly Prisma.CompetitionWhereInput[] = [
 ];
 
 /**
+ * Conditions resolved before the query is built and applied unconditionally.
+ *
+ * The location restriction arrives this way rather than as a registry filter,
+ * because a filter that decodes to nothing is dropped by the engine — which
+ * would turn "this place has no competitions" into "return everything". Base
+ * clauses cannot be dropped.
+ *
+ * Both `findMany` and `count` must be given the same value, or totals and rows
+ * disagree; `CompetitionService` resolves once and passes the same array to both.
+ */
+export type ExtraBaseClauses = readonly Prisma.CompetitionWhereInput[];
+
+function withExtras(extra?: ExtraBaseClauses) {
+  return extra && extra.length > 0 ? [...BASE_CLAUSES, ...extra] : BASE_CLAUSES;
+}
+
+/**
  * Thin adapter from the repository's call shape onto the shared
  * `src/lib/search` engine + `competitionSearchDefinition` registry.
  *
@@ -26,36 +43,43 @@ const BASE_CLAUSES: readonly Prisma.CompetitionWhereInput[] = [
  * for the migration this completes.
  */
 export class CompetitionSearchBuilder {
-  static build(filters: RawSearchParams): CompetitionSearchQuery {
+  static build(
+    filters: RawSearchParams,
+    extraBaseClauses?: ExtraBaseClauses,
+  ): CompetitionSearchQuery {
     return buildSearchQuery({
       definition: competitionSearchDefinition,
       params: filters,
       scope: "public",
       context: {},
-      baseClauses: BASE_CLAUSES,
+      baseClauses: withExtras(extraBaseClauses),
     });
   }
 
   static buildManagement(
     actorId: string,
     filters: RawSearchParams,
+    extraBaseClauses?: ExtraBaseClauses,
   ): CompetitionSearchQuery {
     return buildSearchQuery({
       definition: competitionSearchDefinition,
       params: filters,
       scope: "management",
       context: { actorId },
-      baseClauses: BASE_CLAUSES,
+      baseClauses: withExtras(extraBaseClauses),
     });
   }
 
-  static buildAdmin(filters: RawSearchParams): CompetitionSearchQuery {
+  static buildAdmin(
+    filters: RawSearchParams,
+    extraBaseClauses?: ExtraBaseClauses,
+  ): CompetitionSearchQuery {
     return buildSearchQuery({
       definition: competitionSearchDefinition,
       params: filters,
       scope: "admin",
       context: {},
-      baseClauses: BASE_CLAUSES,
+      baseClauses: withExtras(extraBaseClauses),
     });
   }
 }
