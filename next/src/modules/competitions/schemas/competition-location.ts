@@ -38,9 +38,50 @@ function refineDateRange(
   }
 }
 
+/**
+ * Exactly one of `providerPlaceId` and `location` must be present.
+ *
+ * Modelled as two optional fields plus a check rather than a discriminated
+ * union, so a request supplying both — or neither — gets one clear message
+ * instead of two parallel branch failures.
+ */
+function refineSource(
+  data: {
+    providerPlaceId?: string;
+    location?: unknown;
+  },
+  ctx: z.RefinementCtx,
+) {
+  const hasPlace = Boolean(data.providerPlaceId);
+
+  const hasManual = data.location !== undefined;
+
+  if (hasPlace === hasManual) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["providerPlaceId"],
+      message: hasPlace
+        ? "Provide either a selected place or a manual location, not both."
+        : "Either a selected place or a manual location is required.",
+    });
+  }
+}
+
 export const CreateCompetitionLocationSchema = z
   .object({
-    location: LocationInputSchema,
+    /**
+     * A place chosen from provider autocomplete. The server resolves it,
+     * which is what yields the verified containment behind discovery.
+     */
+    providerPlaceId: z.string().trim().min(1).max(300).optional(),
+
+    /**
+     * Manual entry, used when no provider is configured or the place cannot be
+     * found. Saves normally but yields only its own search area — with no
+     * provider evidence there is no verified containment, and inventing one is
+     * exactly what this architecture forbids.
+     */
+    location: LocationInputSchema.optional(),
 
     label: LabelSchema.nullable().optional(),
 
@@ -52,7 +93,10 @@ export const CreateCompetitionLocationSchema = z
 
     endDate: z.coerce.date().nullable().optional(),
   })
-  .superRefine(refineDateRange);
+  .superRefine((data, ctx) => {
+    refineSource(data, ctx);
+    refineDateRange(data, ctx);
+  });
 
 export type CreateCompetitionLocationInput = z.infer<
   typeof CreateCompetitionLocationSchema
@@ -63,8 +107,11 @@ export const UpdateCompetitionLocationSchema = z
     /**
      * Replaces the underlying place. Because locations are private to a single
      * competition, this rewrites the existing row rather than repointing at a
-     * shared one.
+     * shared one — and re-derives its search areas, so a location moved from
+     * Pune to Mumbai stops being discoverable through Pune.
      */
+    providerPlaceId: z.string().trim().min(1).max(300).optional(),
+
     location: LocationInputSchema.optional(),
 
     label: LabelSchema.nullable().optional(),

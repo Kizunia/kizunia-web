@@ -1,6 +1,15 @@
 import { HttpStatus, ValidationError } from "@/lib/errors";
 import prisma from "@/lib/prisma";
-import { LocationRepository, LocationService } from "@/modules/locations";
+import {
+  LocationRepository,
+  LocationService,
+  SearchAreaService,
+  extractSearchAreaCandidates,
+  placeDetailsToLocationInput,
+  resolvePlaceProvider,
+  type LocationInput,
+  type PlaceDetails,
+} from "@/modules/locations";
 
 import { CompetitionErrorCode } from "../errors/error-code";
 import type {
@@ -20,6 +29,9 @@ import { CompetitionLocationRepository } from "./competition-location.repository
  * degrade every query that loads locations.
  */
 const MAX_LOCATIONS_PER_COMPETITION = 50;
+
+/** Ceiling on a single place-details resolve during ingestion. */
+const PROVIDER_TIMEOUT_MS = 5_000;
 
 export class CompetitionLocationService {
   /**
@@ -61,6 +73,26 @@ export class CompetitionLocationService {
     competitionId: string,
     input: CreateCompetitionLocationInput,
   ): Promise<CompetitionLocationDTO[]> {
+    // ----------------------------------------------------------------
+    // External phase — no transaction is open
+    // ----------------------------------------------------------------
+    //
+    // The provider call happens first, on its own. Holding a database
+    // transaction open across a network request ties a connection up for the
+    // duration and puts the whole write at the mercy of the transaction
+    // timeout, which is the same order of magnitude as the provider's own.
+    // Nothing here needs to be atomic with the writes below.
+
+    const resolved = await this.resolveSource(input);
+
+    const candidates = resolved.details
+      ? extractSearchAreaCandidates(resolved.details)
+      : [];
+
+    // ----------------------------------------------------------------
+    // Database phase
+    // ----------------------------------------------------------------
+
     await prisma.$transaction(async (tx) => {
       const existing = await CompetitionLocationRepository.countForCompetition(
         competitionId,
@@ -75,7 +107,13 @@ export class CompetitionLocationService {
         });
       }
 
-      const location = await LocationService.create(input.location, tx);
+      const location = await LocationService.create(resolved.locationInput, tx);
+
+      // Discovery paths come only from provider evidence. A manually typed
+      // location saves normally but earns none — with nothing verifying where
+      // it is, any area we recorded would be a guess, and a guess here makes a
+      // competition discoverable somewhere it may not be.
+      await SearchAreaService.linkCandidates(location.id, candidates, tx);
 
       const order = await CompetitionLocationRepository.nextOrder(
         competitionId,
@@ -119,6 +157,15 @@ export class CompetitionLocationService {
     competitionLocationId: string,
     input: UpdateCompetitionLocationInput,
   ): Promise<CompetitionLocationDTO[]> {
+    // External phase first, for the same reason as `add()`.
+    const replacing = Boolean(input.providerPlaceId || input.location);
+
+    const resolved = replacing ? await this.resolveSource(input) : null;
+
+    const candidates = resolved?.details
+      ? extractSearchAreaCandidates(resolved.details)
+      : [];
+
     await prisma.$transaction(async (tx) => {
       const existing =
         await CompetitionLocationRepository.findByIdForCompetitionOrThrow(
@@ -127,8 +174,20 @@ export class CompetitionLocationService {
           tx,
         );
 
-      if (input.location) {
-        await LocationService.update(existing.locationId, input.location, tx);
+      // Replacing the place must also replace its discovery paths: a location
+      // moved from Pune to Mumbai has to stop being discoverable through Pune.
+      if (resolved) {
+        await LocationService.update(
+          existing.locationId,
+          resolved.locationInput,
+          tx,
+        );
+
+        await SearchAreaService.relinkCandidates(
+          existing.locationId,
+          candidates,
+          tx,
+        );
       }
 
       await CompetitionLocationRepository.update(
@@ -210,6 +269,70 @@ export class CompetitionLocationService {
     });
 
     return this.list(competitionId);
+  }
+
+  /**
+   * Turns either ingestion path into the same shape.
+   *
+   * A selected place is resolved against the provider once, here, and the
+   * result is copied into Location fields — after which the competition holds
+   * no dependency on the provider at all.
+   *
+   * A provider failure on a selected place is surfaced rather than swallowed:
+   * the admin explicitly chose a place, and silently saving something less than
+   * they picked would be worse than telling them to retry or type it manually.
+   */
+  private static async resolveSource(input: {
+    providerPlaceId?: string;
+    location?: LocationInput;
+  }): Promise<{ locationInput: LocationInput; details: PlaceDetails | null }> {
+    if (!input.providerPlaceId) {
+      if (!input.location) {
+        throw new ValidationError({
+          code: CompetitionErrorCode.LOCATION_SOURCE_MISSING,
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          message: "Either a selected place or a manual location is required.",
+        });
+      }
+
+      return { locationInput: input.location, details: null };
+    }
+
+    const provider = resolvePlaceProvider();
+
+    if (!provider) {
+      throw new ValidationError({
+        code: CompetitionErrorCode.LOCATION_PROVIDER_UNAVAILABLE,
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        message:
+          "Place lookup is not configured. Enter the location manually instead.",
+      });
+    }
+
+    const controller = new AbortController();
+
+    const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+
+    try {
+      const details = await provider.resolve(input.providerPlaceId, {
+        signal: controller.signal,
+      });
+
+      return {
+        locationInput: placeDetailsToLocationInput(details, provider.name),
+        details,
+      };
+    } catch (error) {
+      throw new ValidationError({
+        code: CompetitionErrorCode.LOCATION_PROVIDER_UNAVAILABLE,
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        message:
+          "Could not resolve the selected place. Try again, or enter the location manually.",
+        cause: error,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   // ==========================================================================

@@ -1,5 +1,6 @@
 // prisma/seed/seeders/competitions.seeder.ts
 import { PrismaClient } from "../../../src/generated/prisma";
+import { normalizeLocationInput } from "../../../src/modules/locations/utils/normalize";
 import { competitions } from "../data/competitions";
 import { users } from "../data/users";
 
@@ -157,13 +158,18 @@ export async function seedCompetitions(
     });
 
     if (h.location) {
-      const place = await prisma.location.create({
-        data: { displayName: h.location },
-      });
+      const input = normalizeLocationInput({ displayName: h.location });
+
+      const place = await prisma.location.create({ data: input });
 
       await prisma.competitionLocation.create({
         data: { competitionId: hack.id, locationId: place.id, order: 0 },
       });
+
+      // No SearchAreas: seed locations are free text with nothing verifying
+      // where they are. They render correctly on a competition but are not
+      // discoverable by location until re-added through the place picker,
+      // which is the same rule that applies to any manually typed location.
     }
 
     console.log(`     ✓ ${h.title} [${h.status}] [${h.visibility}]`);

@@ -89,9 +89,13 @@ export class AuthorizationEvaluator<
       return this;
     }
 
-    const permissions = permissionSet[role];
+    const permissions: ReadonlySet<TAction> | undefined = permissionSet[role];
 
-    if (!permissions.has(action)) {
+    // A role with no entry in the permission set must deny, not throw.
+    // Reaching `undefined.has(...)` turns an authorization decision into a
+    // 500, and an unrecognised role is precisely when failing closed
+    // matters most.
+    if (!permissions || !permissions.has(action)) {
       this.terminalDecision = deny(
         AuthorizationCode.ROLE_PERMISSION_DENIED,
         "You do not have permission to perform this action.",

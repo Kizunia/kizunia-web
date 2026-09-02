@@ -11,9 +11,7 @@ import { ApiError } from "@/lib/http";
 import { CompetitionLocationApi } from "@/modules/competitions/api/competition-location-api";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import type { CompetitionLocationDTO } from "@/modules/competitions/types/competition-location.dto";
-import type { LocationInputRequestDTO } from "@/modules/competitions/types/competition-location-request.dto";
-
-import { LocationPicker } from "./location-picker";
+import { LocationPicker, type PickedLocation } from "./location-picker";
 
 /**
  * Trims a datetime-local value into what the API expects.
@@ -77,9 +75,16 @@ export function LocationsTab() {
     }
   }
 
-  function add(location: LocationInputRequestDTO) {
+  function add(picked: PickedLocation) {
+    // A picked place is sent as an id for the server to resolve; a typed name
+    // goes straight through as a manual location.
+    const body =
+      "providerPlaceId" in picked
+        ? { providerPlaceId: picked.providerPlaceId }
+        : { location: { displayName: picked.manualDisplayName } };
+
     void run(
-      () => CompetitionLocationApi.add(competition!.id, { location }),
+      () => CompetitionLocationApi.add(competition!.id, body),
       "Location added.",
     );
   }

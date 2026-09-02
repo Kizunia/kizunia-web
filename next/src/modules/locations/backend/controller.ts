@@ -15,21 +15,31 @@ import { NextRequest } from "next/server";
 import { SessionService } from "@/lib/auth/index";
 import { ApiResponse, Route } from "@/lib/http";
 
-import { LocationSearchQuerySchema } from "../schemas/location-search";
-import { LocationSearchService } from "../services/location-search.service";
+import { resolvePlaceProvider } from "../providers";
+import { PlaceAutocompleteQuerySchema } from "../schemas/location-search";
+import type { PlaceSuggestion } from "../types/place";
+
+/**
+ * How long the provider gets before autocomplete gives up on it.
+ *
+ * Short on purpose: an admin waiting on a picker would rather be told to type
+ * the place manually than watch a spinner.
+ */
+const PROVIDER_TIMEOUT_MS = 3_000;
 
 export class LocationController {
   /**
-   * Free-text location search for the competition editor.
+   * Place autocomplete for the competition editor.
    *
-   * Authenticated because it fronts an external geocoding provider — leaving it
-   * open would turn the platform into an unmetered proxy and put the shared
-   * Nominatim instance's rate limit at the mercy of anonymous traffic.
+   * Authenticated because it fronts a billed provider — an open endpoint would
+   * let anyone spend the project's Places quota.
    *
-   * Never fails because of the provider: `LocationSearchService` degrades to
-   * internal results, and `providerAvailable` tells the UI to offer manual entry.
+   * Never fails because of the provider. An unconfigured or unreachable Google
+   * returns an empty list with `providerAvailable: false`, which the picker
+   * reads as "offer manual entry", so a provider outage can still never block
+   * saving a competition.
    */
-  static async search(request: NextRequest) {
+  static async autocomplete(request: NextRequest) {
     return Route.execute(async () => {
       // -----------------------------------------------------------------
       // Authentication
@@ -43,19 +53,53 @@ export class LocationController {
 
       const query = Object.fromEntries(request.nextUrl.searchParams.entries());
 
-      const { q, limit } = LocationSearchQuerySchema.parse(query);
+      const { q, limit, sessionToken } =
+        PlaceAutocompleteQuerySchema.parse(query);
 
       // -----------------------------------------------------------------
       // Business Logic
       // -----------------------------------------------------------------
 
-      const result = await LocationSearchService.search(q, limit);
+      const provider = resolvePlaceProvider();
 
-      // -----------------------------------------------------------------
-      // Response
-      // -----------------------------------------------------------------
+      if (!provider) {
+        return ApiResponse.ok({
+          suggestions: [] as PlaceSuggestion[],
+          providerAvailable: false,
+        });
+      }
 
-      return ApiResponse.ok(result);
+      const controller = new AbortController();
+
+      const timeout = setTimeout(
+        () => controller.abort(),
+        PROVIDER_TIMEOUT_MS,
+      );
+
+      try {
+        const suggestions = await provider.autocomplete(q, {
+          limit,
+          signal: controller.signal,
+          sessionToken,
+        });
+
+        return ApiResponse.ok({
+          suggestions,
+          providerAvailable: true,
+        });
+      } catch (error) {
+        console.warn(
+          `Place provider "${provider.name}" autocomplete failed; falling back to manual entry.`,
+          error,
+        );
+
+        return ApiResponse.ok({
+          suggestions: [] as PlaceSuggestion[],
+          providerAvailable: false,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
     });
   }
 }

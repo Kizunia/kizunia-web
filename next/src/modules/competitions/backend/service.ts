@@ -12,9 +12,19 @@ import {
   type CompetitionContext,
 } from "./authorization";
 
+import { ExternalServiceError } from "@/lib/errors";
+import { PlaceMatchService } from "@/modules/locations";
+
 import { DuplicateSlugError } from "../errors";
+import { buildLocationClause } from "../search/location-clause";
+import { CompetitionErrorCode } from "../errors/error-code";
 import type { CompetitionSearchResult } from "../search/types";
-import type { CompetitionSearchInput } from "../search/schema";
+import {
+  buildPaginationMeta,
+  normalizeScalar,
+  parsePagination,
+  type RawSearchParams,
+} from "@/lib/search";
 import type { CompetitionDetailDTO, CompetitionCardDTO } from "../types/dto";
 import { CreateAssetInput } from "@/modules/assets/schemas/create-asset";
 import { CompetitionAssetSlot } from "../types/asset-slot";
@@ -65,15 +75,30 @@ export class CompetitionService {
    */
 
   static async search(
-    filters: CompetitionSearchInput,
+    filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionCardDTO>> {
+    // ------------------------------------------------------------
+    // Resolve Location
+    // ------------------------------------------------------------
+    //
+    // Happens before any query is built, because the search engine is
+    // synchronous and pure — a filter cannot call a provider or read the
+    // database. Resolved once here, then handed to both queries below.
+
+    const locationClause = await this.resolveLocationClause(filters);
+
+    const extraBaseClauses = locationClause ? [locationClause] : undefined;
+
     // ------------------------------------------------------------
     // Execute Queries
     // ------------------------------------------------------------
+    //
+    // Both calls receive the same clause. Passing it to one and not the other
+    // would make the reported total disagree with the rows returned.
 
     const [competitions, total] = await Promise.all([
-      CompetitionRepository.findMany(filters),
-      CompetitionRepository.count(filters),
+      CompetitionRepository.findMany(filters, extraBaseClauses),
+      CompetitionRepository.count(filters, extraBaseClauses),
     ]);
 
     // ------------------------------------------------------------
@@ -85,26 +110,56 @@ export class CompetitionService {
     // ------------------------------------------------------------
     // Pagination
     // ------------------------------------------------------------
-
-    const totalPages = Math.ceil(total / filters.limit);
+    //
+    // Re-derives {page, limit} from the same raw params the repository's
+    // query was built from, via the shared engine's own clamping logic
+    // (parsePagination), so the reported page/limit always matches what
+    // was actually queried — including when an out-of-range value was
+    // clamped rather than rejected.
 
     return {
       items,
 
-      pagination: {
-        page: filters.page,
-
-        limit: filters.limit,
-
-        total,
-
-        totalPages,
-
-        hasNextPage: filters.page < totalPages,
-
-        hasPreviousPage: filters.page > 1,
-      },
+      pagination: buildPaginationMeta(parsePagination(filters), total),
     };
+  }
+
+  /**
+   * Turns a requested place into the clause that restricts results to it.
+   *
+   * Three outcomes, kept distinct because conflating them misinforms the user:
+   *
+   *   - no place requested        -> `undefined`, results are unrestricted
+   *   - place resolved            -> a clause, even when it matched no areas,
+   *                                  so a real place with no competitions
+   *                                  returns nothing rather than everything
+   *   - place could not resolve   -> throws, because "we could not find out"
+   *                                  must never be shown as "there is nothing"
+   */
+  private static async resolveLocationClause(filters: RawSearchParams) {
+    const placeId = normalizeScalar(filters.placeId);
+
+    if (!placeId) {
+      return undefined;
+    }
+
+    const resolution = await PlaceMatchService.resolve(placeId);
+
+    if (resolution.status === "RESOLUTION_FAILED") {
+      throw new ExternalServiceError({
+        code: CompetitionErrorCode.LOCATION_RESOLUTION_FAILED,
+        message:
+          "Could not look up that location right now. Please try again shortly.",
+        details: { reason: resolution.reason },
+      });
+    }
+
+    return buildLocationClause({
+      requested: true,
+      searchAreaIds: resolution.searchAreaIds,
+      includeOnline:
+        normalizeScalar(filters.includeOnline)?.toLowerCase() === "true",
+    });
   }
 
   /**
@@ -112,7 +167,7 @@ export class CompetitionService {
    */
   static async searchManageable(
     actor: StrictAuthorizationActor,
-    filters: CompetitionSearchInput,
+    filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionManagementTableDTO>> {
     const [competitions, total] = await Promise.all([
       CompetitionRepository.findManyManageable(actor.id, filters),
@@ -146,24 +201,10 @@ export class CompetitionService {
       });
     });
 
-    const totalPages = Math.ceil(total / filters.limit);
-
     return {
       items,
 
-      pagination: {
-        page: filters.page,
-
-        limit: filters.limit,
-
-        total,
-
-        totalPages,
-
-        hasNextPage: filters.page < totalPages,
-
-        hasPreviousPage: filters.page > 1,
-      },
+      pagination: buildPaginationMeta(parsePagination(filters), total),
     };
   }
 
@@ -172,7 +213,7 @@ export class CompetitionService {
    */
   static async searchAdmin(
     actor: StrictAuthorizationActor,
-    filters: CompetitionSearchInput,
+    filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionManagementTableDTO>> {
     const [competitions, total] = await Promise.all([
       CompetitionRepository.findManyAdmin(actor.id!, filters),
@@ -198,24 +239,10 @@ export class CompetitionService {
       });
     });
 
-    const totalPages = Math.ceil(total / filters.limit);
-
     return {
       items,
 
-      pagination: {
-        page: filters.page,
-
-        limit: filters.limit,
-
-        total,
-
-        totalPages,
-
-        hasNextPage: filters.page < totalPages,
-
-        hasPreviousPage: filters.page > 1,
-      },
+      pagination: buildPaginationMeta(parsePagination(filters), total),
     };
   }
 

@@ -39,7 +39,11 @@ export interface LocationInputRequestDTO {
  * The server coerces them back to dates during validation.
  */
 export interface CreateCompetitionLocationRequestDTO {
-  location: LocationInputRequestDTO;
+  /** A place chosen from provider autocomplete, resolved server-side. */
+  providerPlaceId?: string;
+
+  /** Manual entry. Exactly one of this and `providerPlaceId` is required. */
+  location?: LocationInputRequestDTO;
 
   label?: string | null;
 
@@ -53,6 +57,8 @@ export interface CreateCompetitionLocationRequestDTO {
 }
 
 export interface UpdateCompetitionLocationRequestDTO {
+  providerPlaceId?: string;
+
   location?: LocationInputRequestDTO;
 
   label?: string | null;

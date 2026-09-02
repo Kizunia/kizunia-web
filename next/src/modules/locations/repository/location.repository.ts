@@ -42,14 +42,6 @@ export class LocationRepository {
     });
   }
 
-  static async findById(id: string) {
-    return prisma.location.findUnique({
-      where: {
-        id,
-      },
-    });
-  }
-
   /**
    * Deletes a location that is no longer referenced by any competition.
    *
@@ -78,54 +70,5 @@ export class LocationRepository {
     });
 
     return true;
-  }
-
-  /**
-   * Free-text search over locations already stored on the platform.
-   *
-   * This is the resilient half of location search: it needs no network and is
-   * what keeps the admin working when an external provider is unreachable.
-   * Results are de-duplicated by display name so repeated entries of the same
-   * place collapse into one suggestion.
-   */
-  static async search(query: string, limit: number) {
-    return prisma.location.findMany({
-      where: {
-        OR: [
-          {
-            displayName: {
-              contains: query,
-              mode: "insensitive",
-            },
-          },
-          {
-            city: {
-              contains: query,
-              mode: "insensitive",
-            },
-          },
-          {
-            state: {
-              contains: query,
-              mode: "insensitive",
-            },
-          },
-          {
-            country: {
-              contains: query,
-              mode: "insensitive",
-            },
-          },
-        ],
-      },
-
-      distinct: ["displayName"],
-
-      orderBy: {
-        displayName: "asc",
-      },
-
-      take: limit,
-    });
   }
 }

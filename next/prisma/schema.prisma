@@ -77,7 +77,30 @@ enum LocationPrecision {
 // an outage of any external provider can never block competition editing.
 enum LocationProvider {
   MANUAL
-  NOMINATIM
+  GOOGLE
+}
+
+// How a Location relates to a SearchArea it is discoverable through.
+//
+// EXACT is the place the admin actually selected; WITHIN is a larger entity
+// that provider data verified the location sits inside. Search matches both —
+// selecting "VIT Pune" and selecting "Pune" should each find a competition at
+// VIT Pune. The distinction exists to explain *why* a result matched.
+enum SearchAreaRelation {
+  EXACT
+  WITHIN
+}
+
+// Which piece of provider evidence produced a SearchArea link.
+//
+// Ordered by strength: a selected place is unambiguous, containing places and
+// address descriptors carry stable provider ids, and address components are the
+// last resort precisely because they usually do not.
+enum SearchAreaSource {
+  SELECTED_PLACE
+  CONTAINING_PLACE
+  ADDRESS_DESCRIPTOR
+  ADDRESS_COMPONENT
 }
 
 enum CompetitionVisibility {
@@ -820,11 +843,91 @@ model Location {
 
   competitions CompetitionLocation[]
 
+  /// The places this location is discoverable through. Populated once, at
+  /// ingestion, from provider evidence — never derived at query time.
+  searchAreas LocationSearchArea[]
+
   @@index([countryCode])
   @@index([city])
   @@index([state])
   @@index([provider, providerLocationId])
   @@map("location")
+}
+
+/// A specific geographic entity a user can select as a search boundary.
+///
+/// A SearchArea is an *entity*, never a name. "Nashik City" and "Nashik
+/// District" share a word but have different boundaries and different search
+/// semantics, so they are two rows — distinguished by `identityKey`, which is
+/// derived from provider identity wherever one exists.
+///
+/// Unlike Location (which is competition-owned and never shared), SearchAreas
+/// are deliberately reused: every competition in Pune links to the same Pune
+/// row, which is what makes "everything in Pune" a single indexed lookup.
+model SearchArea {
+  id String @id @default(cuid())
+
+  displayName String
+
+  /// The provider's own type string, stored verbatim — "locality",
+  /// "administrative_area_level_2", "sublocality_level_1", "university".
+  ///
+  /// Display and disambiguation only; nothing branches on it. Deliberately not
+  /// a Kizunia enum, because any fixed set would encode one country's
+  /// administrative hierarchy as though it were universal.
+  providerKind String?
+
+  /// Parent context for pickers, e.g. "Maharashtra, India", so a user can tell
+  /// two same-named entities apart. Display only.
+  contextLabel String?
+
+  provider           LocationProvider?
+  providerLocationId String?
+
+  /// Deterministic identity, and the dedup key:
+  ///   google:place:{placeId}                        preferred, whenever available
+  ///   component:{providerKind}:{name}:{parent ctx}  fallback only
+  ///
+  /// Never the display name alone. That would collapse Nashik City and Nashik
+  /// District into one entity and merge unrelated places that share a name.
+  identityKey String @unique
+
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  locations LocationSearchArea[]
+
+  @@index([displayName])
+  @@map("search_area")
+}
+
+/// Verified containment: this location is discoverable through this area.
+///
+/// Containment is materialized here at ingestion rather than traversed at query
+/// time. That is what makes a parent search reach its children (they each point
+/// at the parent) while making upward or sideways expansion impossible — a
+/// Kondhwa location simply has no Bibwewadi row, so it can never surface there.
+model LocationSearchArea {
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  searchAreaId String
+  searchArea   SearchArea @relation(fields: [searchAreaId], references: [id], onDelete: Cascade)
+
+  relation SearchAreaRelation
+
+  /// Which provider evidence produced this link. Kept so "why is this
+  /// competition discoverable through Bibwewadi?" is answerable later.
+  source SearchAreaSource
+
+  createdAt DateTime @default(now())
+
+  @@id([locationId, searchAreaId])
+  @@index([searchAreaId])
+  @@map("location_search_area")
 }
 
 /// How one competition uses one location.
@@ -1264,4 +1367,61 @@ model Content {
   // team      Team?      @relation("TeamContent")
   // blog      Blog?      @relation("BlogContent")
   competitionSuggestion CompetitionSuggestion? @relation("CompetitionSuggestionContent")
+}
+
+// =============================================================================
+// Location Support — caches and limits
+// =============================================================================
+
+/// Cached resolution of a provider place into the identities it searches by.
+///
+/// A cache, never a source of truth: truncating it costs one extra provider
+/// call per place and changes no behaviour. It exists because resolving a
+/// selected place is a billed request, and a public search page would otherwise
+/// pay it on every visit.
+///
+/// Identity keys are cached rather than the SearchArea rows they matched. That
+/// distinction matters: a place with no competitions yet caches successfully
+/// with keys that match nothing, and starts returning results the moment a
+/// competition is ingested there — with no invalidation step. Caching matched
+/// ids instead would freeze that emptiness in place.
+model PlaceResolution {
+  /// Provider place id, e.g. a Google place id.
+  placeId String @id
+
+  /// Identities representing the selected place *itself*, never its ancestors.
+  /// May legitimately be empty for a place nothing is stored under.
+  identityKeys String[]
+
+  displayName  String?
+  contextLabel String?
+
+  /// Which extraction ruleset produced these keys. A mismatch is treated as a
+  /// miss, so changing extraction logically invalidates every row at once
+  /// rather than leaving keys that no longer match what ingestion writes.
+  extractionVersion Int
+
+  resolvedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([resolvedAt])
+  @@map("place_resolution")
+}
+
+/// Fixed-window request counter, keyed by caller and route.
+///
+/// Stored in Postgres rather than memory because the limiter has to hold across
+/// instances — an in-memory counter silently stops limiting the moment the app
+/// runs in more than one process, which is exactly when it matters.
+model RateLimit {
+  /// `{scope}:{identifier}:{windowStart}` — the window is part of the key, so
+  /// expiry is a delete rather than a reset and two windows never collide.
+  key String @id
+
+  count Int @default(0)
+
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("rate_limit")
 }
