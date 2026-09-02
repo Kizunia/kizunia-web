@@ -1,6 +1,7 @@
 import { LocationPrecision, LocationProvider } from "@/generated/prisma";
 
 import type { LocationInput } from "../schemas/location-input";
+import type { PlaceDetails } from "../types/place";
 
 /**
  * A location input with every field settled — no `undefined`, no empty strings,
@@ -128,19 +129,72 @@ export function normalizeLocationInput(
 }
 
 /**
- * Builds a "City, State, Country" style label from whatever parts are known.
+ * Administrative place types, mapped to the precision they imply.
  *
- * Used when a provider hands back structured fields but no usable label of its
- * own, and by the manual-entry form to preview what the admin is about to save.
+ * Anything absent from this map is a specific site rather than an area — a
+ * campus, a stadium, an auditorium — and therefore VENUE.
  */
-export function composeDisplayName(parts: {
-  venueName?: string | null;
-  city?: string | null;
-  state?: string | null;
-  country?: string | null;
-}): string {
-  return [parts.venueName, parts.city, parts.state, parts.country]
-    .map((part) => orNull(part))
-    .filter((part): part is string => part !== null)
-    .join(", ");
+const ADMINISTRATIVE_PRECISION: Record<string, LocationPrecision> = {
+  country: LocationPrecision.COUNTRY,
+  administrative_area_level_1: LocationPrecision.STATE,
+  administrative_area_level_2: LocationPrecision.CITY,
+  locality: LocationPrecision.CITY,
+  postal_town: LocationPrecision.CITY,
+  sublocality: LocationPrecision.CITY,
+  sublocality_level_1: LocationPrecision.CITY,
+  neighborhood: LocationPrecision.CITY,
+};
+
+/**
+ * Flattens a resolved place into the fields a Location stores.
+ *
+ * Only the structured pieces Kizunia actually uses are lifted out; the rest of
+ * the provider payload feeds search-area extraction and is then discarded. Once
+ * this has run the competition no longer depends on the provider at all — which
+ * is the point of copying rather than referencing.
+ */
+export function placeDetailsToLocationInput(
+  details: PlaceDetails,
+  provider: LocationProvider = LocationProvider.GOOGLE,
+): LocationInput {
+  const component = (type: string) =>
+    details.addressComponents.find((entry) => entry.types.includes(type));
+
+  const country = component("country");
+  const state = component("administrative_area_level_1");
+  const city =
+    component("locality") ??
+    component("postal_town") ??
+    component("administrative_area_level_2");
+  const postalCode = component("postal_code");
+
+  const administrativeType = details.types.find(
+    (type) => type in ADMINISTRATIVE_PRECISION,
+  );
+
+  return {
+    displayName: details.displayName,
+
+    // A place the provider does not classify as an administrative area is a
+    // specific site, which is the one case where VENUE can be asserted rather
+    // than inferred.
+    precision: administrativeType
+      ? ADMINISTRATIVE_PRECISION[administrativeType]
+      : LocationPrecision.VENUE,
+
+    country: country?.longName ?? null,
+    countryCode: country?.shortName ?? null,
+    state: state?.longName ?? null,
+    stateCode: state?.shortName ?? null,
+    city: city?.longName ?? null,
+    postalCode: postalCode?.longName ?? null,
+
+    latitude: details.latitude,
+    longitude: details.longitude,
+
+    timezone: null,
+
+    provider,
+    providerLocationId: details.providerPlaceId,
+  };
 }
