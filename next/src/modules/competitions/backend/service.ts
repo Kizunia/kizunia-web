@@ -12,16 +12,11 @@ import {
   type CompetitionContext,
 } from "./authorization";
 
-import { ExternalServiceError } from "@/lib/errors";
-import { PlaceMatchService } from "@/modules/locations";
-
 import { DuplicateSlugError } from "../errors";
-import { buildLocationClause } from "../search/location-clause";
-import { CompetitionErrorCode } from "../errors/error-code";
+import { planCompetitionSearch } from "../search/plan";
 import type { CompetitionSearchResult } from "../search/types";
 import {
   buildPaginationMeta,
-  normalizeScalar,
   parsePagination,
   type RawSearchParams,
 } from "@/lib/search";
@@ -74,92 +69,38 @@ export class CompetitionService {
    * ✗ Return NextResponse
    */
 
+  /**
+   * Public competition search.
+   *
+   * Planning resolves every filter that needs an external lookup — currently
+   * just location — and fails loudly if one could not be completed. Both
+   * queries below are then built from that single plan, so the total can never
+   * disagree with the rows.
+   */
   static async search(
     filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionCardDTO>> {
-    // ------------------------------------------------------------
-    // Resolve Location
-    // ------------------------------------------------------------
-    //
-    // Happens before any query is built, because the search engine is
-    // synchronous and pure — a filter cannot call a provider or read the
-    // database. Resolved once here, then handed to both queries below.
-
-    const locationClause = await this.resolveLocationClause(filters);
-
-    const extraBaseClauses = locationClause ? [locationClause] : undefined;
-
-    // ------------------------------------------------------------
-    // Execute Queries
-    // ------------------------------------------------------------
-    //
-    // Both calls receive the same clause. Passing it to one and not the other
-    // would make the reported total disagree with the rows returned.
+    const plan = await planCompetitionSearch({
+      scope: "public",
+      params: filters,
+    });
 
     const [competitions, total] = await Promise.all([
-      CompetitionRepository.findMany(filters, extraBaseClauses),
-      CompetitionRepository.count(filters, extraBaseClauses),
+      CompetitionRepository.findMany(plan),
+      CompetitionRepository.count(plan),
     ]);
-
-    // ------------------------------------------------------------
-    // Mapping
-    // ------------------------------------------------------------
 
     const items = competitionMapper.toCardDTOs(competitions);
 
-    // ------------------------------------------------------------
-    // Pagination
-    // ------------------------------------------------------------
-    //
-    // Re-derives {page, limit} from the same raw params the repository's
-    // query was built from, via the shared engine's own clamping logic
-    // (parsePagination), so the reported page/limit always matches what
-    // was actually queried — including when an out-of-range value was
-    // clamped rather than rejected.
-
+    // Re-derives page and limit from the same raw parameters the query was
+    // built from, through the engine's own clamping, so the reported values
+    // always match what was actually queried — including when an out-of-range
+    // value was clamped rather than rejected.
     return {
       items,
 
       pagination: buildPaginationMeta(parsePagination(filters), total),
     };
-  }
-
-  /**
-   * Turns a requested place into the clause that restricts results to it.
-   *
-   * Three outcomes, kept distinct because conflating them misinforms the user:
-   *
-   *   - no place requested        -> `undefined`, results are unrestricted
-   *   - place resolved            -> a clause, even when it matched no areas,
-   *                                  so a real place with no competitions
-   *                                  returns nothing rather than everything
-   *   - place could not resolve   -> throws, because "we could not find out"
-   *                                  must never be shown as "there is nothing"
-   */
-  private static async resolveLocationClause(filters: RawSearchParams) {
-    const placeId = normalizeScalar(filters.placeId);
-
-    if (!placeId) {
-      return undefined;
-    }
-
-    const resolution = await PlaceMatchService.resolve(placeId);
-
-    if (resolution.status === "RESOLUTION_FAILED") {
-      throw new ExternalServiceError({
-        code: CompetitionErrorCode.LOCATION_RESOLUTION_FAILED,
-        message:
-          "Could not look up that location right now. Please try again shortly.",
-        details: { reason: resolution.reason },
-      });
-    }
-
-    return buildLocationClause({
-      requested: true,
-      searchAreaIds: resolution.searchAreaIds,
-      includeOnline:
-        normalizeScalar(filters.includeOnline)?.toLowerCase() === "true",
-    });
   }
 
   /**
@@ -169,10 +110,20 @@ export class CompetitionService {
     actor: StrictAuthorizationActor,
     filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionManagementTableDTO>> {
-    const [competitions, total] = await Promise.all([
-      CompetitionRepository.findManyManageable(actor.id, filters),
+    // Planned exactly like the public search, so a location supplied here is
+    // honoured rather than silently discarded. Scope differences are expressed
+    // by the registry's scope guards, never by which service method remembered
+    // to resolve.
+    const plan = await planCompetitionSearch({
+      scope: "management",
+      params: filters,
+      context: { actorId: actor.id },
+    });
 
-      CompetitionRepository.countManageable(actor.id, filters),
+    const [competitions, total] = await Promise.all([
+      CompetitionRepository.findManyManageable(actor.id, plan),
+
+      CompetitionRepository.countManageable(plan),
     ]);
 
     const items = competitions.map((competition) => {
@@ -215,10 +166,15 @@ export class CompetitionService {
     actor: StrictAuthorizationActor,
     filters: RawSearchParams,
   ): Promise<CompetitionSearchResult<CompetitionManagementTableDTO>> {
-    const [competitions, total] = await Promise.all([
-      CompetitionRepository.findManyAdmin(actor.id!, filters),
+    const plan = await planCompetitionSearch({
+      scope: "admin",
+      params: filters,
+    });
 
-      CompetitionRepository.countAdmin(filters),
+    const [competitions, total] = await Promise.all([
+      CompetitionRepository.findManyAdmin(actor.id!, plan),
+
+      CompetitionRepository.countAdmin(plan),
     ]);
 
     const items = competitions.map((competition) => {
