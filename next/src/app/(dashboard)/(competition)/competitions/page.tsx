@@ -118,7 +118,7 @@ function CompetitionsShell({
         </p>
       </div>
 
-      <CompetitionFilters optionsMap={optionsMap} />
+      <CompetitionFilters optionsMap={optionsMap} scope="public" />
 
       {total !== undefined && (
         <p

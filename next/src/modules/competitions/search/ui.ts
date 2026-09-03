@@ -516,6 +516,47 @@ export type CompetitionFilterKey = keyof typeof competitionFilterSpecs;
 export const COMPETITION_FILTER_SPECS: readonly FilterSpec[] =
   assertUniqueFilterParams(Object.values(competitionFilterSpecs));
 
+// =============================================================================
+// Admin-only additions
+// =============================================================================
+
+/**
+ * Whether a row is active or soft-deleted — never to be confused with
+ * `statuses` above, which is the competition's own lifecycle stage
+ * (upcoming, ongoing, completed...). A competition can be `COMPLETED` and
+ * active, or `UPCOMING` and deleted; the two axes are independent.
+ *
+ * Admin-only by construction, not by convention: this spec is deliberately
+ * kept out of `COMPETITION_FILTER_SPECS`, so it can never reach the public or
+ * management filter bar even if a future change loosened those scopes'
+ * `allowedFilters`. `definition.ts` additionally gates it at the query layer
+ * — see `deletionClauses` in `plan.ts` — so the safety does not rest on the
+ * UI alone.
+ */
+export const RECORD_STATE_SPEC: EnumMultiSpec<"ACTIVE" | "DELETED"> = {
+  kind: "enum-multi",
+  key: "recordState",
+  label: "Record state",
+  group: "quick",
+  weight: -10,
+  display: "pills",
+  options: [
+    { value: "ACTIVE", label: "Active" },
+    { value: "DELETED", label: "Deleted" },
+  ],
+  description:
+    "Whether to show active competitions, soft-deleted ones, or both.",
+};
+
+/**
+ * The admin filter vocabulary: every public filter, plus the one admin-only
+ * addition above. Composition, not a second registry — there is exactly one
+ * place each shared filter is declared, and this list is that list plus one
+ * more entry.
+ */
+export const ADMIN_FILTER_SPECS: readonly FilterSpec[] =
+  assertUniqueFilterParams([...COMPETITION_FILTER_SPECS, RECORD_STATE_SPEC]);
+
 /**
  * Sort options, as plain data for the sort control.
  *

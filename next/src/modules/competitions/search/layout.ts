@@ -34,7 +34,10 @@ import {
   type ResolvedFilterLayout,
 } from "@/lib/search/client";
 
-import { COMPETITION_FILTER_SPECS } from "./ui";
+import { ADMIN_FILTER_SPECS, COMPETITION_FILTER_SPECS } from "./ui";
+
+/** Which spec list and layout a render resolves against. */
+export type CompetitionFilterScope = "public" | "admin";
 
 /**
  * The order the quick bar leads with.
@@ -80,19 +83,47 @@ export const KIZUNIA_COMPETITION_LAYOUT: FilterLayoutSource = {
 };
 
 /**
+ * Admin adds one quick-bar entry ahead of everything else: Record state,
+ * because deciding whether to look at active or deleted rows comes before
+ * every other question on that page. This is layered on top of
+ * `KIZUNIA_COMPETITION_LAYOUT` rather than folded into it, for the same
+ * reason `ADMIN_FILTER_SPECS` is layered on top of `COMPETITION_FILTER_SPECS`
+ * in `ui.ts`: composition, so the shared layout stays the one place that
+ * describes the shared filters' placement.
+ */
+const ADMIN_LAYOUT: FilterLayoutSource = {
+  id: "kizunia-admin",
+  pinned: ["recordState", ...QUICK_BAR_ORDER],
+};
+
+/**
  * Resolves the layout for one render.
  *
  * `params` is required because a filter hidden by layout but currently holding
  * a value is revealed anyway — a restriction the person cannot see is one they
  * cannot undo.
  *
+ * `scope` picks both the spec list and the layout it resolves against —
+ * `admin` sees `ADMIN_FILTER_SPECS` (the shared filters plus Record state)
+ * under the shared layout plus `ADMIN_LAYOUT`'s one addition; `public` is
+ * exactly what this function has always done.
+ *
  * @param extraSources further layers, highest precedence last. The seam user
  *        preferences will arrive through.
  */
 export function resolveCompetitionFilterLayout(
   params: RawSearchParams,
+  scope: CompetitionFilterScope,
   extraSources: readonly FilterLayoutSource[] = [],
 ): ResolvedFilterLayout {
+  if (scope === "admin") {
+    return resolveFilterLayout(ADMIN_FILTER_SPECS, params, [
+      KIZUNIA_COMPETITION_LAYOUT,
+      ADMIN_LAYOUT,
+      ...extraSources,
+    ]);
+  }
+
   return resolveFilterLayout(COMPETITION_FILTER_SPECS, params, [
     KIZUNIA_COMPETITION_LAYOUT,
     ...extraSources,

@@ -34,6 +34,7 @@ import type { Prisma } from "@/generated/prisma";
 import { ExternalServiceError } from "@/lib/errors";
 import {
   buildSearchQuery,
+  readFilterValue,
   resolvableFiltersForScope,
   resolveBaseClauses,
   type RawSearchParams,
@@ -44,6 +45,7 @@ import {
   competitionSearchDefinition,
   type CompetitionSearchContext,
 } from "./definition";
+import { RECORD_STATE_SPEC } from "./ui";
 
 type CompetitionWhere = Prisma.CompetitionWhereInput;
 
@@ -51,13 +53,57 @@ type CompetitionWhere = Prisma.CompetitionWhereInput;
 export type CompetitionSearchScope = "public" | "management" | "admin";
 
 /**
- * Clauses ANDed into every Competition query regardless of scope.
+ * Soft-deleted-row visibility, per request.
  *
- * Soft-deleted rows are not "filtered out" — they are not part of the entity's
- * visible universe at all, which is why this is a base clause and not a filter
- * anyone could turn off.
+ * =============================================================================
+ * Why this is scope-gated here and not left to the filter registry
+ * =============================================================================
+ *
+ * For `public` and `management` this returns the exact same fixed clause the
+ * old `INVARIANT_CLAUSES` constant always did — unconditionally, without ever
+ * reading `params`. That last part matters: this function does not decide
+ * "is `recordState` an allowed filter for this scope and did the caller
+ * supply one" and then act on it. It decides "is this the admin scope" FIRST,
+ * and every branch below that check is unreachable for anything else. A
+ * request built by hand against `/api/v1/competitions` with
+ * `?recordState=DELETED` cannot influence this function at all — the
+ * parameter is never even inspected outside the `admin` branch.
+ *
+ * `RECORD_STATE_SPEC` is also never added to `COMPETITION_FILTER_SPECS`
+ * (see `ui.ts`), so it cannot appear in the public/management filter UI or
+ * chip list either. The two protections are independent: this function is
+ * what stops a crafted request; spec exclusion is what stops the UI from
+ * ever offering the control in the first place.
+ *
+ * Soft-deleted rows are therefore not "filtered out" for non-admin scopes —
+ * they are not part of the entity's visible universe at all, which is why
+ * this contributes a base clause rather than an ordinary, droppable filter.
  */
-const INVARIANT_CLAUSES: readonly CompetitionWhere[] = [{ deletedAt: null }];
+function deletionClauses(
+  scope: CompetitionSearchScope,
+  params: RawSearchParams,
+): readonly CompetitionWhere[] {
+  if (scope !== "admin") {
+    return [{ deletedAt: null }];
+  }
+
+  const state = readFilterValue(RECORD_STATE_SPEC, params);
+
+  const wantsActive = state?.includes("ACTIVE") ?? false;
+  const wantsDeleted = state?.includes("DELETED") ?? false;
+
+  if (wantsDeleted && !wantsActive) {
+    return [{ deletedAt: { not: null } }];
+  }
+
+  if (wantsActive && wantsDeleted) {
+    // Both explicitly selected: no restriction on deletion state at all.
+    return [];
+  }
+
+  // Absent, or ACTIVE alone: today's default, unchanged.
+  return [{ deletedAt: null }];
+}
 
 /**
  * A fully resolved, ready-to-execute search.
@@ -123,7 +169,10 @@ export async function planCompetitionSearch(
     scope: args.scope,
     params: args.params,
     context,
-    baseClauses: [...INVARIANT_CLAUSES, ...resolution.clauses],
+    baseClauses: [
+      ...deletionClauses(args.scope, args.params),
+      ...resolution.clauses,
+    ],
   };
 }
 

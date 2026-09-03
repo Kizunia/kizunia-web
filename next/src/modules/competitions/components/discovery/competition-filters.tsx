@@ -39,8 +39,12 @@ import {
 } from "@/lib/search/react";
 import type { ChipContext } from "@/lib/search/client";
 
-import { resolveCompetitionFilterLayout } from "../../search/layout";
 import {
+  resolveCompetitionFilterLayout,
+  type CompetitionFilterScope,
+} from "../../search/layout";
+import {
+  ADMIN_FILTER_SPECS,
   COMPETITION_DEFAULT_SORT,
   COMPETITION_FILTER_SPECS,
   COMPETITION_SORT_OPTIONS,
@@ -54,15 +58,30 @@ export interface CompetitionFiltersProps {
    * paint and the labels are available for chips without a round trip.
    */
   readonly optionsMap: FilterOptionsMap;
+
+  /**
+   * Which spec list and layout this render resolves against.
+   *
+   * `"admin"` adds the Record state filter ahead of everything else and
+   * clears against `ADMIN_FILTER_SPECS` so "Clear all" also clears it —
+   * `"public"` is exactly this component's behaviour before scope existed.
+   */
+  readonly scope: CompetitionFilterScope;
 }
 
-export function CompetitionFilters({ optionsMap }: CompetitionFiltersProps) {
+export function CompetitionFilters({
+  optionsMap,
+  scope,
+}: CompetitionFiltersProps) {
   const { params, apply, isPending } = useSearchParamsState();
 
   const layout = useMemo(
-    () => resolveCompetitionFilterLayout(params),
-    [params],
+    () => resolveCompetitionFilterLayout(params, scope),
+    [params, scope],
   );
+
+  const clearableSpecs =
+    scope === "admin" ? ADMIN_FILTER_SPECS : COMPETITION_FILTER_SPECS;
 
   /**
    * Lets a chip read "Artificial Intelligence" rather than "ai".
@@ -97,7 +116,7 @@ export function CompetitionFilters({ optionsMap }: CompetitionFiltersProps) {
               // Clears every registered filter, not only the sheet's own
               // sections. Someone pressing "Clear all" from in here means all
               // of it, including the quick bar behind them.
-              clearableSpecs={COMPETITION_FILTER_SPECS}
+              clearableSpecs={clearableSpecs}
               params={params}
               onApply={apply}
               optionsMap={optionsMap}
@@ -123,7 +142,7 @@ export function CompetitionFilters({ optionsMap }: CompetitionFiltersProps) {
         person cannot explain or undo.
       */}
       <ActiveFilterChips
-        specs={COMPETITION_FILTER_SPECS}
+        specs={clearableSpecs}
         params={params}
         onApply={apply}
         chipContext={chipContext}
