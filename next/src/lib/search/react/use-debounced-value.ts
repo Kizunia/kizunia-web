@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Long enough to group ordinary typing, short enough to feel immediate. */
-export const DEFAULT_DEBOUNCE_MS = 350;
+export const DEFAULT_DEBOUNCE_MS = 1000;
 
 export interface DebouncedValue<T> {
   /** Trails `value` by `delay`, or matches it exactly after a `flush`. */

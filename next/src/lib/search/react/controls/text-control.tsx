@@ -7,7 +7,7 @@
  * that accept several independent substrings.
  */
 
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { CornerDownLeftIcon, SearchIcon, XIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -55,18 +55,31 @@ export function TextControl({
     DEFAULT_DEBOUNCE_MS,
   );
 
+  // Tracks `applied` outside of state so the emission effect below can read
+  // its current value without depending on it. Depending on it directly would
+  // re-fire that effect whenever `applied` changes from *outside* — a chip
+  // removed, a Clear all, the back button — even though `settled` has not
+  // caught up to the new draft yet, and the effect would then re-send the
+  // just-cleared, now-stale `settled` value straight back into the URL.
+  const appliedRef = useRef(applied);
+
   // Re-sync when the applied value changes from outside — a chip removed, a
   // Clear all, or the back button. Without this the input would keep showing
   // text that is no longer filtering anything.
   useEffect(() => {
+    appliedRef.current = applied;
     setDraft(applied);
   }, [applied]);
 
   // The single emission point. Every path — timer, Enter, blur, the clear
   // button — reaches the search through this one effect, which is what keeps
   // them from each firing a navigation of their own.
+  //
+  // Deliberately keyed on `settled` alone. `applied` is read through a ref
+  // instead of a dependency, so an external change to it (see above) cannot
+  // by itself re-run this effect against an as-yet-unrefreshed `settled`.
   useEffect(() => {
-    if (settled === applied) {
+    if (settled === appliedRef.current) {
       return;
     }
 
@@ -75,7 +88,7 @@ export function TextControl({
     // callers that close over the current params, and depending on it would
     // re-run this continuously.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settled, applied]);
+  }, [settled]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {

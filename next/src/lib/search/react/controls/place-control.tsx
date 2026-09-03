@@ -30,7 +30,13 @@
  * working and the person simply cannot pick a new place this minute.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { CheckIcon, MapPinIcon, XIcon } from "lucide-react";
 
 import { Label } from "@/components/ui/label";
@@ -58,7 +64,7 @@ interface PlaceSuggestionResponse {
 const MIN_QUERY_LENGTH = 2;
 
 /** Groups a run of keystrokes into roughly one request. */
-const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_DEBOUNCE_MS = 1000;
 
 export function PlaceControl({
   spec,
@@ -81,6 +87,15 @@ export function PlaceControl({
    */
   const requestId = useRef(0);
 
+  /**
+   * Bumped on Enter to skip the debounce for that one lookup — pressing Enter
+   * is a statement that the query is finished, the same reasoning the text
+   * search box uses for its own flush. Read once per effect run and reset
+   * immediately, so it affects only the lookup it was raised for.
+   */
+  const [flushNonce, setFlushNonce] = useState(0);
+  const pendingFlush = useRef(false);
+
   useEffect(() => {
     const trimmed = query.trim();
 
@@ -94,6 +109,9 @@ export function PlaceControl({
     const controller = new AbortController();
 
     setSearching(true);
+
+    const delay = pendingFlush.current ? 0 : SEARCH_DEBOUNCE_MS;
+    pendingFlush.current = false;
 
     const timer = setTimeout(async () => {
       try {
@@ -134,13 +152,24 @@ export function PlaceControl({
           setSearching(false);
         }
       }
-    }, SEARCH_DEBOUNCE_MS);
+    }, delay);
 
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, spec.suggestEndpoint]);
+    // `flushNonce` is intentionally included even though its value is never
+    // read here: bumping it is how Enter re-runs this effect against an
+    // unchanged query to force an immediate, undebounced lookup.
+  }, [query, spec.suggestEndpoint, flushNonce]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      pendingFlush.current = true;
+      setFlushNonce((nonce) => nonce + 1);
+    }
+  };
 
   const select = (suggestion: PlaceSuggestionResponse) => {
     onChange({
@@ -200,6 +229,7 @@ export function PlaceControl({
             value={query}
             disabled={disabled}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={spec.placeholder ?? "Search for a place"}
             aria-label={spec.label}
             className="pl-9 pr-9"
