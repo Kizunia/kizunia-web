@@ -1,134 +1,257 @@
-import { StrictAuthorizationActor } from "@/authorization";
+import Link from "next/link";
+import { TriangleAlertIcon } from "lucide-react";
+
+import { PlatformAction } from "@/authorization/platform/actions";
+import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
+import type { StrictAuthorizationActor } from "@/authorization";
 import PageWrapper from "@/components/page-wrapper";
-import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { SessionService } from "@/lib/auth/session";
-import { CompetitionManagementTableDTO } from "@/modules/competitions/backend/authorization/dto";
+import { AppError, AuthenticationError } from "@/lib/errors";
+import {
+  buildSearchHref,
+  clearAllFiltersPatch,
+  type RawSearchParams,
+} from "@/lib/search";
+import { SearchPagination } from "@/lib/search/react";
 
 import { CompetitionService } from "@/modules/competitions/backend/service";
-import CompetitionsCards from "@/modules/competitions/components/allCompititions/CompetitionsCards";
-import { CompetitionSearchResult } from "@/modules/competitions/search/types";
-import type { RawSearchParams } from "@/lib/search";
+import { CompetitionFilters } from "@/modules/competitions/components/discovery/competition-filters";
+import { ADMIN_FILTER_SPECS } from "@/modules/competitions/search/ui";
+import { TaxonomyService } from "@/modules/taxonomy";
 
-import { CompetitionCardDTO } from "@/modules/competitions/types/dto";
-import AdminCompetitionsCards from "./_components/AdminCompetitionsCards";
-import { AuthenticationError } from "@/lib/errors";
-import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
-import { PlatformAction } from "@/authorization/platform/actions";
+import { AdminCompetitionsTable } from "./_components/admin-competitions-table";
+import { AdminSummaryStrip } from "./_components/admin-summary-strip";
+
+const PATHNAME = "/admin/competitions";
+
 interface Props {
   searchParams: Promise<RawSearchParams>;
 }
 
-export default async function CompetitionsPage({ searchParams }: Props) {
-  let competitions: CompetitionManagementTableDTO[] = [];
-  let pagination: CompetitionSearchResult<CompetitionCardDTO>["pagination"];
-  try {
-    const rawSearchParams = await searchParams;
-    const actor = await SessionService.getActor();
-    if (!actor || !actor.role || !!actor.banned || !actor.id) {
-      throw new AuthenticationError({
-        code: "UNAUTHORIZED",
-        message: "You are not authorized to access this page.",
-        status: 401,
-      });
-    }
-    const strictActor: StrictAuthorizationActor = {
-      id: actor.id,
-      role: actor.role ?? "user",
-      banned: actor.banned ?? true,
-    };
+/**
+ * Admin competition management.
+ *
+ * A Server Component, same as the public listing: the search runs here
+ * against the URL, and only the table's interactive parts (selection,
+ * inline edit, row menus) are client components underneath it. Reuses the
+ * exact same filter/sort/pagination architecture the public page uses, with
+ * `scope="admin"` adding the Record state filter and letting `deletedAt`
+ * become visible on request — see `plan.ts`'s `deletionClauses`.
+ */
+export default async function AdminCompetitionsPage({ searchParams }: Props) {
+  const params = await searchParams;
 
-    
+  const actor = await SessionService.getActor();
 
-    PlatformAuthorizer.can({actor: strictActor}, PlatformAction.VIEW_ALL_COMPETITIONS);
+  if (!actor || !actor.role || !!actor.banned || !actor.id) {
+    throw new AuthenticationError({
+      code: "UNAUTHORIZED",
+      message: "You are not authorized to access this page.",
+      status: 401,
+    });
+  }
 
-    const resp = await CompetitionService.searchAdmin(strictActor, rawSearchParams);
-   
-    competitions = resp.items;
-    pagination = resp.pagination;
-  } catch (error) {
+  const strictActor: StrictAuthorizationActor = {
+    id: actor.id,
+    role: actor.role,
+    banned: actor.banned ?? true,
+  };
+
+  PlatformAuthorizer.can(
+    { actor: strictActor },
+    PlatformAction.VIEW_ALL_COMPETITIONS,
+  );
+
+  // The summary strip describes the whole admin universe and does not
+  // depend on the current filters, so it is fetched alongside the (filtered)
+  // table query rather than derived from it. Taxonomy options populate the
+  // category/technology pickers, which `ADMIN_FILTER_SPECS` inherits from the
+  // shared registry — an outage there costs the pickers their options, not
+  // the page, same reasoning as the public listing.
+  const [searchOutcome, summary, categories, technologies] =
+    await Promise.allSettled([
+      CompetitionService.searchAdmin(strictActor, params),
+      CompetitionService.getAdminSummary(),
+      TaxonomyService.listCategories({ limit: 200, includeEmpty: false }),
+      TaxonomyService.listTechnologies({ limit: 200, includeEmpty: false }),
+    ]);
+
+  const summaryValue =
+    summary.status === "fulfilled"
+      ? summary.value
+      : { total: 0, active: 0, deleted: 0, upcoming: 0 };
+
+  const optionsMap = {
+    categories: categories.status === "fulfilled" ? categories.value : [],
+    technologies:
+      technologies.status === "fulfilled" ? technologies.value : [],
+  };
+
+  if (searchOutcome.status === "rejected") {
     return (
-      <PageWrapper
-        breadcrumbs={[{ label: "Competitions", href: "/admin/competitions" }]}
-      >
-        {error instanceof Error ? (
-          <p className="text-red-500">{error.message}</p>
-        ) : (
-          <p className="text-red-500">An unknown error occurred.</p>
-        )}
-      </PageWrapper>
+      <AdminShell summary={summaryValue} params={params} optionsMap={optionsMap}>
+        <SearchFailure error={searchOutcome.reason} params={params} />
+      </AdminShell>
     );
   }
 
-  return (
-    <PageWrapper
-      breadcrumbs={[{ label: "Competitions", href: "/admin/competitions" }]}
-    >
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold tracking-tight">
-          Competitions {pagination.total}+
-        </h1>
+  const { items, pagination } = searchOutcome.value;
 
+  return (
+    <AdminShell
+      summary={summaryValue}
+      params={params}
+      optionsMap={optionsMap}
+      total={pagination.total}
+    >
+      {items.length === 0 ? (
+        <EmptyResults params={params} />
+      ) : (
+        // Remounts the table — and resets its local selection state — every
+        // time the filters, sort or page change, since the query string is
+        // exactly what changed to produce a new `items` array.
+        <AdminCompetitionsTable
+          key={JSON.stringify(params)}
+          competitions={items}
+        />
+      )}
+
+      <SearchPagination
+        pagination={pagination}
+        params={params}
+        pathname={PATHNAME}
+        className="pt-2"
+      />
+    </AdminShell>
+  );
+}
+
+function AdminShell({
+  summary,
+  params,
+  optionsMap,
+  total,
+  children,
+}: {
+  summary: { total: number; active: number; deleted: number; upcoming: number };
+  params: RawSearchParams;
+  optionsMap: {
+    categories: { value: string; label: string; count: number }[];
+    technologies: { value: string; label: string; count: number }[];
+  };
+  total?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <PageWrapper breadcrumbs={[{ label: "Competitions", href: PATHNAME }]}>
+      <div className="space-y-2">
+        <h1 className="text-4xl font-bold tracking-tight">Competitions</h1>
         <p className="max-w-2xl text-muted-foreground">
-          Discover competitions, coding competitions, innovation challenges, and
-          open opportunities from colleges and organizations.
+          Every competition on the platform, regardless of visibility.
         </p>
       </div>
 
-      {/* Empty State */}
+      <AdminSummaryStrip summary={summary} params={params} />
 
-      {pagination.total <= 0 && (
-        <Card>
-          <CardContent className="flex h-48 items-center justify-center">
-            <p className="text-muted-foreground">No competitions available.</p>
-          </CardContent>
-        </Card>
+      <CompetitionFilters optionsMap={optionsMap} scope="admin" />
+
+      {total !== undefined && (
+        <p
+          className="text-sm text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
+          {total === 1 ? "1 competition" : `${total} competitions`}
+        </p>
       )}
-      {}
-      <AdminCompetitionsCards competitions={competitions} />
 
-      <Pagination>
-        <PaginationContent className="gap-4">
-          {pagination.hasPreviousPage && (
-            <PaginationItem className="bg-primary text-primary-foreground rounded-xl">
-              <PaginationPrevious
-                href={`/admin/competitions?page=${pagination.page - 1}`}
-              />
-            </PaginationItem>
-          )}
-
-          {/* <PaginationItem>
-            <PaginationLink href="#">1</PaginationLink>
-          </PaginationItem>
-          <PaginationItem>
-            <PaginationLink href="#" isActive>
-              2
-            </PaginationLink>
-          </PaginationItem>
-          <PaginationItem>
-            <PaginationLink href="#">3</PaginationLink>
-          </PaginationItem>
-          <PaginationItem>
-            <PaginationEllipsis />
-          </PaginationItem> */}
-
-          {pagination.hasNextPage && (
-            <PaginationItem className="bg-primary text-primary-foreground  rounded-xl">
-              <PaginationNext
-                href={`/admin/competitions?page=${pagination.page + 1}`}
-              />
-            </PaginationItem>
-          )}
-        </PaginationContent>
-      </Pagination>
+      {children}
     </PageWrapper>
+  );
+}
+
+function SearchFailure({
+  error,
+  params,
+}: {
+  error: unknown;
+  params: RawSearchParams;
+}) {
+  const isKnown = error instanceof AppError;
+
+  const message = isKnown
+    ? error.message
+    : "Something went wrong while loading competitions.";
+
+  if (!isKnown) {
+    console.error("Admin competition search failed.", error);
+  }
+
+  return (
+    <Alert variant="destructive">
+      <TriangleAlertIcon />
+      <AlertTitle>{message}</AlertTitle>
+      <AlertDescription className="gap-3">
+        <p>Your filters are still applied. Try again, or clear them.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href={PATHNAME}>Try again</Link>
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <Link
+              href={buildSearchHref(
+                PATHNAME,
+                params,
+                clearAllFiltersPatch(ADMIN_FILTER_SPECS),
+              )}
+            >
+              Clear filters
+            </Link>
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function EmptyResults({ params }: { params: RawSearchParams }) {
+  const clearPatch = clearAllFiltersPatch(ADMIN_FILTER_SPECS);
+
+  const hasFilters = Object.keys(clearPatch).some(
+    (key) => params[key] !== undefined,
+  );
+
+  return (
+    <Empty className="border">
+      <EmptyHeader>
+        <EmptyTitle>
+          {hasFilters ? "No competitions match these filters" : "No competitions yet"}
+        </EmptyTitle>
+        <EmptyDescription>
+          {hasFilters
+            ? "Try removing a filter, or check Record state — it may be hiding what you're looking for."
+            : "Nothing has been created yet."}
+        </EmptyDescription>
+      </EmptyHeader>
+
+      {hasFilters && (
+        <EmptyContent>
+          <Button asChild variant="outline">
+            <Link href={buildSearchHref(PATHNAME, params, clearPatch)}>
+              Clear all filters
+            </Link>
+          </Button>
+        </EmptyContent>
+      )}
+    </Empty>
   );
 }
