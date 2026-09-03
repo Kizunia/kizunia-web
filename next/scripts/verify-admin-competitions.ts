@@ -16,6 +16,8 @@
 
 import { PrismaClient } from "../src/generated/prisma";
 import { PlatformRole } from "../src/authorization/platform/roles";
+import { PlatformAction } from "../src/authorization/platform/actions";
+import { PlatformPolicy } from "../src/authorization/platform/policy";
 import {
   CompetitionAction,
   CompetitionContextResolver,
@@ -283,6 +285,58 @@ async function verifyRestoreAuthorization(deletedId: string): Promise<void> {
 }
 
 // =============================================================================
+// P0.E — GET /api/v1/admin/competitions requires VIEW_ALL_COMPETITIONS, not
+// merely authenticated-and-not-banned
+// =============================================================================
+//
+// `CompetitionController.searchAdminManageable` gates access with
+// `PlatformAuthorizer.can({ actor }, PlatformAction.VIEW_ALL_COMPETITIONS)` —
+// the same platform-level check the admin page and `CompetitionFacade` use.
+// This exercises that check through `PlatformPolicy` directly, the same
+// abstraction the controller calls through, so a regression here (someone
+// reverting the controller to only check authentication) is caught without
+// needing an HTTP harness.
+
+function verifyAdminSearchAuthorization(): void {
+  console.log(
+    "\n== Invariant: admin competition search requires VIEW_ALL_COMPETITIONS ==",
+  );
+
+  const ordinaryUserDecision = PlatformPolicy.can(
+    { actor: MEMBER_ACTOR },
+    PlatformAction.VIEW_ALL_COMPETITIONS,
+  );
+
+  report(
+    "an authenticated, non-banned ordinary user is denied VIEW_ALL_COMPETITIONS",
+    ordinaryUserDecision.allowed === false,
+    JSON.stringify(ordinaryUserDecision),
+  );
+
+  const bannedAdminDecision = PlatformPolicy.can(
+    { actor: { ...ADMIN_ACTOR, banned: true } },
+    PlatformAction.VIEW_ALL_COMPETITIONS,
+  );
+
+  report(
+    "a banned actor is denied VIEW_ALL_COMPETITIONS even with the admin role",
+    bannedAdminDecision.allowed === false,
+    JSON.stringify(bannedAdminDecision),
+  );
+
+  const adminDecision = PlatformPolicy.can(
+    { actor: ADMIN_ACTOR },
+    PlatformAction.VIEW_ALL_COMPETITIONS,
+  );
+
+  report(
+    "a non-banned platform admin is granted VIEW_ALL_COMPETITIONS",
+    adminDecision.allowed === true,
+    JSON.stringify(adminDecision),
+  );
+}
+
+// =============================================================================
 // P0.D — bulk: validation, authorized-set-equals-requested-set, no partial writes
 // =============================================================================
 
@@ -473,6 +527,7 @@ async function main(): Promise<void> {
   try {
     await verifyDeletionInvariant(deletedId, activeId);
     await verifyRestoreAuthorization(deletedId);
+    verifyAdminSearchAuthorization();
     verifyBulkValidation();
     await verifyBulkAuthorization(owned.id, foreign.id);
   } finally {

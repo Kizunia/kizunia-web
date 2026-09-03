@@ -32,6 +32,8 @@ import {
   type BulkCompetitionAction,
 } from "../schemas/bulk-competition-action";
 import type { StrictAuthorizationActor } from "@/authorization";
+import { PlatformAction } from "@/authorization/platform/actions";
+import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
 import {
   CreateCompetitionLocationSchema,
   ReorderCompetitionLocationsSchema,
@@ -117,6 +119,28 @@ export class CompetitionController {
           message: "Failed to authenticate the actor or actor is banned.",
         });
       }
+
+      const strictActor: StrictAuthorizationActor = {
+        id: actor.id,
+        role: actor.role,
+        banned: actor.banned,
+      };
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+      //
+      // This is an admin-scoped endpoint — being authenticated and
+      // not-banned is not sufficient. The actor must hold the platform
+      // capability for viewing every competition, checked the same way the
+      // admin page checks it, because this API is independently reachable
+      // and must not rely on the page's server-side guard.
+
+      PlatformAuthorizer.can(
+        { actor: strictActor },
+        PlatformAction.VIEW_ALL_COMPETITIONS,
+      );
+
       // -----------------------------------------------------------------
       // Validation
       // -----------------------------------------------------------------
@@ -127,7 +151,7 @@ export class CompetitionController {
       // Business Logic
       // -----------------------------------------------------------------
       const competitions = await CompetitionService.searchAdmin(
-        { id: actor.id, role: actor.role, banned: actor.banned },
+        strictActor,
         query,
       );
 
