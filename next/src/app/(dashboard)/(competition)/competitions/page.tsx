@@ -14,7 +14,11 @@ import {
 } from "@/components/ui/empty";
 import { AppError } from "@/lib/errors";
 import type { RawSearchParams } from "@/lib/search";
-import { clearAllFiltersPatch, buildSearchHref } from "@/lib/search";
+import {
+  activeFilterCount,
+  buildSearchHref,
+  clearAllFiltersPatch,
+} from "@/lib/search";
 import { SearchPagination } from "@/lib/search/react";
 
 import { CompetitionService } from "@/modules/competitions/backend/service";
@@ -210,9 +214,11 @@ function SearchFailure({
 function EmptyResults({ params }: { params: RawSearchParams }) {
   const clearPatch = clearAllFiltersPatch(COMPETITION_FILTER_SPECS);
 
-  const hasFilters = Object.keys(clearPatch).some(
-    (key) => params[key] !== undefined,
-  );
+  // Asked of the filters themselves rather than of the clear patch's keys.
+  // That patch also names `page` and the preset marker — neither of which
+  // narrows anything — so reading it would call a bare `?page=3` a filtered
+  // search and offer to clear filters that were never applied.
+  const hasFilters = activeFilterCount(COMPETITION_FILTER_SPECS, params) > 0;
 
   return (
     <Empty className="border">

@@ -56,13 +56,31 @@ export const LIMIT_PARAM = "limit";
 export const SORT_PARAM = "sort";
 
 /**
- * Every engine-owned parameter. `defineSearch` rejects any filter that claims
- * one of these, so a filter can never shadow pagination or sorting.
+ * Which preset the current search was started from.
+ *
+ * Carries no filtering meaning whatsoever — the engine ignores it, exactly as
+ * it ignores any parameter no filter owns. It records *provenance*: that this
+ * search began from a named preset, so the interface can keep showing which
+ * one while the person refines it.
+ *
+ * It lives in the URL rather than in client state because everything else
+ * about the applied search does. A marker held only in memory would survive a
+ * filter change but not a refresh, a shared link or the back button, and the
+ * preset shown as active would then disagree with the filters on screen for
+ * reasons the user cannot see. See `presets.ts`.
+ */
+export const PRESET_PARAM = "preset";
+
+/**
+ * Every parameter owned by the search subsystem rather than by a filter.
+ * `defineSearch` rejects any filter that claims one of these, so a filter can
+ * never shadow pagination, sorting, or the preset marker.
  */
 export const RESERVED_PARAMS: ReadonlySet<string> = new Set([
   PAGE_PARAM,
   LIMIT_PARAM,
   SORT_PARAM,
+  PRESET_PARAM,
 ]);
 
 // =============================================================================

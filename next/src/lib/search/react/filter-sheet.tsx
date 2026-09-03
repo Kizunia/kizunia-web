@@ -1,7 +1,21 @@
 "use client";
 
 /**
- * Search Core (React) - Staged filter sheet
+ * Search Core (React) - The complete filter surface
+ *
+ * =============================================================================
+ * "All filters" has to mean all of them
+ * =============================================================================
+ *
+ * This sheet used to render only the filters the layout had pushed *out* of the
+ * quick bar, which made its trigger a lie: someone who could see Category on
+ * the page opened "All filters", found no Category, and had no way to know
+ * whether the rest of the list was complete either.
+ *
+ * It now renders every visible filter, quick ones included. The quick bar is a
+ * set of shortcuts to the common few, not a separate half of the vocabulary —
+ * and both bind to the same parameters through the same specs, so a filter set
+ * in one place is set in the other by construction rather than by agreement.
  *
  * =============================================================================
  * Why this surface stages instead of applying instantly
@@ -40,16 +54,42 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { ResolvedFilter } from "../layout";
+import type { CustomPresetStore } from "../preset-storage";
+import type { PlatformPreset } from "../presets";
 import type { FilterSpec } from "../spec";
-import { activeFilterCount, clearAllFiltersPatch } from "../spec-values";
+import {
+  activeFilterCount,
+  clearAllFiltersPatch,
+  type ChipContext,
+} from "../spec-values";
 import type { ParamPatch } from "../params";
 import type { RawSearchParams } from "../types";
 import { AdvancedFilterPanel } from "./advanced-filter-panel";
+import { PresetPanel } from "./preset-panel";
 import type { FilterCountsMap, FilterOptionsMap } from "./types";
+import type { ApplySearchOptions } from "./use-search-params-state";
 import { useStagedParams } from "./use-staged-params";
 
+/**
+ * What a caller supplies to put presets at the top of the panel.
+ *
+ * Optional as a whole: a surface with no curated starting points renders the
+ * filters alone, rather than an empty "Presets" heading.
+ */
+export interface FilterSheetPresets {
+  readonly platformPresets: readonly PlatformPreset[];
+
+  readonly store: CustomPresetStore;
+}
+
 export interface FilterSheetProps {
-  /** Sections to render, in resolved layout order. */
+  /**
+   * Sections to render, in resolved layout order.
+   *
+   * Should be every *visible* filter — see the note at the top of this file.
+   * Filters a layout has hidden stay hidden: that is a preference, and this
+   * sheet is not the place to overrule one.
+   */
   readonly filters: readonly ResolvedFilter[];
 
   /**
@@ -62,11 +102,23 @@ export interface FilterSheetProps {
 
   readonly params: RawSearchParams;
 
-  readonly onApply: (patch: ParamPatch) => void;
+  /**
+   * The full navigation seam, options included.
+   *
+   * The filter controls only ever call it with a patch; the preset section
+   * needs to say how a change should affect history and pagination.
+   */
+  readonly onApply: (patch: ParamPatch, options?: ApplySearchOptions) => void;
 
   readonly optionsMap?: FilterOptionsMap;
 
   readonly countsMap?: FilterCountsMap;
+
+  /** Presets to offer above the filters. Omitted, the section is not shown. */
+  readonly presets?: FilterSheetPresets;
+
+  /** Labels for relation options, so a summary reads "Web3", not "web3". */
+  readonly chipContext?: ChipContext;
 
   readonly triggerLabel?: string;
 
@@ -82,6 +134,8 @@ export function FilterSheet({
   onApply,
   optionsMap,
   countsMap,
+  presets,
+  chipContext,
   triggerLabel = "All filters",
   disabled,
   className,
@@ -90,12 +144,11 @@ export function FilterSheet({
 
   const staged = useStagedParams(params, open);
 
-  // Counted across the sheet's own sections, so the badge reflects what is set
-  // in here rather than the total for the page — the quick bar shows its own.
-  const activeCount = activeFilterCount(
-    filters.map((entry) => entry.spec),
-    params,
-  );
+  // Counted across every clearable filter rather than the sections rendered
+  // here. Those are now the same list in practice, but the badge is a promise
+  // about the *search* — "you have three filters on" — and a layout that hid
+  // one must not be able to make that number quietly wrong.
+  const activeCount = activeFilterCount(clearableSpecs, params);
 
   const commit = () => {
     onApply(staged.pendingPatch);
@@ -140,11 +193,38 @@ export function FilterSheet({
           <SheetTitle>Filters</SheetTitle>
 
           <SheetDescription>
-            Changes apply when you press Apply, so you can set several at once.
+            Every filter is in here. Changes apply when you press Apply, so you
+            can set several at once.
           </SheetDescription>
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5">
+          {presets && (
+            <PresetPanel
+              // Every registered filter, not this sheet's sections: a preset
+              // clears the whole search, including anything a layout hid.
+              specs={clearableSpecs}
+              params={params}
+              onApply={onApply}
+              platformPresets={presets.platformPresets}
+              store={presets.store}
+              // So "save these filters" saves what is on screen, staged edits
+              // included, and commits them in the same navigation.
+              pendingPatch={staged.pendingPatch}
+              chipContext={chipContext}
+              disabled={disabled}
+              onApplied={() => {
+                staged.reset();
+                setOpen(false);
+              }}
+              // Stays open: the staged edits have just been applied along with
+              // the save, so the buffer is spent, and the panel now shows the
+              // new preset in the saved list.
+              onSaved={staged.reset}
+              className="border-b py-5"
+            />
+          )}
+
           <AdvancedFilterPanel
             filters={filters}
             params={staged.params}
@@ -162,7 +242,7 @@ export function FilterSheet({
             onClick={clearAll}
             className="text-muted-foreground hover:text-foreground"
           >
-            Clear all
+            Clear all filters
           </Button>
 
           <div className="flex items-center gap-2">

@@ -37,7 +37,7 @@ import {
   normalizeList,
   normalizeScalar,
 } from "./guards";
-import type { ParamPatch } from "./params";
+import { PAGE_PARAM, PRESET_PARAM, type ParamPatch } from "./params";
 import {
   filterParams,
   type AnyFilterValue,
@@ -366,14 +366,34 @@ export function clearFilterPatch(spec: FilterSpec): ParamPatch {
  * The patch that clears every registered filter.
  *
  * Only removes parameters the registry actually owns, so an unrelated query
- * parameter — a campaign tag, a referrer — survives a Clear all. Pagination is
- * removed too, since the first page of an unfiltered list is where the reset
- * should land.
+ * parameter — a campaign tag, a referrer — survives a Clear all.
+ *
+ * Pagination goes with them, in the patch itself rather than by asking callers
+ * to pass `resetPage`. Page 3 of a filtered list is not a page of the
+ * unfiltered one, and the two server-rendered "Clear filters" links build their
+ * hrefs through `buildSearchHref`, which has no `resetPage` unless it is told —
+ * so leaving it to the caller meant those two links cleared the filters and
+ * left the reader stranded on page 3 of the result. Removing it here is the
+ * canonical page 1 that `pagePatch` also produces: no parameter at all, one URL
+ * per view.
+ *
+ * The preset marker goes too. A preset is the starting point a search was built
+ * from, so a search with nothing left in it was not started from anywhere —
+ * leaving a preset highlighted over an empty filter set would claim a
+ * provenance that no longer has any effect on screen.
+ *
+ * Doing both here rather than at each Clear all means every existing site — the
+ * always-available clear control, the sheet footer, the empty-state link, the
+ * error-state link — inherits the behaviour without being edited, and a future
+ * one cannot forget it.
  */
 export function clearAllFiltersPatch(
   specs: readonly FilterSpec[],
 ): ParamPatch {
-  const patch: Record<string, undefined> = {};
+  const patch: Record<string, undefined> = {
+    [PRESET_PARAM]: undefined,
+    [PAGE_PARAM]: undefined,
+  };
 
   for (const spec of specs) {
     for (const param of filterParams(spec)) {

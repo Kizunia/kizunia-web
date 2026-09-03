@@ -22,19 +22,24 @@
  * explain or undo. The chip bar is the guarantee that everything narrowing the
  * results is visible somewhere, so it reads the full spec list rather than the
  * resolved layout.
+ *
+ * =============================================================================
+ * Removing one value, not resetting the search
+ * =============================================================================
+ *
+ * This component does one thing. Clearing everything is
+ * `ClearAllFiltersButton`, which sits with the filter controls and is on screen
+ * whether or not any chip is — the reset used to live in here as well, appear
+ * only past two chips, and disappear again exactly when someone with one
+ * stubborn filter needed it.
  */
 
 import { XIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import type { FilterSpec } from "../spec";
-import {
-  clearAllFiltersPatch,
-  describeAllChips,
-  type ChipContext,
-} from "../spec-values";
+import { describeAllChips, type ChipContext } from "../spec-values";
 import type { ParamPatch } from "../params";
 import type { RawSearchParams } from "../types";
 
@@ -99,24 +104,6 @@ export function ActiveFilterChips({
           />
         </button>
       ))}
-
-      {/*
-        Only offered once more than one chip is present. With a single filter
-        applied, "Clear all" and removing that chip do the same thing, and two
-        controls for one outcome is clutter.
-      */}
-      {chips.length > 1 && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={disabled}
-          onClick={() => onApply(clearAllFiltersPatch(specs))}
-          className="h-8 px-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          Clear all
-        </Button>
-      )}
     </div>
   );
 }

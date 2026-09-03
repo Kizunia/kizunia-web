@@ -25,17 +25,29 @@
  *
  * Both write to the URL, which stays the single source of truth for what is
  * applied.
+ *
+ * =============================================================================
+ * Two views of one list, not two lists
+ * =============================================================================
+ *
+ * The quick bar renders `layout.quick`; the sheet renders `layout.visible`,
+ * which contains those same filters and the rest. They are two projections of
+ * one resolved layout over one spec registry, so Category in the bar and
+ * Category in the sheet are the same spec writing the same parameter — there is
+ * no second filter set to keep in step, and no way for one to drift.
  */
 
 import { useMemo } from "react";
 
 import {
   ActiveFilterChips,
+  ClearAllFiltersButton,
   FilterSheet,
   QuickFilterBar,
   SortSelect,
   useSearchParamsState,
   type FilterOptionsMap,
+  type FilterSheetPresets,
 } from "@/lib/search/react";
 import type { ChipContext } from "@/lib/search/client";
 
@@ -43,6 +55,10 @@ import {
   resolveCompetitionFilterLayout,
   type CompetitionFilterScope,
 } from "../../search/layout";
+import {
+  competitionPresetStore,
+  COMPETITION_PLATFORM_PRESETS,
+} from "../../search/presets";
 import {
   ADMIN_FILTER_SPECS,
   COMPETITION_DEFAULT_SORT,
@@ -101,6 +117,25 @@ export function CompetitionFilters({
     return { optionLabels };
   }, [optionsMap]);
 
+  /**
+   * Discovery only.
+   *
+   * Presets answer "show me something worth looking at", which is a browsing
+   * question — the admin listing is a management surface where a curated
+   * starting point has no meaning yet, and where a saved personal search would
+   * sit oddly next to Record state.
+   */
+  const presets = useMemo<FilterSheetPresets | undefined>(
+    () =>
+      scope === "public"
+        ? {
+            platformPresets: COMPETITION_PLATFORM_PRESETS,
+            store: competitionPresetStore,
+          }
+        : undefined,
+    [scope],
+  );
+
   return (
     <div className="space-y-3">
       <QuickFilterBar
@@ -111,15 +146,32 @@ export function CompetitionFilters({
         disabled={isPending}
         trailing={
           <>
+            {/*
+              Always on screen, disabled when nothing is applied. The way back
+              to an unfiltered list must not itself be behind a filter — or
+              behind the sheet, which is where the only other one lives.
+            */}
+            <ClearAllFiltersButton
+              specs={clearableSpecs}
+              params={params}
+              onApply={apply}
+              disabled={isPending}
+            />
+
             <FilterSheet
-              filters={layout.advanced}
-              // Clears every registered filter, not only the sheet's own
-              // sections. Someone pressing "Clear all" from in here means all
-              // of it, including the quick bar behind them.
+              // Every visible filter, quick ones included. "All filters" that
+              // omitted the five on the page would be the most confusing
+              // possible thing to call it.
+              filters={layout.visible}
+              // Clears every registered filter, not only the rendered
+              // sections. Someone pressing "Clear all filters" from in here
+              // means all of it, including anything a layout has hidden.
               clearableSpecs={clearableSpecs}
               params={params}
               onApply={apply}
               optionsMap={optionsMap}
+              chipContext={chipContext}
+              presets={presets}
               disabled={isPending}
             />
 

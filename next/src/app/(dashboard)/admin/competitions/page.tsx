@@ -17,6 +17,7 @@ import {
 import { SessionService } from "@/lib/auth/session";
 import { AppError, AuthenticationError } from "@/lib/errors";
 import {
+  activeFilterCount,
   buildSearchHref,
   clearAllFiltersPatch,
   type RawSearchParams,
@@ -226,9 +227,10 @@ function SearchFailure({
 function EmptyResults({ params }: { params: RawSearchParams }) {
   const clearPatch = clearAllFiltersPatch(ADMIN_FILTER_SPECS);
 
-  const hasFilters = Object.keys(clearPatch).some(
-    (key) => params[key] !== undefined,
-  );
+  // Asked of the filters themselves rather than of the clear patch's keys:
+  // that patch also names `page` and the preset marker, neither of which
+  // narrows anything.
+  const hasFilters = activeFilterCount(ADMIN_FILTER_SPECS, params) > 0;
 
   return (
     <Empty className="border">
