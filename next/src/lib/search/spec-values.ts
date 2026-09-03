@@ -45,6 +45,8 @@ import {
   type FilterOption,
   type FilterSpec,
   type PlaceValue,
+  type TeamSizePolicy,
+  type TeamSizeValue,
   type ValueOfSpec,
 } from "./spec";
 import type { RawSearchParams } from "./types";
@@ -110,6 +112,47 @@ function readPlace(
   };
 }
 
+const TEAM_SIZE_POLICIES: ReadonlySet<string> = new Set<TeamSizePolicy>([
+  "SOLO_ONLY",
+  "SOLO_OR_TEAM",
+]);
+
+/**
+ * Reads a participant's team-size intent and a competition's solo policy.
+ *
+ * `min` and `max` are read independently — neither implies the other — which
+ * is what lets one pair of parameters express an exact size, a range, or a
+ * one-sided bound. See `TeamSizeSpec` for how each combination is meant to be
+ * read.
+ */
+function readTeamSize(
+  params: RawSearchParams,
+  spec: Extract<FilterSpec, { kind: "team-size" }>,
+): TeamSizeValue | undefined {
+  let min = normalizeInteger(params[spec.minParam]);
+  let max = normalizeInteger(params[spec.maxParam]);
+
+  // A hand-edited or reordered URL can carry bounds in the wrong order.
+  // Swapping keeps the range well-formed without discarding what was set —
+  // dropping one side would silently turn a range into a one-sided bound.
+  if (min !== undefined && max !== undefined && min > max) {
+    [min, max] = [max, min];
+  }
+
+  const policyRaw = normalizeScalar(params[spec.policyParam]);
+
+  const policy =
+    policyRaw !== undefined && TEAM_SIZE_POLICIES.has(policyRaw)
+      ? (policyRaw as TeamSizePolicy)
+      : undefined;
+
+  if (min === undefined && max === undefined && policy === undefined) {
+    return undefined;
+  }
+
+  return { min, max, policy };
+}
+
 /**
  * Internal, untyped read. One branch per kind.
  *
@@ -173,6 +216,9 @@ function readAny(
 
     case "place":
       return readPlace(params, spec);
+
+    case "team-size":
+      return readTeamSize(params, spec);
   }
 }
 
@@ -289,6 +335,19 @@ export function writeFilterValue<TSpec extends FilterSpec>(
         [spec.includeOnlineParam]: place.includeOnline ? "true" : undefined,
       };
     }
+
+    case "team-size": {
+      const teamSize = value as TeamSizeValue;
+
+      return {
+        ...cleared,
+        [spec.minParam]:
+          teamSize.min !== undefined ? String(teamSize.min) : undefined,
+        [spec.maxParam]:
+          teamSize.max !== undefined ? String(teamSize.max) : undefined,
+        [spec.policyParam]: teamSize.policy,
+      };
+    }
   }
 }
 
@@ -397,6 +456,40 @@ function labelForValue(
 
 function withPrefix(spec: FilterSpec, label: string): string {
   return spec.chipPrefix ? `${spec.chipPrefix} ${label}` : label;
+}
+
+/**
+ * The size half of a team-size chip: "Solo", "Team of 4", "3–5 people", "At
+ * least 3", "At most 4" — one label per shape `min`/`max` can take.
+ */
+function teamSizeLabel(
+  value: TeamSizeValue,
+  spec: Extract<FilterSpec, { kind: "team-size" }>,
+): string {
+  const unit = (count: number) =>
+    count === 1 && spec.unitOne ? spec.unitOne : spec.unit;
+
+  const withUnit = (text: string, count: number) => {
+    const suffix = unit(count);
+
+    return suffix ? `${text} ${suffix}` : text;
+  };
+
+  if (value.min !== undefined && value.max !== undefined) {
+    if (value.min === value.max) {
+      return value.min === 1 ? "Solo" : withUnit(`Team of ${value.min}`, value.min);
+    }
+
+    return withUnit(`${value.min}–${value.max}`, value.max);
+  }
+
+  if (value.min !== undefined) {
+    return withUnit(`At least ${value.min}`, value.min);
+  }
+
+  // `value.max` is guaranteed set here: the caller only reaches this branch
+  // when at least one of `min`/`max` is defined.
+  return withUnit(`At most ${value.max}`, value.max as number);
 }
 
 /**
@@ -519,6 +612,41 @@ export function describeFilterChips(
           id: spec.includeOnlineParam,
           label: spec.includeOnlineLabel,
           remove: { [spec.includeOnlineParam]: undefined },
+        });
+      }
+
+      return chips;
+    }
+
+    case "team-size": {
+      const teamSize = value as TeamSizeValue;
+
+      const chips: FilterChip[] = [];
+
+      // Two independently removable chips, same reasoning as place's id and
+      // includeOnline: a person narrowing "solo only, and my team is 4" to
+      // just one half should not have to clear both and re-pick the other.
+      if (teamSize.min !== undefined || teamSize.max !== undefined) {
+        chips.push({
+          ...base,
+          id: `${spec.minParam}:${spec.maxParam}`,
+          label: withPrefix(spec, teamSizeLabel(teamSize, spec)),
+          remove: {
+            [spec.minParam]: undefined,
+            [spec.maxParam]: undefined,
+          },
+        });
+      }
+
+      if (teamSize.policy) {
+        chips.push({
+          ...base,
+          id: spec.policyParam,
+          label:
+            teamSize.policy === "SOLO_ONLY"
+              ? "Solo only"
+              : "Solo & team allowed",
+          remove: { [spec.policyParam]: undefined },
         });
       }
 

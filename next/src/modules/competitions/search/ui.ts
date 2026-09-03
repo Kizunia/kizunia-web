@@ -49,9 +49,9 @@ import {
   type DateRangeSpec,
   type EnumMultiSpec,
   type FilterSpec,
-  type NumberBoundSpec,
   type PlaceSpec,
   type RelationMultiSpec,
+  type TeamSizeSpec,
   type TextAnySpec,
   type TextSpec,
 } from "@/lib/search/client";
@@ -347,38 +347,54 @@ const registrationTypes: EnumMultiSpec<RegistrationTypeValue> = {
 };
 
 /**
- * Team-size bounds.
+ * "Can I enter with the people I have?" — every team-size question, one filter.
  *
- * These read as constraints on the *competition's* limits, not on a team the
- * user intends to bring, and the labels say so. `minTeamSize ≥ 4` selects
- * competitions that require at least four people — which is a different
- * question from "will a team of four be allowed", and conflating the two in
- * the copy would mislead.
+ * =============================================================================
+ * Why this replaced four separate filters
+ * =============================================================================
+ *
+ * Team size used to be an exact-size filter, a solo flag, and two bounds on
+ * the *competition's* own declared limits — four controls a person had to
+ * already know how to choose between before they could ask their actual
+ * question. Nobody has four independent team-size questions; they have one
+ * team-size situation, phrased any of several ways:
+ *
+ *   "I can make a team of 5"            → exact
+ *   "I can make a team of 3 to 5"       → range
+ *   "I can make a team of at most 4"    → at most
+ *   "I can make a team of at least 3"   → at least
+ *   "I want to go solo"                 → exact, 1
+ *   "I want a hackathon for only solo"  → policy: SOLO_ONLY
+ *   "I want one that allows solo or team" → policy: SOLO_OR_TEAM
+ *
+ * `min`/`max` alone express the first five: exact is `min === max`, a range is
+ * both set to different values, and each one-sided bound is the other left
+ * unset. `policy` is a genuinely separate axis — a question about what the
+ * *competition* permits rather than what the participant brings — and lives
+ * in the same filter because it is asked in the same breath, not as a second
+ * decision. See `TeamSizeSpec` for the full mapping.
+ *
+ * A competition accepting 1-4 people allows solo entry *and* teams — someone
+ * entering alone and someone bringing four both belong in its results, which
+ * is exactly the case a one-sided bound alone could never express.
  */
-const minTeamSize: NumberBoundSpec = {
-  kind: "number-bound",
-  key: "minTeamSize",
-  label: "Minimum team size",
+const teamSize: TeamSizeSpec = {
+  kind: "team-size",
+  key: "teamSize",
+  label: "Team size",
   group: "advanced",
-  weight: 150,
-  chipPrefix: "Min team",
+  weight: 140,
+  chipPrefix: "Team",
+  minParam: "teamSizeMin",
+  maxParam: "teamSizeMax",
+  policyParam: "teamPolicy",
   unit: "people",
+  unitOne: "person",
   min: 1,
-  max: 50,
-  description: "Competitions whose minimum team size is at least this.",
-};
-
-const maxTeamSize: NumberBoundSpec = {
-  kind: "number-bound",
-  key: "maxTeamSize",
-  label: "Maximum team size",
-  group: "advanced",
-  weight: 160,
-  chipPrefix: "Max team",
-  unit: "people",
-  min: 1,
-  max: 50,
-  description: "Competitions whose maximum team size is at most this.",
+  max: 8,
+  openEndedMax: true,
+  description:
+    "Competitions a team like yours can enter, or that match what you want from a competition's own solo policy.",
 };
 
 const organizerTypes: EnumMultiSpec<OrganizerTypeValue> = {
@@ -477,8 +493,7 @@ export const competitionFilterSpecs = {
   endDate,
   eligibilities,
   registrationTypes,
-  minTeamSize,
-  maxTeamSize,
+  teamSize,
   organizerTypes,
   organizers,
   certificateTypes,

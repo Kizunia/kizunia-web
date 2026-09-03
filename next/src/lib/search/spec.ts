@@ -56,7 +56,8 @@ export type FilterKind =
   | "number-bound"
   | "date-range"
   | "boolean"
-  | "place";
+  | "place"
+  | "team-size";
 
 /**
  * Default placement. A layout resolver may override this per deployment or
@@ -205,6 +206,39 @@ export interface NumberBoundSpec extends FilterSpecBase {
 
   /** Rendered after the value in chips and controls, e.g. "members". */
   readonly unit?: string;
+
+  /**
+   * Singular form of `unit`, used when the value is exactly 1.
+   *
+   * Only worth setting where 1 is selectable — otherwise it can never render.
+   * "1 person" rather than "1 people" is the difference between copy that was
+   * written and copy that was generated.
+   */
+  readonly unitOne?: string;
+
+  /**
+   * Whether `max` should read as "this many or more".
+   *
+   * A range has to stop somewhere, and a filter that silently excludes the
+   * long tail is worse than one that says it is a ceiling. Presentation only —
+   * the stored value and the clause are unchanged.
+   */
+  readonly openEndedMax?: boolean;
+
+  /**
+   * Whether parking the handle at `min` means "no restriction".
+   *
+   * Defaults to `true`, which suits a bound whose lowest value is a no-op:
+   * "minimum team size is at least 1" excludes nothing, so spending the
+   * bottom of the range on it costs nothing and buys a clear gesture.
+   *
+   * Set `false` where `min` is a real, selectable answer. "A team of 1" is the
+   * whole solo case, and "maximum team size at most 1" is how solo-only
+   * competitions are found — with the default those would be unreachable, and
+   * the filter would silently lack its most meaningful value. Such controls
+   * offer an explicit Clear instead.
+   */
+  readonly clearAtMin?: boolean;
 }
 
 /**
@@ -326,6 +360,73 @@ export interface PlaceSpec extends FilterSpecBase {
   readonly radius?: PlaceRadiusConfig;
 }
 
+// -----------------------------------------------------------------------------
+// Team size
+// -----------------------------------------------------------------------------
+
+/**
+ * What a competition itself declares about solo participation.
+ *
+ * A second axis from `min`/`max` below, not a redundant one. `min`/`max`
+ * describe the size the *participant* intends to bring; this describes what
+ * the *competition* allows regardless of size. "I can bring three people" and
+ * "does this competition let me enter alone" are different questions, and
+ * collapsing them into one boolean would make one of the two unaskable.
+ */
+export type TeamSizePolicy = "SOLO_ONLY" | "SOLO_OR_TEAM";
+
+/**
+ * "Can I enter with the people I have?" — as one filter.
+ *
+ * =============================================================================
+ * Why this is one spec and not several
+ * =============================================================================
+ *
+ * Team size used to be four separate filters: two bounds on the
+ * *competition's* declared limits, plus a participant-facing exact size and a
+ * solo flag added alongside them. In practice nobody asks four independent
+ * questions about team size — a person has one team-size situation ("I have
+ * four people", "I'm going alone", "I can do three to five") and wants one
+ * control that answers it, however it is phrased.
+ *
+ * `min` and `max` are both optional and independently meaningful, which is
+ * what lets one pair of fields express every shape a participant's intent
+ * takes:
+ *
+ *   exact N       min = N,   max = N
+ *   range [N, M]  min = N,   max = M
+ *   at least N    min = N,   max = undefined
+ *   at most N     min = undefined, max = N
+ *
+ * `policy` is the orthogonal question about the competition's own rules, and
+ * sits in the same filter because it is asked in the same breath ("a
+ * hackathon that lets me go solo, or bring my team of four") rather than as a
+ * second, separate decision.
+ */
+export interface TeamSizeSpec extends FilterSpecBase {
+  readonly kind: "team-size";
+
+  readonly minParam: string;
+
+  readonly maxParam: string;
+
+  readonly policyParam: string;
+
+  /** UI bounds for the size pickers. */
+  readonly min?: number;
+
+  readonly max?: number;
+
+  /** Whether `max` should read as "this many or more" in the control. */
+  readonly openEndedMax?: boolean;
+
+  /** Rendered after a value, e.g. "people". */
+  readonly unit?: string;
+
+  /** Singular form, used when a picked value is exactly 1. */
+  readonly unitOne?: string;
+}
+
 export type FilterSpec =
   | EnumMultiSpec
   | RelationMultiSpec
@@ -334,7 +435,8 @@ export type FilterSpec =
   | NumberBoundSpec
   | DateRangeSpec
   | BooleanSpec
-  | PlaceSpec;
+  | PlaceSpec
+  | TeamSizeSpec;
 
 // =============================================================================
 // Value shapes
@@ -361,6 +463,23 @@ export interface PlaceValue {
 }
 
 /**
+ * A participant's team-size intent, a competition's solo policy, or both.
+ *
+ * At least one field is set whenever this value exists at all — an empty
+ * `{}` is never produced; the decoder returns `undefined` instead. `min` and
+ * `max` are independently optional, which is what lets one shape express
+ * exact, ranged, and one-sided intents without a discriminated union: see
+ * `TeamSizeSpec` for how each combination reads.
+ */
+export interface TeamSizeValue {
+  readonly min?: number;
+
+  readonly max?: number;
+
+  readonly policy?: TeamSizePolicy;
+}
+
+/**
  * The decoded value type for each kind.
  *
  * This mapping is what lets a control component be type-safe without a cast:
@@ -383,7 +502,9 @@ export type FilterValueOf<TKind extends FilterKind> = TKind extends
           ? true
           : TKind extends "place"
             ? PlaceValue
-            : never;
+            : TKind extends "team-size"
+              ? TeamSizeValue
+              : never;
 
 /** The value type a given spec decodes to. */
 export type ValueOfSpec<TSpec extends FilterSpec> = FilterValueOf<TSpec["kind"]>;
@@ -425,6 +546,9 @@ export function filterParams(spec: FilterSpec): readonly string[] {
             spec.radius.radiusParam,
           ]
         : [spec.idParam, spec.labelParam, spec.includeOnlineParam];
+
+    case "team-size":
+      return [spec.minParam, spec.maxParam, spec.policyParam];
 
     default:
       return [spec.key];

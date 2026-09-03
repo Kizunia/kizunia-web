@@ -99,6 +99,19 @@ function summarise(
     case "number-bound":
       return { label: `${spec.label} · ${value as number}`, isActive: true };
 
+    case "team-size": {
+      const teamSize = value as { min?: number; max?: number };
+
+      if (teamSize.min !== undefined && teamSize.min === teamSize.max) {
+        return {
+          label: teamSize.min === 1 ? "Solo" : `Team of ${teamSize.min}`,
+          isActive: true,
+        };
+      }
+
+      return { label: spec.label, isActive: true };
+    }
+
     default:
       return { label: spec.label, isActive: true };
   }

@@ -43,6 +43,7 @@ import { EnumMultiControl } from "./enum-multi-control";
 import { NumberBoundControl } from "./number-bound-control";
 import { PlaceControl } from "./place-control";
 import { RelationMultiControl } from "./relation-multi-control";
+import { TeamSizeControl } from "./team-size-control";
 import { TextAnyControl, TextControl } from "./text-control";
 
 export interface FilterControlDispatchProps {
@@ -162,6 +163,16 @@ export function FilterControl({
         />
       );
 
+    case "team-size":
+      return (
+        <TeamSizeControl
+          spec={spec}
+          value={value as never}
+          onChange={onChange}
+          disabled={disabled}
+        />
+      );
+
     default: {
       // Unreachable while every kind is handled. If a kind is added to
       // `FilterKind` and not to this switch, `spec` is no longer `never` here
@@ -179,5 +190,6 @@ export { EnumMultiControl } from "./enum-multi-control";
 export { NumberBoundControl } from "./number-bound-control";
 export { PlaceControl } from "./place-control";
 export { RelationMultiControl } from "./relation-multi-control";
+export { TeamSizeControl } from "./team-size-control";
 export { TextAnyControl, TextControl } from "./text-control";
 export type { FilterControlProps } from "./types";

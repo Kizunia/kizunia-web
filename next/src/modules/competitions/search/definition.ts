@@ -66,13 +66,15 @@ import {
   enumMultiFilter,
   enumRelationMultiFilter,
   multiFieldTextFilter,
-  numberBoundFilter,
   relationMultiFilter,
   textAnyFilter,
+  type FilterDescriptor,
   type ResolvedDateRange,
+  type TeamSizeSpec,
 } from "@/lib/search";
 
 import { competitionLocationFilter } from "./location-filter";
+import { buildTeamSizeClause } from "./team-size-clause";
 import { competitionFilterSpecs as specs } from "./ui";
 
 type CompetitionWhere = Prisma.CompetitionWhereInput;
@@ -168,15 +170,28 @@ const registrationTypes = enumMultiFilter<CompetitionWhere, RegistrationType>({
   toWhere: (values) => ({ registrationType: { in: values } }),
 });
 
-const minTeamSize = numberBoundFilter<CompetitionWhere>({
-  spec: specs.minTeamSize,
-  toWhere: (value) => ({ minTeamSize: { gte: value } }),
-});
-
-const maxTeamSize = numberBoundFilter<CompetitionWhere>({
-  spec: specs.maxTeamSize,
-  toWhere: (value) => ({ maxTeamSize: { lte: value } }),
-});
+/**
+ * Competitions a team of exactly this size can enter.
+ *
+ * Containment, not a bound: the requested size has to sit inside the
+ * competition's own [min, max] window. That is what makes a competition
+ * accepting 1-4 people match a solo entrant *and* a team of four, and it is
+ * also what lets one filter express an exact size, a range, or a one-sided
+ * bound — the clause is built purely from which of `min`/`max` the control
+ * set, with no per-mode branching here. See `buildTeamSizeClause` for the
+ * overlap this actually tests, and `TeamSizeSpec` in `search/ui.ts` for the
+ * shape of the value it consumes.
+ *
+ * A null bound (on either side, participant's or competition's) is treated as
+ * unconstrained. An organizer who left a field empty has not declared a
+ * limit, and reading a missing value as a refusal would hide competitions
+ * that impose no restriction at all — the very ones most likely to accept
+ * whoever is asking.
+ */
+const teamSize: FilterDescriptor<CompetitionWhere, TeamSizeSpec> = {
+  spec: specs.teamSize,
+  toWhere: buildTeamSizeClause,
+};
 
 const organizerTypes = enumMultiFilter<CompetitionWhere, OrganizerType>({
   spec: specs.organizerTypes,
@@ -352,8 +367,7 @@ export const competitionSearchDefinition = defineSearch<
     bindFilter(endDate),
     bindFilter(eligibilities),
     bindFilter(registrationTypes),
-    bindFilter(minTeamSize),
-    bindFilter(maxTeamSize),
+    bindFilter(teamSize),
     bindFilter(organizerTypes),
     bindFilter(organizers),
     bindFilter(certificateTypes),
