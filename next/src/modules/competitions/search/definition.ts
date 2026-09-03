@@ -1,25 +1,47 @@
 /**
- * Competitions - Search definition (Phase 1 core migration)
+ * Competitions - Search definition (SERVER ONLY)
  *
- * The Competition entity's registry on the shared `src/lib/search` engine.
- * Filters are declared in the exact same order as the legacy
- * `CompetitionWhereBuilder`'s pipeline (search → competition scalars →
- * organizer → categories → technologies → eligibility → team → dates →
- * location), so the two produce the same clauses in the same sequence.
+ * =============================================================================
+ * What this module owns, and what it no longer owns
+ * =============================================================================
  *
- * `scripts/verify-search-parity.ts` proves equivalence by running both
- * against the real database and comparing the resulting row-id sequences —
- * not by comparing object shape, because the engine flattens `AND` where
- * the legacy scope builders nest it. Same rows, different tree.
+ * It owns the half of a filter that cannot leave the server: the translation
+ * from a decoded value into a Prisma clause, the scope guards, and the sort
+ * registry.
  *
- * This module is server-only: it imports Prisma enum values, which must
- * not reach a client bundle. The `server-only` package (which would make
- * that a build-time error rather than a convention) is not currently a
- * dependency of this project — worth adding when Phase 2 introduces client
- * components that could accidentally import from here. A client-safe
- * `ui.ts` split (see docs/.../02-core-architecture.md §10) is likewise
- * deferred until Phase 2 actually needs it — introducing it now would be
- * speculative.
+ * It no longer owns labels, options, groups or weights. Those live in
+ * `./ui.ts`, which is client-safe, and this module *consumes* them. The
+ * dependency deliberately points from server to client: if it pointed the
+ * other way, a client component reading a filter's label would drag the
+ * generated Prisma client into the browser bundle, and the two halves would be
+ * free to describe different filters.
+ *
+ * Practically, that means a filter is declared once. Adding one is a spec in
+ * `ui.ts` plus a `toWhere` here — never a third place where the two are
+ * reconciled.
+ *
+ * =============================================================================
+ * Enum coverage
+ * =============================================================================
+ *
+ * Because `ui.ts` may not import the Prisma enums, it lists their values as
+ * strings. Every `enumMultiFilter` below passes the real enum alongside the
+ * spec, and `assertEnumSpecCoverage` compares them at module load. A value
+ * added to the schema and forgotten in the spec fails on startup instead of
+ * quietly vanishing from the interface.
+ *
+ * =============================================================================
+ * Location
+ * =============================================================================
+ *
+ * Location is registered as a *resolvable* filter rather than an ordinary one.
+ * Its clause depends on a provider lookup, and — critically — a place that
+ * resolves to nothing must still restrict the results. An ordinary filter
+ * decoding to an empty set is dropped by the engine, which would turn "this
+ * town has no competitions" into "here is every competition on the platform".
+ *
+ * See `./location-filter.ts` for the full reasoning, and
+ * `src/lib/search/resolve.ts` for the mechanism.
  */
 
 import {
@@ -37,17 +59,21 @@ import {
 
 import {
   bindFilter,
+  dateRangeFilter,
   defineScope,
   defineSearch,
   defineSortRegistry,
-  dateRangeFilter,
   enumMultiFilter,
   enumRelationMultiFilter,
   multiFieldTextFilter,
   numberBoundFilter,
-  relationSlugMultiFilter,
-  textContainsAnyFilter,
+  relationMultiFilter,
+  textAnyFilter,
+  type ResolvedDateRange,
 } from "@/lib/search";
+
+import { competitionLocationFilter } from "./location-filter";
+import { competitionFilterSpecs as specs } from "./ui";
 
 type CompetitionWhere = Prisma.CompetitionWhereInput;
 type CompetitionOrderBy = Prisma.CompetitionOrderByWithRelationInput;
@@ -58,186 +84,144 @@ export interface CompetitionSearchContext {
 }
 
 // =============================================================================
-// Filters — declared in the legacy pipeline's exact order
+// Ordinary filters
 // =============================================================================
 
 const search = multiFieldTextFilter<CompetitionWhere>({
-  key: "search",
+  spec: specs.search,
   toWhere: (value) => ({
     OR: [
       { title: { contains: value, mode: "insensitive" } },
       { organizer: { contains: value, mode: "insensitive" } },
     ],
   }),
-  ui: { label: "Search", group: "quick", weight: 0 },
 });
 
 const modes = enumMultiFilter<CompetitionWhere, CompetitionMode>({
-  key: "modes",
+  spec: specs.modes,
   values: Object.values(CompetitionMode),
   toWhere: (values) => ({ mode: { in: values } }),
-  ui: {
-    label: "Mode",
-    group: "quick",
-    weight: 10,
-    options: Object.values(CompetitionMode).map((value) => ({
-      value,
-      label: titleCase(value),
-    })),
-  },
 });
 
-const statuses = enumMultiFilter<CompetitionWhere, CompetitionStatus>({
-  key: "statuses",
-  values: Object.values(CompetitionStatus),
-  toWhere: (values) => ({ status: { in: values } }),
-  ui: { label: "Status", group: "advanced", weight: 60 },
+const categories = relationMultiFilter<CompetitionWhere>({
+  spec: specs.categories,
+  toWhere: (slugs) => ({
+    categories: { some: { category: { slug: { in: slugs } } } },
+  }),
 });
 
-const registrationPlatforms = enumMultiFilter<
-  CompetitionWhere,
-  RegistrationPlatform
->({
-  key: "registrationPlatforms",
-  values: Object.values(RegistrationPlatform),
-  toWhere: (values) => ({ registrationPlatform: { in: values } }),
-  ui: { label: "Registration Platform", group: "advanced", weight: 70 },
-});
-
-const registrationTypes = enumMultiFilter<CompetitionWhere, RegistrationType>({
-  key: "registrationTypes",
-  values: Object.values(RegistrationType),
-  toWhere: (values) => ({ registrationType: { in: values } }),
-  ui: { label: "Registration Type", group: "advanced", weight: 71 },
+const technologies = relationMultiFilter<CompetitionWhere>({
+  spec: specs.technologies,
+  toWhere: (slugs) => ({
+    technologies: { some: { technology: { slug: { in: slugs } } } },
+  }),
 });
 
 const registrationFeeTypes = enumMultiFilter<
   CompetitionWhere,
   RegistrationFeeType
 >({
-  key: "registrationFeeTypes",
+  spec: specs.registrationFeeTypes,
   values: Object.values(RegistrationFeeType),
   toWhere: (values) => ({ registrationFeeType: { in: values } }),
-  ui: { label: "Fee", group: "quick", weight: 40 },
-});
-
-const organizerTypes = enumMultiFilter<CompetitionWhere, OrganizerType>({
-  key: "organizerTypes",
-  values: Object.values(OrganizerType),
-  toWhere: (values) => ({ organizerType: { in: values } }),
-  ui: { label: "Organizer Type", group: "advanced", weight: 72 },
 });
 
 const difficultyLevels = enumMultiFilter<CompetitionWhere, DifficultyLevel>({
-  key: "difficultyLevels",
+  spec: specs.difficultyLevels,
   values: Object.values(DifficultyLevel),
   toWhere: (values) => ({ difficulty: { in: values } }),
-  ui: { label: "Difficulty", group: "quick", weight: 30 },
 });
 
-const certificateTypes = enumMultiFilter<CompetitionWhere, CertificateType>({
-  key: "certificateTypes",
-  values: Object.values(CertificateType),
-  toWhere: (values) => ({ certificateType: { in: values } }),
-  ui: { label: "Certificate", group: "advanced", weight: 73 },
+const statuses = enumMultiFilter<CompetitionWhere, CompetitionStatus>({
+  spec: specs.statuses,
+  values: Object.values(CompetitionStatus),
+  toWhere: (values) => ({ status: { in: values } }),
 });
 
-const organizers = textContainsAnyFilter<CompetitionWhere>({
-  key: "organizers",
+const registrationDeadline = dateRangeFilter<CompetitionWhere>({
+  spec: specs.registrationDeadline,
+  toWhere: (range) => ({ registrationDeadline: dateBounds(range) }),
+});
+
+const startDate = dateRangeFilter<CompetitionWhere>({
+  spec: specs.startDate,
+  toWhere: (range) => ({ startDate: dateBounds(range) }),
+});
+
+const endDate = dateRangeFilter<CompetitionWhere>({
+  spec: specs.endDate,
+  toWhere: (range) => ({ endDate: dateBounds(range) }),
+});
+
+const eligibilities = enumRelationMultiFilter<
+  CompetitionWhere,
+  EligibilityType
+>({
+  spec: specs.eligibilities,
+  values: Object.values(EligibilityType),
+  toWhere: (values) => ({ eligibilities: { some: { type: { in: values } } } }),
+});
+
+const registrationTypes = enumMultiFilter<CompetitionWhere, RegistrationType>({
+  spec: specs.registrationTypes,
+  values: Object.values(RegistrationType),
+  toWhere: (values) => ({ registrationType: { in: values } }),
+});
+
+const minTeamSize = numberBoundFilter<CompetitionWhere>({
+  spec: specs.minTeamSize,
+  toWhere: (value) => ({ minTeamSize: { gte: value } }),
+});
+
+const maxTeamSize = numberBoundFilter<CompetitionWhere>({
+  spec: specs.maxTeamSize,
+  toWhere: (value) => ({ maxTeamSize: { lte: value } }),
+});
+
+const organizerTypes = enumMultiFilter<CompetitionWhere, OrganizerType>({
+  spec: specs.organizerTypes,
+  values: Object.values(OrganizerType),
+  toWhere: (values) => ({ organizerType: { in: values } }),
+});
+
+const organizers = textAnyFilter<CompetitionWhere>({
+  spec: specs.organizers,
   toWhere: (values) => ({
     OR: values.map((organizer) => ({
       organizer: { contains: organizer, mode: "insensitive" as const },
     })),
   }),
-  ui: { label: "Organizer", group: "advanced", weight: 74 },
 });
 
-const categories = relationSlugMultiFilter<CompetitionWhere>({
-  key: "categories",
-  toWhere: (slugs) => ({
-    categories: { some: { category: { slug: { in: slugs } } } },
-  }),
-  ui: { label: "Category", group: "quick", weight: 11 },
+const certificateTypes = enumMultiFilter<CompetitionWhere, CertificateType>({
+  spec: specs.certificateTypes,
+  values: Object.values(CertificateType),
+  toWhere: (values) => ({ certificateType: { in: values } }),
 });
 
-const technologies = relationSlugMultiFilter<CompetitionWhere>({
-  key: "technologies",
-  toWhere: (slugs) => ({
-    technologies: { some: { technology: { slug: { in: slugs } } } },
-  }),
-  ui: { label: "Technology", group: "quick", weight: 12 },
-});
-
-const eligibilities = enumRelationMultiFilter<CompetitionWhere, EligibilityType>({
-  key: "eligibilities",
-  values: Object.values(EligibilityType),
-  toWhere: (values) => ({ eligibilities: { some: { type: { in: values } } } }),
-  ui: { label: "Eligibility", group: "advanced", weight: 75 },
-});
-
-const minTeamSize = numberBoundFilter<CompetitionWhere>({
-  key: "minTeamSize",
-  toWhere: (value) => ({ minTeamSize: { gte: value } }),
-  ui: { label: "Min Team Size", group: "advanced", weight: 80 },
-});
-
-const maxTeamSize = numberBoundFilter<CompetitionWhere>({
-  key: "maxTeamSize",
-  toWhere: (value) => ({ maxTeamSize: { lte: value } }),
-  ui: { label: "Max Team Size", group: "advanced", weight: 81 },
-});
-
-const startDate = dateRangeFilter<CompetitionWhere>({
-  key: "startDate",
-  toWhere: (range) => ({ startDate: dateBounds(range) }),
-  ui: { label: "Start Date", group: "advanced", weight: 90 },
-});
-
-const endDate = dateRangeFilter<CompetitionWhere>({
-  key: "endDate",
-  toWhere: (range) => ({ endDate: dateBounds(range) }),
-  ui: { label: "End Date", group: "advanced", weight: 91 },
-});
-
-const registrationDeadline = dateRangeFilter<CompetitionWhere>({
-  key: "registrationDeadline",
-  toWhere: (range) => ({ registrationDeadline: dateBounds(range) }),
-  ui: { label: "Registration Deadline", group: "advanced", weight: 92 },
+const registrationPlatforms = enumMultiFilter<
+  CompetitionWhere,
+  RegistrationPlatform
+>({
+  spec: specs.registrationPlatforms,
+  values: Object.values(RegistrationPlatform),
+  toWhere: (values) => ({ registrationPlatform: { in: values } }),
 });
 
 /**
- * Location is deliberately NOT a filter in this registry.
+ * Converts a resolved range into a Prisma comparison.
  *
- * The engine drops any filter whose `decode` returns `undefined`, and
- * `normalizeList` maps an empty list to `undefined` by design — "empty is
- * indistinguishable from absent". That is right for every other filter, but
- * fatal here: a user selecting a real place with no competitions resolves to
- * zero search areas, and a dropped filter would return *every* competition
- * instead of none.
- *
- * So the location condition is passed to `buildSearchQuery` as a base clause
- * instead, alongside `deletedAt: null`. Base clauses are applied
- * unconditionally, so "matched nothing" cannot decay into "no restriction".
- * `buildLocationClause` in `search/location-clause.ts` builds it, and
- * `CompetitionService` resolves the place before any query is built — the
- * engine stays synchronous and pure, unable to call a provider or the database
- * from inside a filter.
+ * Both bounds are optional and at least one is always present — the range
+ * filter does not produce a value otherwise — so this never yields an empty
+ * comparison object.
  */
-
-function dateBounds(range: {
-  from?: Date;
-  to?: Date;
-}): Prisma.DateTimeFilter {
+function dateBounds(range: ResolvedDateRange): Prisma.DateTimeFilter {
   const bounds: Prisma.DateTimeFilter = {};
 
   if (range.from) bounds.gte = range.from;
   if (range.to) bounds.lte = range.to;
 
   return bounds;
-}
-
-function titleCase(value: string): string {
-  return value.charAt(0) + value.slice(1).toLowerCase();
 }
 
 // =============================================================================
@@ -255,42 +239,51 @@ export const CompetitionSort = {
   ALPHABETICAL_DESC: "alphabetical-desc",
 } as const;
 
-export type CompetitionSort = (typeof CompetitionSort)[keyof typeof CompetitionSort];
+export type CompetitionSort =
+  (typeof CompetitionSort)[keyof typeof CompetitionSort];
 
-const sorts = defineSortRegistry<CompetitionOrderBy>({
+export const competitionSortRegistry = defineSortRegistry<CompetitionOrderBy>({
   defaultKey: CompetitionSort.NEWEST,
   tiebreaker: { id: "asc" },
   options: [
-    { key: CompetitionSort.NEWEST, label: "Newest", orderBy: [{ createdAt: "desc" }] },
-    { key: CompetitionSort.OLDEST, label: "Oldest", orderBy: [{ createdAt: "asc" }] },
+    {
+      key: CompetitionSort.NEWEST,
+      label: "Newest",
+      orderBy: [{ createdAt: "desc" }],
+    },
+    {
+      key: CompetitionSort.REGISTRATION_DEADLINE_ASC,
+      label: "Deadline soonest",
+      orderBy: [{ registrationDeadline: "asc" }],
+    },
     {
       key: CompetitionSort.START_DATE_ASC,
-      label: "Start date (soonest)",
+      label: "Starting soonest",
       orderBy: [{ startDate: "asc" }],
     },
     {
       key: CompetitionSort.START_DATE_DESC,
-      label: "Start date (latest)",
+      label: "Starting latest",
       orderBy: [{ startDate: "desc" }],
     },
     {
-      key: CompetitionSort.REGISTRATION_DEADLINE_ASC,
-      label: "Registration deadline (soonest)",
-      orderBy: [{ registrationDeadline: "asc" }],
-    },
-    {
       key: CompetitionSort.REGISTRATION_DEADLINE_DESC,
-      label: "Registration deadline (latest)",
+      label: "Deadline latest",
       orderBy: [{ registrationDeadline: "desc" }],
     },
     {
+      key: CompetitionSort.OLDEST,
+      label: "Oldest",
+      orderBy: [{ createdAt: "asc" }],
+    },
+    {
       key: CompetitionSort.ALPHABETICAL_ASC,
-      label: "Title (A–Z)",
+      label: "Title A–Z",
       orderBy: [{ title: "asc" }],
     },
     {
       key: CompetitionSort.ALPHABETICAL_DESC,
-      label: "Title (Z–A)",
+      label: "Title Z–A",
       orderBy: [{ title: "desc" }],
     },
   ],
@@ -307,7 +300,10 @@ const publicScope = defineScope<CompetitionWhere, CompetitionSearchContext>({
   guard: () => [{ visibility: "PUBLIC" }],
 });
 
-const managementScope = defineScope<CompetitionWhere, CompetitionSearchContext>({
+const managementScope = defineScope<
+  CompetitionWhere,
+  CompetitionSearchContext
+>({
   id: "management",
   allowedFilters: "all",
   guard: (context) => {
@@ -339,32 +335,38 @@ export const competitionSearchDefinition = defineSearch<
 >({
   entity: "Competition",
 
-  // Bound individually rather than via `.map(bindFilter)`: passed as an
-  // array, TypeScript instantiates the generic `bindFilter` once for the
-  // whole (unioned) element type instead of once per literal, which loses
-  // the per-filter `TValue`.
+  // Bound individually rather than via `.map(bindFilter)`: passed as an array,
+  // TypeScript instantiates the generic `bindFilter` once for the whole
+  // unioned element type instead of once per literal, which loses each
+  // filter's own value type.
   filters: [
     bindFilter(search),
     bindFilter(modes),
-    bindFilter(statuses),
-    bindFilter(registrationPlatforms),
-    bindFilter(registrationTypes),
-    bindFilter(registrationFeeTypes),
-    bindFilter(organizerTypes),
-    bindFilter(difficultyLevels),
-    bindFilter(certificateTypes),
-    bindFilter(organizers),
     bindFilter(categories),
     bindFilter(technologies),
-    bindFilter(eligibilities),
-    bindFilter(minTeamSize),
-    bindFilter(maxTeamSize),
+    bindFilter(registrationFeeTypes),
+    bindFilter(difficultyLevels),
+    bindFilter(statuses),
+    bindFilter(registrationDeadline),
     bindFilter(startDate),
     bindFilter(endDate),
-    bindFilter(registrationDeadline),
-    ],
+    bindFilter(eligibilities),
+    bindFilter(registrationTypes),
+    bindFilter(minTeamSize),
+    bindFilter(maxTeamSize),
+    bindFilter(organizerTypes),
+    bindFilter(organizers),
+    bindFilter(certificateTypes),
+    bindFilter(registrationPlatforms),
+  ],
 
-  sorts,
+  // Applied in every scope, because it is registered rather than wired into
+  // one service method. That is the fix for location previously being honoured
+  // by the public listing and silently ignored by the management and admin
+  // ones.
+  resolvableFilters: [competitionLocationFilter],
+
+  sorts: competitionSortRegistry,
 
   scopes: {
     public: publicScope,
