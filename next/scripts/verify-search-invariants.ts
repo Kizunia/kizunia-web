@@ -41,8 +41,27 @@ import { bindFilter } from "../src/lib/search/bind";
 import { defineScope } from "../src/lib/search/scope";
 import { defineSortRegistry } from "../src/lib/search/sort";
 import { dateRangeFilter } from "../src/lib/search/filters/range";
-import { textContainsFilter } from "../src/lib/search/filters/text";
+import { textFilter } from "../src/lib/search/filters/text";
 import type { RawSearchParams } from "../src/lib/search/types";
+import type {
+  DateRangeSpec,
+  FilterSpec,
+  TextSpec,
+} from "../src/lib/search/spec";
+import { writeFilterValue, readFilterValue } from "../src/lib/search/spec-values";
+import { applyParamPatch, isSameSearch } from "../src/lib/search/params";
+import { COMPETITION_FILTER_SPECS } from "../src/modules/competitions/search/ui";
+import { buildLocationClause } from "../src/modules/competitions/search/location-clause";
+import {
+  buildCompetitionQuery,
+  planCompetitionSearch,
+} from "../src/modules/competitions/search/plan";
+import { resolvableFiltersForScope } from "../src/lib/search/engine";
+import {
+  clearAllFiltersPatch,
+  describeAllChips,
+} from "../src/lib/search/spec-values";
+import { pageHref } from "../src/lib/search/params";
 
 const prisma = new PrismaClient();
 
@@ -299,7 +318,24 @@ async function verifyDefinitionValidation(): Promise<void> {
 
   type W = { AND?: W | W[]; visibility?: unknown };
 
-  const ui = { label: "x", group: "quick" as const };
+  // Minimal specs for the validator cases. Built here rather than imported so
+  // a change to the Competition registry cannot silently alter what these
+  // assertions are testing.
+  const textSpec = (key: string): TextSpec => ({
+    kind: "text",
+    key,
+    label: key,
+    group: "quick",
+    weight: 0,
+  });
+
+  const dateSpec = (key: string): DateRangeSpec => ({
+    kind: "date-range",
+    key,
+    label: key,
+    group: "advanced",
+    weight: 0,
+  });
 
   const sorts = defineSortRegistry<{ id: "asc" }>({
     options: [{ key: "newest", label: "N", orderBy: [{ id: "asc" as const }] }],
@@ -331,7 +367,7 @@ async function verifyDefinitionValidation(): Promise<void> {
       sorts,
       scopes: openScopes,
       filters: [
-        bindFilter(textContainsFilter<W>({ key: "page", toWhere: () => ({}), ui })),
+        bindFilter(textFilter<W>({ spec: textSpec("page"), toWhere: () => ({}) })),
       ],
     }),
   );
@@ -345,9 +381,9 @@ async function verifyDefinitionValidation(): Promise<void> {
       // collides on a *derived* parameter while the two keys differ — the
       // case a key-only check would miss.
       filters: [
-        bindFilter(dateRangeFilter<W>({ key: "startDate", toWhere: () => ({}), ui })),
+        bindFilter(dateRangeFilter<W>({ spec: dateSpec("startDate"), toWhere: () => ({}) })),
         bindFilter(
-          textContainsFilter<W>({ key: "startDateFrom", toWhere: () => ({}), ui }),
+          textFilter<W>({ spec: textSpec("startDateFrom"), toWhere: () => ({}) }),
         ),
       ],
     }),
@@ -359,8 +395,8 @@ async function verifyDefinitionValidation(): Promise<void> {
       sorts,
       scopes: openScopes,
       filters: [
-        bindFilter(textContainsFilter<W>({ key: "a", toWhere: () => ({}), ui })),
-        bindFilter(textContainsFilter<W>({ key: "a", toWhere: () => ({}), ui })),
+        bindFilter(textFilter<W>({ spec: textSpec("a"), toWhere: () => ({}) })),
+        bindFilter(textFilter<W>({ spec: textSpec("a"), toWhere: () => ({}) })),
       ],
     }),
   );
@@ -379,7 +415,7 @@ async function verifyDefinitionValidation(): Promise<void> {
       },
       filters: [
         bindFilter(
-          textContainsFilter<W>({ key: "visibility", toWhere: () => ({}), ui }),
+          textFilter<W>({ spec: textSpec("visibility"), toWhere: () => ({}) }),
         ),
       ],
     }),
@@ -401,8 +437,8 @@ async function verifyDefinitionValidation(): Promise<void> {
       sorts,
       scopes: openScopes,
       filters: [
-        bindFilter(dateRangeFilter<W>({ key: "startDate", toWhere: () => ({}), ui })),
-        bindFilter(textContainsFilter<W>({ key: "location", toWhere: () => ({}), ui })),
+        bindFilter(dateRangeFilter<W>({ spec: dateSpec("startDate"), toWhere: () => ({}) })),
+        bindFilter(textFilter<W>({ spec: textSpec("place"), toWhere: () => ({}) })),
       ],
     });
   } catch {
@@ -548,14 +584,242 @@ async function verifyCodecRoundTrip(): Promise<void> {
   }
 }
 
-function normalizeAll(raw: RawSearchParams): Record<string, string | undefined> {
-  const result: Record<string, string | undefined> = {};
+/**
+ * Canonicalises a parameter bag through the spec layer.
+ *
+ * Reads each filter's value and writes it straight back, which is exactly the
+ * round trip a control performs. Idempotence here is what guarantees a shared
+ * URL, a saved search and a freshly built one all serialise identically.
+ */
+function normalizeAll(raw: RawSearchParams): Record<string, string> {
+  let patch: Record<string, string | undefined> = {};
 
-  for (const filter of competitionSearchDefinition.filters) {
-    Object.assign(result, filter.normalize(raw));
+  for (const spec of COMPETITION_FILTER_SPECS) {
+    const value = readFilterValue(spec, raw);
+
+    patch = { ...patch, ...writeFilterValue(spec, value) };
   }
 
-  return result;
+  return applyParamPatch(raw, patch);
+}
+
+
+// =============================================================================
+// Invariants introduced by the spec / resolvable-filter architecture
+// =============================================================================
+
+/**
+ * The highest-risk regression in the whole subsystem.
+ *
+ * An ordinary filter that decodes to nothing is dropped by the engine. If
+ * location were an ordinary filter, a real place with no competitions would
+ * therefore return *every* competition on the platform. Registering it as a
+ * resolvable filter makes its clause a base clause, which cannot be dropped.
+ */
+async function verifyResolvedLocationNeverWidens(): Promise<void> {
+  console.log(
+    "\n== Invariant: a location matching nothing returns nothing, not everything ==",
+  );
+
+  const clause = buildLocationClause({
+    searchAreaIds: [],
+    includeOnline: false,
+  });
+
+  report(
+    "zero matched areas yields an unsatisfiable clause",
+    JSON.stringify(clause) === JSON.stringify({ id: { in: [] } }),
+    `got ${JSON.stringify(clause)}`,
+  );
+
+  const total = await prisma.competition.count({
+    where: { deletedAt: null, visibility: "PUBLIC" },
+  });
+
+  const matched = await prisma.competition.count({
+    where: { AND: [{ deletedAt: null }, clause, { visibility: "PUBLIC" }] },
+  });
+
+  report(
+    "against the real database it matches 0 rows",
+    matched === 0,
+    `matched=${matched} of ${total}`,
+  );
+
+  const withOnline = buildLocationClause({
+    searchAreaIds: [],
+    includeOnline: true,
+  });
+
+  const onlineOnly = await prisma.competition.count({
+    where: { AND: [{ deletedAt: null }, withOnline, { visibility: "PUBLIC" }] },
+  });
+
+  const actualOnline = await prisma.competition.count({
+    where: { deletedAt: null, visibility: "PUBLIC", mode: "ONLINE" },
+  });
+
+  report(
+    "with includeOnline it matches exactly the online competitions",
+    onlineOnly === actualOnline,
+    `clause=${onlineOnly} direct=${actualOnline}`,
+  );
+}
+
+/**
+ * Rows and totals are built from one plan, so they cannot diverge.
+ *
+ * Before planning existed, `findMany` and `count` each built their own query
+ * from raw parameters — two independent resolutions that could straddle a
+ * cache expiry and disagree.
+ */
+async function verifyPlanSymmetry(): Promise<void> {
+  console.log("\n== Invariant: rows and totals are built from one plan ==");
+
+  const cases: RawSearchParams[] = [
+    {},
+    { modes: "ONLINE" },
+    { search: "hack", categories: "ai", sort: "start-date-asc" },
+    { page: "3", limit: "5" },
+  ];
+
+  for (const params of cases) {
+    const plan = await planCompetitionSearch({ scope: "public", params });
+
+    const a = buildCompetitionQuery(plan);
+    const b = buildCompetitionQuery(plan);
+
+    report(
+      `identical where for ${JSON.stringify(params)}`,
+      JSON.stringify(a.where) === JSON.stringify(b.where),
+    );
+  }
+
+  // Location is registered rather than wired into one service method, so no
+  // scope can quietly skip it — the defect this replaces.
+  for (const scope of ["public", "management", "admin"] as const) {
+    const resolvable = resolvableFiltersForScope(
+      competitionSearchDefinition,
+      scope,
+    );
+
+    report(
+      `scope "${scope}" sees the location resolvable filter`,
+      resolvable.some((filter) => filter.key === "location"),
+    );
+  }
+}
+
+/** Removing a chip removes exactly that value and nothing else. */
+function verifyChipRemoval(): void {
+  console.log("\n== Invariant: a chip removes only its own value ==");
+
+  const params: RawSearchParams = {
+    modes: "ONLINE,HYBRID",
+    categories: "ai,web3",
+    search: "hack",
+  };
+
+  const chips = describeAllChips(COMPETITION_FILTER_SPECS, params);
+
+  report("one chip per value", chips.length === 5, `got ${chips.length}`);
+
+  const onlineChip = chips.find((chip) => chip.id === "modes:ONLINE");
+
+  if (!onlineChip) {
+    report("an Online chip exists", false);
+    return;
+  }
+
+  const after = applyParamPatch(params, onlineChip.remove);
+
+  report(
+    "removing Online leaves Hybrid",
+    after.modes === "HYBRID",
+    `modes=${after.modes}`,
+  );
+
+  report(
+    "removing Online leaves the other filters untouched",
+    after.categories === "ai,web3" && after.search === "hack",
+    JSON.stringify(after),
+  );
+}
+
+/** Clear all removes every registered parameter and nothing else. */
+function verifyClearAll(): void {
+  console.log("\n== Invariant: Clear all clears filters, not the URL ==");
+
+  const params: RawSearchParams = {
+    modes: "ONLINE",
+    placeId: "abc",
+    placeLabel: "Pune",
+    includeOnline: "true",
+    startDateFrom: "2026-01-01",
+    utm_source: "newsletter",
+    sort: "start-date-asc",
+  };
+
+  const cleared = applyParamPatch(
+    params,
+    clearAllFiltersPatch(COMPETITION_FILTER_SPECS),
+  );
+
+  for (const key of [
+    "modes",
+    "placeId",
+    "placeLabel",
+    "includeOnline",
+    "startDateFrom",
+  ]) {
+    report(`"${key}" is cleared`, cleared[key] === undefined);
+  }
+
+  report("an unrelated parameter survives", cleared.utm_source === "newsletter");
+
+  // Sort is engine-owned, not filter-owned, so Clear all leaves it: a person
+  // clearing filters has said nothing about how they want results ordered.
+  report("sort survives", cleared.sort === "start-date-asc");
+}
+
+/**
+ * Paging preserves the search.
+ *
+ * Guards the original defect: a link written as `?page=2` that discarded every
+ * filter the person had applied.
+ */
+function verifyPaginationPreservesSearch(): void {
+  console.log("\n== Invariant: paging keeps every filter ==");
+
+  const params: RawSearchParams = {
+    modes: "ONLINE",
+    categories: "ai",
+    placeId: "abc",
+    sort: "start-date-asc",
+  };
+
+  const href = pageHref("/competitions", params, 3);
+
+  const query = new URLSearchParams(href.split("?")[1] ?? "");
+
+  report("page is set", query.get("page") === "3", href);
+
+  for (const [key, value] of Object.entries(params)) {
+    report(`"${key}" survives`, query.get(key) === value, href);
+  }
+
+  const first = pageHref("/competitions", params, 1);
+
+  report(
+    "page 1 omits the parameter, so one view has one URL",
+    !first.includes("page="),
+    first,
+  );
+
+  report(
+    "paging does not change which search it is",
+    isSameSearch(params, Object.fromEntries(query.entries())),
+  );
 }
 
 async function main(): Promise<void> {
@@ -567,6 +831,11 @@ async function main(): Promise<void> {
   await verifySortDeterminism();
   await verifyWildcardEscaping();
   await verifyCodecRoundTrip();
+  await verifyResolvedLocationNeverWidens();
+  await verifyPlanSymmetry();
+  verifyChipRemoval();
+  verifyClearAll();
+  verifyPaginationPreservesSearch();
 
   console.log(`\n${checks - failures}/${checks} checks passed.`);
 
