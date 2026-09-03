@@ -1,126 +1,241 @@
+import Link from "next/link";
+
 import PageWrapper from "@/components/page-wrapper";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { AppError } from "@/lib/errors";
+import type { RawSearchParams } from "@/lib/search";
+import { clearAllFiltersPatch, buildSearchHref } from "@/lib/search";
+import { SearchPagination } from "@/lib/search/react";
 
 import { CompetitionService } from "@/modules/competitions/backend/service";
 import CompetitionsCards from "@/modules/competitions/components/allCompititions/CompetitionsCards";
-import { CompetitionSearchResult } from "@/modules/competitions/search/types";
-import type { RawSearchParams } from "@/lib/search";
+import { CompetitionFilters } from "@/modules/competitions/components/discovery/competition-filters";
+import { COMPETITION_FILTER_SPECS } from "@/modules/competitions/search/ui";
+import { TaxonomyService } from "@/modules/taxonomy";
 
-import { CompetitionCardDTO } from "@/modules/competitions/types/dto";
+const PATHNAME = "/competitions";
+
 interface Props {
   searchParams: Promise<RawSearchParams>;
 }
 
+/**
+ * Competition discovery.
+ *
+ * Stays a Server Component. The search runs here, against the URL, so results
+ * are rendered rather than fetched — which is what makes a filtered listing
+ * shareable, indexable and correct on first paint. Only the controls are
+ * client components, and they do nothing but write back to the URL this page
+ * reads.
+ *
+ * Taxonomy options are loaded here too, in parallel with the search. They
+ * populate the category and technology pickers and supply the labels the
+ * active-filter chips render, so neither needs a client-side request.
+ */
 export default async function CompetitionsPage({ searchParams }: Props) {
-  let competitions: CompetitionCardDTO[] = [];
-  let pagination: CompetitionSearchResult<CompetitionCardDTO>["pagination"];
-  try {
-    const rawSearchParams = await searchParams;
-    const resp = await CompetitionService.search(rawSearchParams);
+  const params = await searchParams;
 
-    competitions = resp.items;
-    pagination = resp.pagination;
-  } catch (error) {
+  // Options load independently of the search and must not be able to fail it:
+  // a taxonomy outage should cost the pickers their labels, not take down
+  // browsing. Settled rather than awaited together for exactly that reason.
+  const [searchOutcome, categories, technologies] = await Promise.allSettled([
+    CompetitionService.search(params),
+    TaxonomyService.listCategories({ limit: 200, includeEmpty: false }),
+    TaxonomyService.listTechnologies({ limit: 200, includeEmpty: false }),
+  ]);
+
+  const optionsMap = {
+    categories: categories.status === "fulfilled" ? categories.value : [],
+    technologies: technologies.status === "fulfilled" ? technologies.value : [],
+  };
+
+  if (searchOutcome.status === "rejected") {
     return (
-      <PageWrapper
-        breadcrumbs={[{ label: "Competitions", href: "/competitions" }]}
-      >
-        {error instanceof Error ? (
-          <p className="text-red-500">{error.message}</p>
-        ) : (
-          <p className="text-red-500">An unknown error occurred.</p>
-        )}
-      </PageWrapper>
+      <CompetitionsShell optionsMap={optionsMap}>
+        <SearchFailure error={searchOutcome.reason} params={params} />
+      </CompetitionsShell>
     );
   }
 
+  const { items, pagination } = searchOutcome.value;
+
   return (
-    <PageWrapper
-      breadcrumbs={[{ label: "Competitions", href: "/competitions" }]}
-    >
+    <CompetitionsShell optionsMap={optionsMap} total={pagination.total}>
+      {items.length === 0 ? (
+        <EmptyResults params={params} />
+      ) : (
+        <CompetitionsCards competitions={items} />
+      )}
+
+      <SearchPagination
+        pagination={pagination}
+        params={params}
+        pathname={PATHNAME}
+        className="pt-2"
+      />
+    </CompetitionsShell>
+  );
+}
+
+/**
+ * Page chrome shared by every outcome.
+ *
+ * The filter bar renders even when the search failed. Losing the controls
+ * along with the results would leave someone stranded on a broken page with no
+ * way to change the query that broke it — which is most likely exactly what
+ * they need to do.
+ */
+function CompetitionsShell({
+  optionsMap,
+  total,
+  children,
+}: {
+  optionsMap: {
+    categories: { value: string; label: string; count: number }[];
+    technologies: { value: string; label: string; count: number }[];
+  };
+  total?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <PageWrapper breadcrumbs={[{ label: "Competitions", href: PATHNAME }]}>
       <div className="space-y-2">
-        <h1 className="text-4xl font-bold tracking-tight">
-          Competitions {pagination.total}+
-        </h1>
+        <h1 className="text-4xl font-bold tracking-tight">Competitions</h1>
 
         <p className="max-w-2xl text-muted-foreground">
-          Discover competitions, coding competitions, innovation challenges, and
-          open opportunities from colleges and organizations.
+          Discover hackathons, coding contests, innovation challenges and open
+          opportunities from colleges and organizations.
         </p>
       </div>
 
-      {/* Empty State */}
+      <CompetitionFilters optionsMap={optionsMap} />
 
-      {pagination.total <= 0 && (
-        <Card>
-          <CardContent className="flex h-48 items-center justify-center">
-            <p className="text-muted-foreground">No competitions available.</p>
-          </CardContent>
-        </Card>
+      {total !== undefined && (
+        <p
+          className="text-sm text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
+          {total === 1 ? "1 competition" : `${total} competitions`}
+        </p>
       )}
-      <CompetitionsCards competitions={competitions} />
 
-      {/* <div className="flex justify-center space-x-2">
-        {pagination.hasPreviousPage && (
-          <Link
-            href={`/competitions?page=${pagination.page - 1}`}
-           
-          >
-            Previous
-          </Link>
-        )}
-        {pagination.hasNextPage && (
-          <Link
-            href={`/competitions?page=${pagination.page + 1}`}
-            className="rounded bg-primary px-4 py-2 text-white hover:bg-primary/80"
-          >
-            Next
-          </Link>
-        )}
-      </div> */}
-
-      <Pagination>
-        <PaginationContent className="gap-4">
-          {pagination.hasPreviousPage && (
-            <PaginationItem className="bg-primary text-primary-foreground rounded-xl">
-              <PaginationPrevious
-                href={`/competitions?page=${pagination.page - 1}`}
-              />
-            </PaginationItem>
-          )}
-          {/* <PaginationItem>
-            <PaginationLink href="#">1</PaginationLink>
-          </PaginationItem>
-          <PaginationItem>
-            <PaginationLink href="#" isActive>
-              2
-            </PaginationLink>
-          </PaginationItem>
-          <PaginationItem>
-            <PaginationLink href="#">3</PaginationLink>
-          </PaginationItem>
-          <PaginationItem>
-            <PaginationEllipsis />
-          </PaginationItem> */}
-
-          {pagination.hasNextPage && (
-            <PaginationItem className="bg-primary text-primary-foreground  rounded-xl">
-              <PaginationNext
-                href={`/competitions?page=${pagination.page + 1}`}
-              />
-            </PaginationItem>
-          )}
-        </PaginationContent>
-      </Pagination>
+      {children}
     </PageWrapper>
+  );
+}
+
+/**
+ * A search that could not be completed.
+ *
+ * Distinguished from an empty result deliberately, because the two mean
+ * opposite things. A location lookup that timed out is not evidence that
+ * nowhere has competitions, and presenting it as an empty list would tell the
+ * person something false.
+ *
+ * Only a recognised application error's message is shown. An unexpected error
+ * gets a generic line, because its message is written for a log, not for a
+ * person, and may name internals.
+ */
+function SearchFailure({
+  error,
+  params,
+}: {
+  error: unknown;
+  params: RawSearchParams;
+}) {
+  const isKnown = error instanceof AppError;
+
+  const message = isKnown
+    ? error.message
+    : "Something went wrong while loading competitions.";
+
+  if (!isKnown) {
+    console.error("Competition search failed.", error);
+  }
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-4 py-14 text-center">
+        <div className="space-y-1.5">
+          <p className="font-medium">{message}</p>
+
+          <p className="text-sm text-muted-foreground">
+            Your filters are still applied. Try again, or clear them to browse
+            everything.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button asChild variant="outline">
+            {/* A plain link so the retry is a fresh server render, not a
+                client-side replay of the request that just failed. */}
+            <Link href={buildSearchHref(PATHNAME, params)}>Try again</Link>
+          </Button>
+
+          <Button asChild>
+            <Link
+              href={buildSearchHref(
+                PATHNAME,
+                params,
+                clearAllFiltersPatch(COMPETITION_FILTER_SPECS),
+              )}
+            >
+              Clear filters
+            </Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * A search that worked and matched nothing.
+ *
+ * The copy distinguishes an over-narrow search from an empty platform, because
+ * the two need different things from the reader: one is fixed by relaxing a
+ * filter, the other cannot be fixed by them at all.
+ */
+function EmptyResults({ params }: { params: RawSearchParams }) {
+  const clearPatch = clearAllFiltersPatch(COMPETITION_FILTER_SPECS);
+
+  const hasFilters = Object.keys(clearPatch).some(
+    (key) => params[key] !== undefined,
+  );
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
+        <div className="space-y-1.5">
+          <p className="font-medium">
+            {hasFilters
+              ? "No competitions match these filters"
+              : "No competitions yet"}
+          </p>
+
+          <p className="max-w-sm text-sm text-muted-foreground">
+            {hasFilters
+              ? "Try removing a filter, widening the dates, or including online competitions."
+              : "Nothing has been published here yet. Check back soon, or suggest a competition you know about."}
+          </p>
+        </div>
+
+        {hasFilters ? (
+          <Button asChild variant="outline">
+            <Link href={buildSearchHref(PATHNAME, params, clearPatch)}>
+              Clear all filters
+            </Link>
+          </Button>
+        ) : (
+          <Button asChild variant="outline">
+            <Link href="/competitions/suggestions/new">
+              Suggest a competition
+            </Link>
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }
