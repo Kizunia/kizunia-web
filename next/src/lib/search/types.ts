@@ -5,8 +5,26 @@
  * pagination. Nothing in `src/lib/search` may reference a concrete domain
  * (Competition, Project, Blog); modules supply that via a registry.
  *
- * See docs/project/feature-specification/search/07-implementation-design.md
+ * =============================================================================
+ * One decoder, not two
+ * =============================================================================
+ *
+ * A filter used to carry its own `decode` and `encode`, alongside the UI
+ * metadata the client needed. That meant the rules for reading a parameter
+ * existed twice — once for the query and once for the control — and the two
+ * were free to disagree about what an acceptable value was.
+ *
+ * They no longer do. `readFilterValue` in `spec-values.ts` is the sole
+ * decoder, it is client-safe, and both sides call it. A `FilterDescriptor` now
+ * adds exactly one thing the client cannot have: the translation from a
+ * decoded value to a Prisma clause.
+ *
+ * The practical consequence is that a filter declaration is now the spec plus
+ * a `toWhere`, and there is no longer a place for the two halves to drift
+ * apart.
  */
+
+import type { FilterSpec, ValueOfSpec } from "./spec";
 
 /**
  * Raw query parameters as delivered by Next.js.
@@ -19,92 +37,47 @@ export type RawSearchParams = Record<string, string | string[] | undefined>;
 /** The subset of parameters a single filter owns. */
 export type FilterParams = RawSearchParams;
 
-export type FilterKind =
-  | "enum-multi"
-  | "relation-slug-multi"
-  | "relation-id-multi"
-  | "text"
-  | "number-bound"
-  | "date-range"
-  | "boolean";
-
-export interface FilterOption {
-  readonly value: string;
-  readonly label: string;
-}
-
-export interface FilterUiMeta {
-  readonly label: string;
-
-  /** Initial placement. May be re-grouped per user later without code changes. */
-  readonly group: "quick" | "advanced";
-
-  /** Lower sorts earlier within a group. */
-  readonly weight?: number;
-
-  /** Present for enum-backed filters; drives option lists in the UI. */
-  readonly options?: readonly FilterOption[];
-}
-
 /**
  * Declares one filter for one entity.
  *
- * `decode` must never throw: an unparseable filter contributes no clause
- * rather than failing the whole request.
- *
  * @typeParam TWhere the entity's Prisma where-input
- * @typeParam TValue this filter's decoded value
+ * @typeParam TSpec  this filter's spec, which fixes its value type
  */
-export interface FilterDescriptor<TWhere, TValue> {
-  readonly key: string;
+export interface FilterDescriptor<
+  TWhere,
+  TSpec extends FilterSpec = FilterSpec,
+> {
+  readonly spec: TSpec;
 
   /**
-   * Every URL parameter this filter owns.
+   * Translates a decoded value into a clause.
    *
-   * Usually `[key]`, but range filters own two (`startDateFrom`,
-   * `startDateTo`), which is why decoding takes a bag rather than a value.
+   * Only ever invoked with a value `readFilterValue` accepted, so it never
+   * has to defend against an empty list, an out-of-range number or an
+   * unparseable date — which is what keeps `{ in: [] }` (a clause matching
+   * zero rows) from being constructible by accident.
    */
-  readonly keys: readonly string[];
-
-  readonly kind: FilterKind;
-
-  /** Returns undefined when the filter is absent, empty or unusable. */
-  readonly decode: (params: FilterParams) => TValue | undefined;
-
-  /** Canonical URL form. A key mapped to undefined is omitted. */
-  readonly encode: (value: TValue) => Record<string, string | undefined>;
-
-  /** Only ever invoked with a decoded, non-empty value. */
-  readonly toWhere: (value: TValue) => TWhere;
-
-  readonly ui: FilterUiMeta;
+  readonly toWhere: (value: ValueOfSpec<TSpec>) => TWhere;
 }
 
 /**
- * A filter with its value type erased, so registries can hold filters of
+ * A filter with its value type erased, so a registry can hold filters of
  * differing value types without resorting to `any`.
  *
- * `TValue` survives inside the closures created by `bindFilter`, which is
- * where all type checking actually happens.
+ * The value type survives inside the closure created by `bindFilter`, which
+ * is where all type checking actually happens.
  */
 export interface BoundFilter<TWhere> {
+  readonly spec: FilterSpec;
+
+  /** Convenience mirror of `spec.key`, for registry validation and lookups. */
   readonly key: string;
 
-  readonly keys: readonly string[];
+  /** Every URL parameter this filter owns, per `filterParams(spec)`. */
+  readonly params: readonly string[];
 
-  readonly kind: FilterKind;
-
-  readonly ui: FilterUiMeta;
-
-  /** undefined = contributes no clause. */
+  /** `undefined` means the filter contributes no clause. */
   readonly toWhereFromParams: (params: RawSearchParams) => TWhere | undefined;
-
-  /** Canonical parameters for this filter, for URL normalisation. */
-  readonly normalize: (
-    params: RawSearchParams,
-  ) => Record<string, string | undefined>;
-
-  readonly isActive: (params: RawSearchParams) => boolean;
 }
 
 export interface PaginationInput {
