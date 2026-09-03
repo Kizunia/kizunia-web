@@ -1,0 +1,35 @@
+/**
+ * Search Core (React) - Entry point
+ *
+ * Entity-agnostic filter interface, built entirely on `FilterSpec`. Nothing
+ * here mentions Competitions, Projects or Blogs, and nothing here imports the
+ * server half of the search core — every module reaches for
+ * `@/lib/search/client` rather than `@/lib/search`.
+ *
+ * A module adopting search renders these components against its own spec list.
+ * The only entity-specific code it needs is the specs themselves, the option
+ * data for any relation filters, and whatever page composition it wants.
+ */
+
+export { useSearchParamsState } from "./use-search-params-state";
+export type {
+  ApplySearchOptions,
+  HistoryMode,
+  SearchParamsState,
+} from "./use-search-params-state";
+
+export { useStagedParams } from "./use-staged-params";
+export type { StagedParamsState } from "./use-staged-params";
+
+export { FilterControl } from "./controls";
+export type { FilterControlProps } from "./controls/types";
+
+export { FilterPopover } from "./filter-popover";
+export { QuickFilterBar } from "./quick-filter-bar";
+export { AdvancedFilterPanel } from "./advanced-filter-panel";
+export { FilterSheet } from "./filter-sheet";
+export { ActiveFilterChips } from "./active-filter-chips";
+export { SortSelect } from "./sort-select";
+export { SearchPagination } from "./search-pagination";
+
+export type { FilterCountsMap, FilterOptionsMap } from "./types";
