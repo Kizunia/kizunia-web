@@ -56,7 +56,9 @@ import {
   type CompetitionFilterScope,
 } from "../../search/layout";
 import {
+  competitionAdminPresetStore,
   competitionPresetStore,
+  COMPETITION_ADMIN_PLATFORM_PRESETS,
   COMPETITION_PLATFORM_PRESETS,
 } from "../../search/presets";
 import {
@@ -76,11 +78,12 @@ export interface CompetitionFiltersProps {
   readonly optionsMap: FilterOptionsMap;
 
   /**
-   * Which spec list and layout this render resolves against.
+   * Which spec list, layout and preset catalogue this render resolves against.
    *
-   * `"admin"` adds the Record state filter ahead of everything else and
-   * clears against `ADMIN_FILTER_SPECS` so "Clear all" also clears it —
-   * `"public"` is exactly this component's behaviour before scope existed.
+   * `"admin"` adds the Record state filter ahead of everything else, clears
+   * against `ADMIN_FILTER_SPECS` so "Clear all" also clears it, and offers its
+   * own presets and saved-preset store — `"public"` is exactly this
+   * component's behaviour before scope existed.
    */
   readonly scope: CompetitionFilterScope;
 }
@@ -118,23 +121,28 @@ export function CompetitionFilters({
   }, [optionsMap]);
 
   /**
-   * Discovery only.
+   * Each scope gets its own catalogue and its own saved-preset store — never
+   * a shared one. An admin's "Deleted" preset means nothing on the public
+   * page, and a visitor's saved search has no place next to Record state, so
+   * the two must never read or write the same collection.
    *
-   * Presets answer "show me something worth looking at", which is a browsing
-   * question — the admin listing is a management surface where a curated
-   * starting point has no meaning yet, and where a saved personal search would
-   * sit oddly next to Record state.
+   * No `default` case: widening `CompetitionFilterScope` with a third scope
+   * makes this a compile error rather than a silent `undefined`.
    */
-  const presets = useMemo<FilterSheetPresets | undefined>(
-    () =>
-      scope === "public"
-        ? {
-            platformPresets: COMPETITION_PLATFORM_PRESETS,
-            store: competitionPresetStore,
-          }
-        : undefined,
-    [scope],
-  );
+  const presets = useMemo<FilterSheetPresets>(() => {
+    switch (scope) {
+      case "public":
+        return {
+          platformPresets: COMPETITION_PLATFORM_PRESETS,
+          store: competitionPresetStore,
+        };
+      case "admin":
+        return {
+          platformPresets: COMPETITION_ADMIN_PLATFORM_PRESETS,
+          store: competitionAdminPresetStore,
+        };
+    }
+  }, [scope]);
 
   return (
     <div className="space-y-3">

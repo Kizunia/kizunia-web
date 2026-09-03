@@ -133,12 +133,15 @@ import {
 import type { RawSearchParams } from "../src/lib/search/types";
 import { allFilterParams } from "../src/lib/search/spec";
 import {
+  COMPETITION_ADMIN_PLATFORM_PRESETS,
+  COMPETITION_ADMIN_PRESET_NAMESPACE,
   COMPETITION_PLATFORM_PRESETS,
   COMPETITION_PRESET_NAMESPACE,
 } from "../src/modules/competitions/search/presets";
 import {
   competitionFilterSpecs,
   COMPETITION_FILTER_SPECS,
+  RECORD_STATE_SPEC,
 } from "../src/modules/competitions/search/ui";
 import { resolveCompetitionFilterLayout } from "../src/modules/competitions/search/layout";
 
@@ -322,6 +325,141 @@ function verifyPlatformMappings(): void {
       place?.includeOnline === false,
     JSON.stringify(place),
   );
+}
+
+/**
+ * The admin catalogue is a separate, complete list of its own.
+ *
+ * Not a filtered view of `COMPETITION_PLATFORM_PRESETS` — a distinct array,
+ * so a stray `platform:deleted-records` token can never resolve as active on
+ * the public page just because the id happens to be enabled somewhere.
+ */
+function verifyAdminPlatformCatalogue(): void {
+  console.log("\n== Admin platform presets are their own catalogue ==");
+
+  report(
+    "two admin platform presets are declared",
+    COMPETITION_ADMIN_PLATFORM_PRESETS.length === 2,
+    `${COMPETITION_ADMIN_PLATFORM_PRESETS.length} declared`,
+  );
+
+  report(
+    "both are enabled",
+    visiblePlatformPresets(COMPETITION_ADMIN_PLATFORM_PRESETS).length === 2,
+  );
+
+  report(
+    "every id is unique and shares no id with the public catalogue",
+    new Set(COMPETITION_ADMIN_PLATFORM_PRESETS.map((p) => p.id)).size === 2 &&
+      COMPETITION_ADMIN_PLATFORM_PRESETS.every(
+        (admin) =>
+          !COMPETITION_PLATFORM_PRESETS.some((pub) => pub.id === admin.id),
+      ),
+  );
+
+  const adminSpecs = [...COMPETITION_FILTER_SPECS, RECORD_STATE_SPEC];
+
+  const owned = new Set(allFilterParams(adminSpecs));
+
+  report(
+    "no admin preset sets a parameter the admin registry does not own",
+    COMPETITION_ADMIN_PLATFORM_PRESETS.every((preset) =>
+      Object.keys(preset.filters).every((key) => owned.has(key)),
+    ),
+  );
+
+  const deleted = COMPETITION_ADMIN_PLATFORM_PRESETS.find(
+    (p) => p.id === "deleted-records",
+  ) as PlatformPreset;
+
+  const deletedParams = apply(
+    {},
+    applyPresetPatch(adminSpecs, "platform", deleted),
+  );
+
+  report(
+    "Deleted decodes back through recordState as [DELETED] alone",
+    JSON.stringify(readFilterValue(RECORD_STATE_SPEC, deletedParams)) ===
+      JSON.stringify(["DELETED"]),
+  );
+
+  const all = COMPETITION_ADMIN_PLATFORM_PRESETS.find(
+    (p) => p.id === "all-records",
+  ) as PlatformPreset;
+
+  const allParams = apply({}, applyPresetPatch(adminSpecs, "platform", all));
+
+  report(
+    "All records decodes back as both ACTIVE and DELETED selected",
+    JSON.stringify(readFilterValue(RECORD_STATE_SPEC, allParams)) ===
+      JSON.stringify(["ACTIVE", "DELETED"]),
+  );
+
+  report(
+    "no admin preset merely reproduces the unfiltered default (ACTIVE alone)",
+    COMPETITION_ADMIN_PLATFORM_PRESETS.every(
+      (preset) => preset.filters.recordState !== "ACTIVE",
+    ),
+  );
+}
+
+/**
+ * Two stores of the same entity, genuinely independent.
+ *
+ * `createCustomPresetStore`'s namespace parameter has anticipated a second
+ * scope since it was written, but nothing had exercised it: this is the first
+ * assertion that two namespaces of the same entity never read or write each
+ * other's collection.
+ */
+function verifyAdminNamespaceIsolation(): void {
+  console.log("\n== Admin presets live in a separate namespace from public ==");
+
+  report(
+    "the admin namespace is distinct from the public one",
+    (COMPETITION_ADMIN_PRESET_NAMESPACE as string) !==
+      (COMPETITION_PRESET_NAMESPACE as string),
+  );
+
+  const publicStorageKey: string = `kizunia:search-presets:${COMPETITION_PRESET_NAMESPACE}`;
+  const adminStorageKey: string = `kizunia:search-presets:${COMPETITION_ADMIN_PRESET_NAMESPACE}`;
+
+  report(
+    "their storage keys are distinct",
+    publicStorageKey !== adminStorageKey,
+  );
+
+  memory.clear();
+
+  const publicStore = createCustomPresetStore(COMPETITION_PRESET_NAMESPACE);
+  const adminStore = createCustomPresetStore(COMPETITION_ADMIN_PRESET_NAMESPACE);
+
+  publicStore.create({ name: "Public one", filters: { modes: "ONLINE" } });
+
+  report(
+    "a preset saved under public does not appear under admin",
+    adminStore.getSnapshot().length === 0,
+  );
+
+  adminStore.create({
+    name: "Admin one",
+    filters: { recordState: "DELETED" },
+  });
+
+  report(
+    "a preset saved under admin does not appear under public",
+    publicStore.getSnapshot().length === 1 &&
+      publicStore.getSnapshot()[0].name === "Public one",
+  );
+
+  report(
+    "each namespace persists independently across a reload",
+    createCustomPresetStore(COMPETITION_PRESET_NAMESPACE).getSnapshot()
+      .length === 1 &&
+      createCustomPresetStore(COMPETITION_ADMIN_PRESET_NAMESPACE).getSnapshot()
+        .length === 1,
+  );
+
+  memory.clear();
 }
 
 // =============================================================================
@@ -1375,6 +1513,8 @@ function verifyExistingBehaviourIntact(): void {
 function main(): void {
   verifyPlatformCatalogue();
   verifyPlatformMappings();
+  verifyAdminPlatformCatalogue();
+  verifyAdminNamespaceIsolation();
   verifyApplyClearsAndMarks();
   verifyRefinementKeepsPreset();
   verifyPresetReplacement();

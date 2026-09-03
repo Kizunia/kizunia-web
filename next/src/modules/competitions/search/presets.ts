@@ -45,7 +45,7 @@ import {
   type PlatformPreset,
 } from "@/lib/search/client";
 
-import { competitionFilterSpecs } from "./ui";
+import { competitionFilterSpecs, RECORD_STATE_SPEC } from "./ui";
 
 /**
  * Pune, as the location provider identifies it.
@@ -146,4 +146,74 @@ export const COMPETITION_PRESET_NAMESPACE = "competitions";
  */
 export const competitionPresetStore = createCustomPresetStore(
   COMPETITION_PRESET_NAMESPACE,
+);
+
+// =============================================================================
+// Admin
+// =============================================================================
+//
+// A second, independent catalogue and store — not a filtered view of the ones
+// above. Admin's saved presets must never appear on the public page or vice
+// versa, and "Deleted"/"All records" answer a moderation question a visitor
+// could never ask, so they have no place in the public list even disabled.
+//
+// `RECORD_STATE_SPEC` is the only filter `ADMIN_FILTER_SPECS` adds over
+// `COMPETITION_FILTER_SPECS` (see `ui.ts`), which is why there are exactly two
+// presets here: `recordState=[ACTIVE]` alone is already the default query, so
+// a preset reproducing it would be a preset of the unfiltered admin list —
+// the same "nothing worth saving" case `hasCapturableFilters` already refuses
+// to let a person bookmark.
+
+/**
+ * Soft-deleted competitions only.
+ *
+ * The one-click path to what an admin restores or audits, without them having
+ * to know `recordState` exists as a control.
+ */
+const deletedRecords: PlatformPreset = {
+  id: "deleted-records",
+  name: "Deleted",
+  description: "Soft-deleted competitions only — for review or restoring.",
+  filters: presetFilters(presetFilter(RECORD_STATE_SPEC, ["DELETED"])),
+  displayOrder: 10,
+  enabled: true,
+  icon: "bookmark",
+};
+
+/**
+ * Every competition regardless of deletion state.
+ *
+ * `deletionClauses` (`search/plan.ts`) applies no restriction only when both
+ * values are selected — this is the one way to ask for that.
+ */
+const allRecords: PlatformPreset = {
+  id: "all-records",
+  name: "All records",
+  description: "Every competition, active and deleted, for a full audit.",
+  filters: presetFilters(
+    presetFilter(RECORD_STATE_SPEC, ["ACTIVE", "DELETED"]),
+  ),
+  displayOrder: 20,
+  enabled: true,
+  icon: "compass",
+};
+
+/** Kizunia's admin platform presets, in declaration order. */
+export const COMPETITION_ADMIN_PLATFORM_PRESETS: readonly PlatformPreset[] = [
+  deletedRecords,
+  allRecords,
+];
+
+/**
+ * Where this browser keeps its saved admin Competition presets.
+ *
+ * A distinct namespace from `COMPETITION_PRESET_NAMESPACE`, following the same
+ * "namespaced by entity" reasoning one level further: this is the same entity
+ * but a different surface, and the two collections must never merge. A future
+ * maintainer scope follows the same pattern: `"competitions:maintainer"`.
+ */
+export const COMPETITION_ADMIN_PRESET_NAMESPACE = "competitions:admin";
+
+export const competitionAdminPresetStore = createCustomPresetStore(
+  COMPETITION_ADMIN_PRESET_NAMESPACE,
 );
