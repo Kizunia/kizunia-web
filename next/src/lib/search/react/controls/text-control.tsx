@@ -8,84 +8,136 @@
  */
 
 import { useEffect, useState, type KeyboardEvent } from "react";
-import { SearchIcon, XIcon } from "lucide-react";
+import { CornerDownLeftIcon, SearchIcon, XIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { Kbd } from "@/components/ui/kbd";
 
 import type { TextAnySpec, TextSpec } from "../../spec";
+import { useDebouncedValue, DEFAULT_DEBOUNCE_MS } from "../use-debounced-value";
 import type { FilterControlProps } from "./types";
 
 /**
- * How long typing pauses before a search is emitted.
+ * The search box.
  *
- * Long enough that ordinary typing produces one request rather than one per
- * character; short enough that a person who has stopped typing does not notice
- * waiting. Each emission is a server round trip, so this number is the
- * difference between a responsive page and a thrashing one.
+ * =============================================================================
+ * Three ways to say "search this"
+ * =============================================================================
+ *
+ * Typing debounces, because each emission is a navigation and a server render,
+ * and one request per character would make the results list thrash under the
+ * reader. Enter and blur bypass the timer entirely: both are unambiguous
+ * statements that the query is finished, and waiting out a delay the person
+ * cannot see would read as the page being slow rather than as it being careful.
+ *
+ * All three paths converge on one emission point, so no combination of them
+ * can produce two searches for one intent — pressing Enter while a debounce is
+ * pending cancels the timer rather than racing it.
  */
-const TYPING_DEBOUNCE_MS = 350;
-
 export function TextControl({
   spec,
   value,
   onChange,
   disabled,
 }: FilterControlProps<TextSpec>) {
-  const [draft, setDraft] = useState(value ?? "");
+  const applied = value ?? "";
+
+  const [draft, setDraft] = useState(applied);
+
+  const { value: settled, flush } = useDebouncedValue(
+    draft,
+    DEFAULT_DEBOUNCE_MS,
+  );
 
   // Re-sync when the applied value changes from outside — a chip removed, a
   // Clear all, or the back button. Without this the input would keep showing
   // text that is no longer filtering anything.
   useEffect(() => {
-    setDraft(value ?? "");
-  }, [value]);
+    setDraft(applied);
+  }, [applied]);
 
+  // The single emission point. Every path — timer, Enter, blur, the clear
+  // button — reaches the search through this one effect, which is what keeps
+  // them from each firing a navigation of their own.
   useEffect(() => {
-    const current = value ?? "";
-
-    if (draft === current) {
+    if (settled === applied) {
       return;
     }
 
-    const timer = setTimeout(() => {
-      onChange(draft.trim().length > 0 ? draft : undefined);
-    }, TYPING_DEBOUNCE_MS);
-
-    return () => clearTimeout(timer);
+    onChange(settled.trim().length > 0 ? settled : undefined);
     // `onChange` is intentionally excluded: it is recreated on every render by
     // callers that close over the current params, and depending on it would
-    // restart the timer continuously and never fire.
+    // re-run this continuously.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, value]);
+  }, [settled, applied]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      // Not a form submission — there is no form. Prevented so a wrapping
+      // dialog or sheet does not interpret it as a confirm.
+      event.preventDefault();
+      flush();
+      return;
+    }
+
+    // Escape abandons the edit and restores what is actually applied, which is
+    // the only way back if someone types over a query they wanted to keep.
+    if (event.key === "Escape") {
+      setDraft(applied);
+    }
+  };
+
+  const isDirty = draft !== applied;
 
   return (
-    <div className="relative">
-      <SearchIcon
-        className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden
-      />
+    <InputGroup className="h-9">
+      <InputGroupAddon align="inline-start">
+        <SearchIcon aria-hidden />
+      </InputGroupAddon>
 
-      <Input
+      <InputGroupInput
         value={draft}
         disabled={disabled}
         onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={handleKeyDown}
+        // Leaving the field is a statement that the query is finished, so it
+        // searches immediately rather than waiting out the timer.
+        onBlur={flush}
         placeholder={spec.placeholder ?? spec.label}
         aria-label={spec.label}
-        className="pl-9 pr-9"
       />
 
-      {draft.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setDraft("")}
-          aria-label={`Clear ${spec.label.toLowerCase()}`}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <XIcon className="size-3.5" />
-        </button>
-      )}
-    </div>
+      <InputGroupAddon align="inline-end">
+        {/* Shown only while a keystroke is still pending, so the hint appears
+            exactly when it is actionable and never as permanent decoration. */}
+        {isDirty && !disabled && (
+          <Kbd className="hidden sm:inline-flex" aria-hidden>
+            <CornerDownLeftIcon className="size-3" />
+          </Kbd>
+        )}
+
+        {draft.length > 0 && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              setDraft("");
+              flush();
+            }}
+            aria-label={`Clear ${spec.label.toLowerCase()}`}
+            className="rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        )}
+      </InputGroupAddon>
+    </InputGroup>
   );
 }
 

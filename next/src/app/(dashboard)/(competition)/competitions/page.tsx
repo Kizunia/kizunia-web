@@ -1,8 +1,17 @@
 import Link from "next/link";
+import { MapPinOffIcon, SearchXIcon, TriangleAlertIcon } from "lucide-react";
 
 import PageWrapper from "@/components/page-wrapper";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { AppError } from "@/lib/errors";
 import type { RawSearchParams } from "@/lib/search";
 import { clearAllFiltersPatch, buildSearchHref } from "@/lib/search";
@@ -156,25 +165,25 @@ function SearchFailure({
   }
 
   return (
-    <Card>
-      <CardContent className="flex flex-col items-center gap-4 py-14 text-center">
-        <div className="space-y-1.5">
-          <p className="font-medium">{message}</p>
+    <Alert variant="destructive">
+      <TriangleAlertIcon />
 
-          <p className="text-sm text-muted-foreground">
-            Your filters are still applied. Try again, or clear them to browse
-            everything.
-          </p>
-        </div>
+      <AlertTitle>{message}</AlertTitle>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button asChild variant="outline">
+      <AlertDescription className="gap-3">
+        <p>
+          Your filters are still applied. Try again, or clear them to browse
+          everything.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm" variant="outline">
             {/* A plain link so the retry is a fresh server render, not a
                 client-side replay of the request that just failed. */}
             <Link href={buildSearchHref(PATHNAME, params)}>Try again</Link>
           </Button>
 
-          <Button asChild>
+          <Button asChild size="sm" variant="ghost">
             <Link
               href={buildSearchHref(
                 PATHNAME,
@@ -186,8 +195,8 @@ function SearchFailure({
             </Link>
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -206,22 +215,26 @@ function EmptyResults({ params }: { params: RawSearchParams }) {
   );
 
   return (
-    <Card>
-      <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
-        <div className="space-y-1.5">
-          <p className="font-medium">
-            {hasFilters
-              ? "No competitions match these filters"
-              : "No competitions yet"}
-          </p>
+    <Empty className="border">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          {hasFilters ? <SearchXIcon /> : <MapPinOffIcon />}
+        </EmptyMedia>
 
-          <p className="max-w-sm text-sm text-muted-foreground">
-            {hasFilters
-              ? "Try removing a filter, widening the dates, or including online competitions."
-              : "Nothing has been published here yet. Check back soon, or suggest a competition you know about."}
-          </p>
-        </div>
+        <EmptyTitle>
+          {hasFilters
+            ? "No competitions match these filters"
+            : "No competitions yet"}
+        </EmptyTitle>
 
+        <EmptyDescription>
+          {hasFilters
+            ? "Try removing a filter, widening the dates, or including online competitions."
+            : "Nothing has been published here yet. Check back soon, or suggest a competition you know about."}
+        </EmptyDescription>
+      </EmptyHeader>
+
+      <EmptyContent>
         {hasFilters ? (
           <Button asChild variant="outline">
             <Link href={buildSearchHref(PATHNAME, params, clearPatch)}>
@@ -235,7 +248,7 @@ function EmptyResults({ params }: { params: RawSearchParams }) {
             </Link>
           </Button>
         )}
-      </CardContent>
-    </Card>
+      </EmptyContent>
+    </Empty>
   );
 }

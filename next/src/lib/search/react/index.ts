@@ -18,6 +18,9 @@ export type {
   SearchParamsState,
 } from "./use-search-params-state";
 
+export { useDebouncedValue, DEFAULT_DEBOUNCE_MS } from "./use-debounced-value";
+export type { DebouncedValue } from "./use-debounced-value";
+
 export { useStagedParams } from "./use-staged-params";
 export type { StagedParamsState } from "./use-staged-params";
 

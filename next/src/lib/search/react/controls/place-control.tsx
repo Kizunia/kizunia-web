@@ -31,10 +31,13 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, Loader2Icon, MapPinIcon, XIcon } from "lucide-react";
+import { CheckIcon, MapPinIcon, XIcon } from "lucide-react";
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -203,46 +206,48 @@ export function PlaceControl({
           />
 
           {searching && (
-            <Loader2Icon
-              className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
-              aria-hidden
-            />
+            <Spinner className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           )}
         </div>
       )}
 
+      {/* Fixed height, not `max-h-*` — see the note in
+          relation-multi-control.tsx for why the two don't behave the same
+          with Radix's ScrollArea. */}
       {!value && suggestions.length > 0 && (
-        <ul className="max-h-56 overflow-y-auto rounded-md border">
-          {suggestions.map((suggestion) => (
-            <li key={suggestion.providerPlaceId}>
-              <button
-                type="button"
-                onClick={() => select(suggestion)}
-                className={cn(
-                  "flex w-full items-start gap-2 px-3 py-2 text-left transition-colors",
-                  "hover:bg-muted focus-visible:bg-muted focus-visible:outline-none",
-                )}
-              >
-                <CheckIcon
-                  className="mt-0.5 size-3.5 shrink-0 opacity-0"
-                  aria-hidden
-                />
-
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium">
-                    {suggestion.primaryText}
-                  </span>
-
-                  {suggestion.secondaryText && (
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {suggestion.secondaryText}
-                    </span>
+        <ScrollArea className="h-56 rounded-md border">
+          <ul>
+            {suggestions.map((suggestion) => (
+              <li key={suggestion.providerPlaceId}>
+                <button
+                  type="button"
+                  onClick={() => select(suggestion)}
+                  className={cn(
+                    "flex w-full items-start gap-2 px-3 py-2 text-left transition-colors",
+                    "hover:bg-muted focus-visible:bg-muted focus-visible:outline-none",
                   )}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+                >
+                  <CheckIcon
+                    className="mt-0.5 size-3.5 shrink-0 opacity-0"
+                    aria-hidden
+                  />
+
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">
+                      {suggestion.primaryText}
+                    </span>
+
+                    {suggestion.secondaryText && (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {suggestion.secondaryText}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </ScrollArea>
       )}
 
       {!value &&
@@ -255,26 +260,30 @@ export function PlaceControl({
         )}
 
       {value && (
-        <div className="flex items-start justify-between gap-3 border-t pt-3">
-          <Label
-            htmlFor={`${spec.key}-include-online`}
-            className="cursor-pointer text-sm font-normal"
-          >
-            {spec.includeOnlineLabel}
+        <>
+          <Separator />
 
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              Online competitions have no location, so they are excluded unless
-              you ask for them.
-            </span>
-          </Label>
+          <div className="flex items-start justify-between gap-3">
+            <Label
+              htmlFor={`${spec.key}-include-online`}
+              className="cursor-pointer text-sm font-normal"
+            >
+              {spec.includeOnlineLabel}
 
-          <Switch
-            id={`${spec.key}-include-online`}
-            checked={value.includeOnline}
-            disabled={disabled}
-            onCheckedChange={setIncludeOnline}
-          />
-        </div>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Online competitions have no location, so they are excluded
+                unless you ask for them.
+              </span>
+            </Label>
+
+            <Switch
+              id={`${spec.key}-include-online`}
+              checked={value.includeOnline}
+              disabled={disabled}
+              onCheckedChange={setIncludeOnline}
+            />
+          </div>
+        </>
       )}
     </div>
   );
