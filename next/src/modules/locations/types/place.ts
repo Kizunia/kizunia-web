@@ -78,12 +78,18 @@ export interface PlaceContainingArea {
 }
 
 /**
- * A fully resolved place — everything ingestion needs, in provider-neutral form.
+ * Everything needed to derive a place's *identity*, and nothing more.
  *
- * Once this has been normalized into a Location and its SearchAreas, the
- * competition no longer depends on the provider in any way.
+ * This is what Competition search resolves. Deriving selected-place identities
+ * reads only `types` and `addressComponents` (plus `displayName` for the
+ * self-consistency check), so requesting containment evidence on this path
+ * would bill a fan-out of provider lookups whose result is discarded.
+ *
+ * Kept as a distinct type rather than an optional field so the two paths are
+ * impossible to confuse: a function needing containment asks for
+ * `PlaceDetails`, and a search-resolved place will not type-check as one.
  */
-export interface PlaceDetails {
+export interface PlaceIdentityDetails {
   providerPlaceId: string;
 
   displayName: string;
@@ -98,7 +104,16 @@ export interface PlaceDetails {
   longitude: number | null;
 
   addressComponents: PlaceAddressComponent[];
+}
 
+/**
+ * A fully resolved place — everything ingestion needs, in provider-neutral form.
+ *
+ * Extends the identity shape with the containment evidence only ingestion
+ * uses. Once this has been normalized into a Location and its SearchAreas, the
+ * competition no longer depends on the provider in any way.
+ */
+export interface PlaceDetails extends PlaceIdentityDetails {
   containingAreas: PlaceContainingArea[];
 }
 
@@ -130,32 +145,93 @@ export interface SearchAreaCandidate {
 }
 
 /**
+ * A classified provider failure.
+ *
+ * Carries the transport's own status rather than a message the caller has to
+ * pattern-match. Classifying by `error.message.includes("404")` — which this
+ * replaced — couples two layers through prose and cannot tell a 429 from a
+ * 500, which is the one distinction that changes what the caller should do.
+ */
+export type PlaceProviderErrorKind =
+  /** The id is not resolvable. Permanent for this id. */
+  | "NOT_FOUND"
+  /** Quota or throttling. Transient, but retrying immediately makes it worse. */
+  | "RATE_LIMITED"
+  /** Transport failure or provider-side error. Transient. */
+  | "UNAVAILABLE"
+  /** A success response whose payload cannot be used. */
+  | "MALFORMED";
+
+export class PlaceProviderError extends Error {
+  readonly kind: PlaceProviderErrorKind;
+
+  /** HTTP status where one was received; `null` for transport failures. */
+  readonly status: number | null;
+
+  constructor(params: {
+    kind: PlaceProviderErrorKind;
+    message: string;
+    status?: number | null;
+    cause?: unknown;
+  }) {
+    super(params.message, { cause: params.cause });
+
+    this.name = "PlaceProviderError";
+    this.kind = params.kind;
+    this.status = params.status ?? null;
+  }
+}
+
+/**
  * A source of place resolution.
  *
- * Two steps rather than one: autocomplete is cheap and runs per keystroke,
- * while `resolve` is the expensive call made once, after the admin has actually
- * chosen. Collapsing them into a single `search()` would either bill a full
- * details lookup for every keystroke or leave ingestion without the containment
- * data it depends on.
+ * Three operations rather than two, because the two *resolve* paths have
+ * genuinely different needs and conflating them was costing real money:
+ *
+ *   - `autocomplete` is cheap and runs per keystroke.
+ *   - `resolveIdentity` is what Competition search calls. It asks for the
+ *     minimum needed to derive identity keys and performs no containment
+ *     fan-out.
+ *   - `resolveForIngestion` is what location materialization calls. It may
+ *     issue additional lookups to verify containment evidence, because those
+ *     discovery paths are written once and read forever.
+ *
+ * The split is expressed in the return types, not in a flag: a boolean would
+ * put the expensive default one forgotten argument away, and the whole point
+ * is that the expensive path should be impossible to enter by accident.
  */
 export interface PlaceProvider {
   readonly name: LocationProvider;
 
-  autocomplete(
-    query: string,
-    options: {
-      limit: number;
-      signal: AbortSignal;
-      /** Groups keystrokes into one billed session where the provider supports it. */
-      sessionToken?: string;
-    },
-  ): Promise<PlaceSuggestion[]>;
+  autocomplete(params: {
+    query: string;
+    limit: number;
+    signal: AbortSignal;
+    /** Groups keystrokes into one billed session where the provider supports it. */
+    sessionToken?: string;
+  }): Promise<PlaceSuggestion[]>;
 
-  resolve(
-    providerPlaceId: string,
-    options: {
-      signal: AbortSignal;
-      sessionToken?: string;
-    },
-  ): Promise<PlaceDetails>;
+  /**
+   * Minimal resolution for identity derivation. **No containment fan-out.**
+   *
+   * @throws PlaceProviderError classified for the caller.
+   */
+  resolveIdentity(params: {
+    placeId: string;
+    signal: AbortSignal;
+    sessionToken?: string;
+  }): Promise<PlaceIdentityDetails>;
+
+  /**
+   * Full resolution including verified containing areas.
+   *
+   * Costs additional provider lookups by design. Only ingestion should call it.
+   *
+   * @throws PlaceProviderError classified for the caller.
+   */
+  resolveForIngestion(params: {
+    placeId: string;
+    signal: AbortSignal;
+    sessionToken?: string;
+  }): Promise<PlaceDetails>;
 }

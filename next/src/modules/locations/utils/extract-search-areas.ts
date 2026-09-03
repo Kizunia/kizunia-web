@@ -7,6 +7,7 @@ import {
 import type {
   PlaceAddressComponent,
   PlaceDetails,
+  PlaceIdentityDetails,
   SearchAreaCandidate,
 } from "../types/place";
 import { contextualIdentityKey, providerIdentityKey } from "./identity";
@@ -17,8 +18,19 @@ import { contextualIdentityKey, providerIdentityKey } from "./identity";
  * Cached place resolutions record the version that produced them, so changing
  * extraction logically invalidates every cached entry instead of leaving stale
  * keys that silently stop matching what ingestion now writes.
+ *
+ * Version history:
+ *   1  initial rules
+ *   2  explicit component rank table replacing array-order parent context
+ *   3  Unicode-aware identity normalization, and a pinned provider language for
+ *      every identity-bearing lookup. Both change the bytes of component keys,
+ *      so every cached resolution produced under 2 is logically invalid.
+ *
+ * NOTE: `SearchArea.identityKey` rows written by ingestion carry no version of
+ * their own, so bumping this invalidates the *read* side only. Stored rows
+ * still hold keys built under the previous rules until they are re-ingested.
  */
-export const EXTRACTION_VERSION = 2;
+export const EXTRACTION_VERSION = 3;
 
 /**
  * Geographic component types that may become a discovery path, ranked
@@ -204,12 +216,22 @@ export function extractSearchAreaCandidates(
 
     const rank = COMPONENT_RANK[type];
 
+    const identityKey = contextualIdentityKey({
+      name: component.longName,
+      providerKind: type,
+      parentContext: parentContextFor(details.addressComponents, rank),
+    });
+
+    // A component whose name (or whose ancestry) cannot be normalized has no
+    // safe identity. Emitting a key with an empty segment would let two
+    // different places collide, so the component is dropped instead: one fewer
+    // discovery path, rather than a wrong one.
+    if (identityKey === null) {
+      continue;
+    }
+
     candidates.push({
-      identityKey: contextualIdentityKey({
-        name: component.longName,
-        providerKind: type,
-        parentContext: parentContextFor(details.addressComponents, rank),
-      }),
+      identityKey,
       displayName: component.longName,
       providerKind: type,
       contextLabel: contextLabelFor(details.addressComponents, rank),
@@ -244,7 +266,7 @@ export function extractSearchAreaCandidates(
  * only ever seen as address components, without merging any database rows.
  */
 export function extractSelectedPlaceIdentities(
-  details: PlaceDetails,
+  details: PlaceIdentityDetails,
   provider: LocationProvider = LocationProvider.GOOGLE,
 ): string[] {
   const identities = [providerIdentityKey(provider, details.providerPlaceId)];
@@ -268,7 +290,7 @@ export function extractSelectedPlaceIdentities(
  * alone — which is always correct, just narrower.
  */
 function selfComponentIdentity(
-  details: PlaceDetails,
+  details: PlaceIdentityDetails,
   provider: LocationProvider,
 ): string | null {
   void provider;
