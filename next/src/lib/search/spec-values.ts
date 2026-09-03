@@ -1,0 +1,537 @@
+/**
+ * Search Core - Reading and writing filter values (CLIENT-SAFE)
+ *
+ * =============================================================================
+ * Role
+ * =============================================================================
+ *
+ * Everything a filter control needs in order to work, without knowing which
+ * filter it is rendering: read the current value out of the URL, write a new
+ * one back, report whether the filter is active, and describe its active
+ * values as removable chips.
+ *
+ * Every function here is pure and total. Given a malformed URL they return
+ * "no value" rather than throwing — a shared or hand-edited link must render
+ * a usable page, never an error boundary.
+ *
+ * =============================================================================
+ * Relationship to the server decoders
+ * =============================================================================
+ *
+ * The server registry decodes the same parameters independently, in
+ * `filters/*.ts`. That duplication is intentional and bounded: the server
+ * decoder produces a Prisma clause and must run where Prisma exists, while
+ * this one produces a value a React control can bind to and must run in the
+ * browser.
+ *
+ * What keeps them consistent is that both are driven by the same `FilterSpec`
+ * and both funnel through the same normalisation guards, so the *set of
+ * accepted inputs* is defined once. A value this module reads is always a
+ * value the server would have decoded identically, and a value it writes is
+ * always one the server can read back. The round-trip property is asserted by
+ * the search invariant suite rather than left to inspection.
+ */
+
+import {
+  normalizeInteger,
+  normalizeList,
+  normalizeScalar,
+} from "./guards";
+import type { ParamPatch } from "./params";
+import {
+  filterParams,
+  type AnyFilterValue,
+  type DateRangeValue,
+  type FilterOption,
+  type FilterSpec,
+  type PlaceValue,
+  type ValueOfSpec,
+} from "./spec";
+import type { RawSearchParams } from "./types";
+
+// =============================================================================
+// Reading
+// =============================================================================
+
+/**
+ * Validates an ISO date string without converting it to a `Date`.
+ *
+ * The value stays a string throughout the client layer: converting to `Date`
+ * and back would silently reinterpret a bare `2026-01-01` in the viewer's
+ * timezone, so a range set in one place would mean something different when
+ * the link was opened in another.
+ */
+function readIsoDate(raw: string | string[] | undefined): string | undefined {
+  const value = normalizeScalar(raw);
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return Number.isNaN(new Date(value).getTime()) ? undefined : value;
+}
+
+function readDateRange(
+  params: RawSearchParams,
+  spec: FilterSpec,
+): DateRangeValue | undefined {
+  const [fromKey, toKey] = filterParams(spec);
+
+  const from = fromKey ? readIsoDate(params[fromKey]) : undefined;
+  const to = toKey ? readIsoDate(params[toKey]) : undefined;
+
+  if (from === undefined && to === undefined) {
+    return undefined;
+  }
+
+  return { from, to };
+}
+
+function readPlace(
+  params: RawSearchParams,
+  spec: Extract<FilterSpec, { kind: "place" }>,
+): PlaceValue | undefined {
+  const id = normalizeScalar(params[spec.idParam]);
+
+  // No place means no location filter, regardless of the other two
+  // parameters. A stray `includeOnline=true` with nothing selected must not
+  // become a silent "online only" filter the user never asked for.
+  if (id === undefined) {
+    return undefined;
+  }
+
+  return {
+    id,
+
+    label: normalizeScalar(params[spec.labelParam]),
+
+    includeOnline:
+      normalizeScalar(params[spec.includeOnlineParam])?.toLowerCase() === "true",
+  };
+}
+
+/**
+ * Internal, untyped read. One branch per kind.
+ *
+ * The public `readFilterValue` narrows this result against the spec's kind.
+ */
+function readAny(
+  spec: FilterSpec,
+  params: RawSearchParams,
+): AnyFilterValue | undefined {
+  switch (spec.kind) {
+    case "enum-multi": {
+      const values = normalizeList(params[spec.key], { case: "upper" });
+
+      if (!values) {
+        return undefined;
+      }
+
+      // Values outside the declared option set are dropped rather than
+      // rendered. A removed enum member lingering in an old bookmark should
+      // narrow to what still exists, not display a checkbox for a value the
+      // server will ignore.
+      const allowed = new Set(spec.options.map((option) => option.value));
+
+      const kept = values.filter((value) => allowed.has(value));
+
+      return kept.length > 0 ? kept : undefined;
+    }
+
+    case "relation-multi":
+      // Not validated against an option list: taxonomies are open sets loaded
+      // separately, and a slug this page has not loaded options for is still a
+      // legitimate filter the server will honour.
+      return normalizeList(params[spec.key], { case: "lower" });
+
+    case "text-any":
+      return normalizeList(params[spec.key]);
+
+    case "text":
+      return normalizeScalar(params[spec.key]);
+
+    case "number-bound": {
+      const value = normalizeInteger(params[spec.key]);
+
+      if (value === undefined) {
+        return undefined;
+      }
+
+      if (spec.min !== undefined && value < spec.min) return undefined;
+      if (spec.max !== undefined && value > spec.max) return undefined;
+
+      return value;
+    }
+
+    case "date-range":
+      return readDateRange(params, spec);
+
+    case "boolean":
+      return normalizeScalar(params[spec.key])?.toLowerCase() === "true"
+        ? true
+        : undefined;
+
+    case "place":
+      return readPlace(params, spec);
+  }
+}
+
+/**
+ * Reads one filter's value out of the current parameters.
+ *
+ * Returns `undefined` when the filter is absent, empty, or carries a value
+ * this spec cannot accept.
+ *
+ * The single cast below is the boundary between the switch above — which
+ * TypeScript cannot correlate with the generic — and the `FilterValueOf`
+ * mapping that makes every call site type-safe. It is confined to this one
+ * function precisely so no control component needs one.
+ */
+export function readFilterValue<TSpec extends FilterSpec>(
+  spec: TSpec,
+  params: RawSearchParams,
+): ValueOfSpec<TSpec> | undefined {
+  return readAny(spec, params) as ValueOfSpec<TSpec> | undefined;
+}
+
+/** Whether a filter currently contributes anything to the search. */
+export function isFilterActive(
+  spec: FilterSpec,
+  params: RawSearchParams,
+): boolean {
+  return readAny(spec, params) !== undefined;
+}
+
+/** How many of `specs` are active. Drives the "Filters (3)" badge. */
+export function activeFilterCount(
+  specs: readonly FilterSpec[],
+  params: RawSearchParams,
+): number {
+  return specs.reduce(
+    (total, spec) => (isFilterActive(spec, params) ? total + 1 : total),
+    0,
+  );
+}
+
+// =============================================================================
+// Writing
+// =============================================================================
+
+/**
+ * Builds the patch that sets a filter to `value`, or clears it when `value`
+ * is `undefined`.
+ *
+ * Always names *every* parameter the filter owns, setting the unused ones to
+ * `undefined`. That is what stops a partial write from stranding a parameter:
+ * clearing a date range must remove both bounds, and clearing a place must
+ * remove its label and its online toggle too, or the URL keeps fragments of a
+ * filter that is no longer applied.
+ */
+export function writeFilterValue<TSpec extends FilterSpec>(
+  spec: TSpec,
+  value: ValueOfSpec<TSpec> | undefined,
+): ParamPatch {
+  const cleared = clearFilterPatch(spec);
+
+  if (value === undefined) {
+    return cleared;
+  }
+
+  switch (spec.kind) {
+    case "enum-multi":
+    case "relation-multi":
+    case "text-any": {
+      const values = value as readonly string[];
+
+      return {
+        ...cleared,
+        [spec.key]: values.length > 0 ? values.join(",") : undefined,
+      };
+    }
+
+    case "text": {
+      const text = (value as string).trim();
+
+      return { ...cleared, [spec.key]: text.length > 0 ? text : undefined };
+    }
+
+    case "number-bound":
+      return { ...cleared, [spec.key]: String(value as number) };
+
+    case "date-range": {
+      const range = value as DateRangeValue;
+      const [fromKey, toKey] = filterParams(spec);
+
+      // An empty range is a cleared range, not a range with no bounds.
+      if (!range.from && !range.to) {
+        return cleared;
+      }
+
+      return {
+        ...cleared,
+        ...(fromKey ? { [fromKey]: range.from } : {}),
+        ...(toKey ? { [toKey]: range.to } : {}),
+      };
+    }
+
+    case "boolean":
+      return { ...cleared, [spec.key]: "true" };
+
+    case "place": {
+      const place = value as PlaceValue;
+
+      return {
+        ...cleared,
+        [spec.idParam]: place.id,
+        [spec.labelParam]: place.label,
+        // Written only when true: `false` is the default, and encoding a
+        // default produces a second URL for one view.
+        [spec.includeOnlineParam]: place.includeOnline ? "true" : undefined,
+      };
+    }
+  }
+}
+
+/** The patch that removes every parameter a filter owns. */
+export function clearFilterPatch(spec: FilterSpec): ParamPatch {
+  const patch: Record<string, undefined> = {};
+
+  for (const param of filterParams(spec)) {
+    patch[param] = undefined;
+  }
+
+  return patch;
+}
+
+/**
+ * The patch that clears every registered filter.
+ *
+ * Only removes parameters the registry actually owns, so an unrelated query
+ * parameter — a campaign tag, a referrer — survives a Clear all. Pagination is
+ * removed too, since the first page of an unfiltered list is where the reset
+ * should land.
+ */
+export function clearAllFiltersPatch(
+  specs: readonly FilterSpec[],
+): ParamPatch {
+  const patch: Record<string, undefined> = {};
+
+  for (const spec of specs) {
+    for (const param of filterParams(spec)) {
+      patch[param] = undefined;
+    }
+  }
+
+  return patch;
+}
+
+// =============================================================================
+// Chips
+// =============================================================================
+
+/**
+ * One removable token in the active-filter bar.
+ *
+ * Chips are per *value*, not per filter: a user who selected three categories
+ * gets three chips and can drop one without losing the others. A per-filter
+ * chip would make removing one value a two-step trip back into the picker.
+ */
+export interface FilterChip {
+  /** Stable across renders; suitable as a React key. */
+  readonly id: string;
+
+  readonly filterKey: string;
+
+  /** The filter's name, e.g. "Mode". Used for grouping and screen readers. */
+  readonly filterLabel: string;
+
+  /** The value's own label, e.g. "Online". */
+  readonly label: string;
+
+  /** The patch that removes exactly this chip and nothing else. */
+  readonly remove: ParamPatch;
+}
+
+export interface ChipContext {
+  /**
+   * Labels for relation options, keyed by filter key and then by value.
+   *
+   * Supplied by the page, which has already loaded the taxonomy in order to
+   * render the pickers. Without it a category chip would read "ai" instead of
+   * "Artificial Intelligence"; with it, no extra request is needed.
+   */
+  readonly optionLabels?: Readonly<
+    Record<string, Readonly<Record<string, string>>>
+  >;
+
+  /**
+   * Formats an ISO date for display.
+   *
+   * Injected rather than chosen here so the caller controls locale, and so
+   * server and client render byte-identical text. Calling `toLocaleDateString`
+   * inside this module would produce a hydration mismatch whenever the server
+   * and the browser disagree about locale or timezone.
+   */
+  readonly formatDate?: (iso: string) => string;
+}
+
+/** Deterministic, locale-free fallback: the date part of the ISO string. */
+function defaultFormatDate(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+function labelForValue(
+  spec: FilterSpec,
+  value: string,
+  context: ChipContext,
+): string {
+  if (spec.kind === "enum-multi") {
+    return (
+      spec.options.find((option: FilterOption) => option.value === value)
+        ?.label ?? value
+    );
+  }
+
+  return context.optionLabels?.[spec.key]?.[value] ?? value;
+}
+
+function withPrefix(spec: FilterSpec, label: string): string {
+  return spec.chipPrefix ? `${spec.chipPrefix} ${label}` : label;
+}
+
+/**
+ * Describes one filter's active values as chips.
+ *
+ * Returns an empty array when the filter is inactive, so a caller can flat-map
+ * across every spec without branching.
+ */
+export function describeFilterChips(
+  spec: FilterSpec,
+  params: RawSearchParams,
+  context: ChipContext = {},
+): readonly FilterChip[] {
+  const value = readAny(spec, params);
+
+  if (value === undefined) {
+    return [];
+  }
+
+  const base = {
+    filterKey: spec.key,
+    filterLabel: spec.label,
+  } as const;
+
+  switch (spec.kind) {
+    case "enum-multi":
+    case "relation-multi":
+    case "text-any": {
+      const values = value as readonly string[];
+
+      return values.map((entry) => ({
+        ...base,
+        id: `${spec.key}:${entry}`,
+        label: withPrefix(spec, labelForValue(spec, entry, context)),
+
+        // Removing one value rewrites the parameter with the rest, rather
+        // than clearing the filter outright.
+        remove: writeFilterValue(
+          spec,
+          values.filter(
+            (candidate) => candidate !== entry,
+          ) as ValueOfSpec<typeof spec>,
+        ),
+      }));
+    }
+
+    case "text":
+      return [
+        {
+          ...base,
+          id: spec.key,
+          label: withPrefix(spec, `“${value as string}”`),
+          remove: clearFilterPatch(spec),
+        },
+      ];
+
+    case "number-bound": {
+      const unit = spec.unit ? ` ${spec.unit}` : "";
+
+      return [
+        {
+          ...base,
+          id: spec.key,
+          label: withPrefix(spec, `${value as number}${unit}`),
+          remove: clearFilterPatch(spec),
+        },
+      ];
+    }
+
+    case "date-range": {
+      const range = value as DateRangeValue;
+      const format = context.formatDate ?? defaultFormatDate;
+
+      const text =
+        range.from && range.to
+          ? `${format(range.from)} – ${format(range.to)}`
+          : range.from
+            ? `from ${format(range.from)}`
+            : `until ${format(range.to as string)}`;
+
+      return [
+        {
+          ...base,
+          id: spec.key,
+          label: withPrefix(spec, text),
+          remove: clearFilterPatch(spec),
+        },
+      ];
+    }
+
+    case "boolean":
+      return [
+        {
+          ...base,
+          id: spec.key,
+          label: spec.label,
+          remove: clearFilterPatch(spec),
+        },
+      ];
+
+    case "place": {
+      const place = value as PlaceValue;
+
+      const chips: FilterChip[] = [
+        {
+          ...base,
+          id: spec.idParam,
+          // A URL that lost its label still produces a usable, removable chip.
+          label: withPrefix(spec, place.label ?? "Selected place"),
+          remove: clearFilterPatch(spec),
+        },
+      ];
+
+      // The online toggle is a separate chip because it is separately
+      // removable: a user narrowing to "Pune only" should not have to clear
+      // the place and re-pick it.
+      if (place.includeOnline) {
+        chips.push({
+          ...base,
+          id: spec.includeOnlineParam,
+          label: spec.includeOnlineLabel,
+          remove: { [spec.includeOnlineParam]: undefined },
+        });
+      }
+
+      return chips;
+    }
+  }
+}
+
+/** Every active chip across every filter, in registry order. */
+export function describeAllChips(
+  specs: readonly FilterSpec[],
+  params: RawSearchParams,
+  context: ChipContext = {},
+): readonly FilterChip[] {
+  return specs.flatMap((spec) => describeFilterChips(spec, params, context));
+}
