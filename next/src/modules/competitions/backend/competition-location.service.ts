@@ -314,7 +314,11 @@ export class CompetitionLocationService {
     const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
 
     try {
-      const details = await provider.resolve(input.providerPlaceId, {
+      // The ingestion path deliberately: it is what verifies containment, and
+      // those discovery paths are written once here and then read by every
+      // subsequent search. Competition search uses `resolveIdentity` instead.
+      const details = await provider.resolveForIngestion({
+        placeId: input.providerPlaceId,
         signal: controller.signal,
       });
 

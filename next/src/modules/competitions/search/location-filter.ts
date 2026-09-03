@@ -68,7 +68,7 @@ interface ResolvedPlace {
 async function resolvePlace(
   value: PlaceValue,
 ): Promise<FilterResolution<ResolvedPlace>> {
-  const resolution = await PlaceMatchService.resolve(value.id);
+  const resolution = await PlaceMatchService.resolve({ placeId: value.id });
 
   if (resolution.status === "RESOLUTION_FAILED") {
     return resolutionFailed(resolution.reason);

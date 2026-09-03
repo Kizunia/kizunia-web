@@ -1385,12 +1385,31 @@ model Content {
 /// with keys that match nothing, and starts returning results the moment a
 /// competition is ingested there — with no invalidation step. Caching matched
 /// ids instead would freeze that emptiness in place.
+/// Why a cached resolution exists.
+///
+/// The two states are not degrees of the same thing. RESOLVED with no identity
+/// keys means "this place is real and nothing is stored under it" — a correct
+/// answer that starts returning results once something is ingested there.
+/// NOT_FOUND means the provider refused the id outright, and is cached only so
+/// a permanently dead id stops costing a billed lookup on every request.
+///
+/// Transient failures are deliberately absent: caching one would freeze an
+/// outage into a permanent wrong answer.
+enum PlaceResolutionStatus {
+  RESOLVED
+  NOT_FOUND
+}
+
 model PlaceResolution {
   /// Provider place id, e.g. a Google place id.
   placeId String @id
 
+  /// Whether this row records a successful resolution or a permanent miss.
+  status PlaceResolutionStatus @default(RESOLVED)
+
   /// Identities representing the selected place *itself*, never its ancestors.
-  /// May legitimately be empty for a place nothing is stored under.
+  /// May legitimately be empty for a place nothing is stored under, and is
+  /// always empty when `status` is NOT_FOUND.
   identityKeys String[]
 
   displayName  String?

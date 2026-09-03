@@ -92,7 +92,8 @@ export class PlaceController {
       const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
 
       try {
-        const suggestions = await provider.autocomplete(q, {
+        const suggestions = await provider.autocomplete({
+          query: q,
           limit: max,
           signal: controller.signal,
           sessionToken,
