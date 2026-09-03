@@ -45,6 +45,18 @@ export class CompetitionPermissionResolver {
     };
   }
 
+  /**
+   * Whether the current actor may restore this competition.
+   *
+   * Kept separate from `resolve()`'s `CompetitionPermissionsDTO` rather than
+   * added to it — that DTO is shared with the management scope, which never
+   * returns a deleted row for this to be meaningful on. Admin-scope callers
+   * use this directly; see `CompetitionAdminTableDTO.canRestore`.
+   */
+  static canRestore(context: CompetitionContext): boolean {
+    return this.can(context, CompetitionAction.RESTORE);
+  }
+
   private static can(
     context: CompetitionContext,
     action: CompetitionAction,

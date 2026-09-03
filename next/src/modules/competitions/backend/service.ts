@@ -12,7 +12,12 @@ import {
   type CompetitionContext,
 } from "./authorization";
 
+import { HttpStatus, ValidationError } from "@/lib/errors";
+import prisma from "@/lib/prisma";
+
 import { DuplicateSlugError } from "../errors";
+import { CompetitionErrorCode } from "../errors/error-code";
+import type { BulkCompetitionAction } from "../schemas/bulk-competition-action";
 import { planCompetitionSearch } from "../search/plan";
 import type { CompetitionSearchResult } from "../search/types";
 import {
@@ -24,7 +29,10 @@ import type { CompetitionDetailDTO, CompetitionCardDTO } from "../types/dto";
 import { CreateAssetInput } from "@/modules/assets/schemas/create-asset";
 import { CompetitionAssetSlot } from "../types/asset-slot";
 import { CompetitionAssetService } from "./competition-asset.service";
-import { CompetitionManagementTableDTO } from "./authorization/dto";
+import {
+  CompetitionManagementTableDTO,
+  CompetitionAdminTableDTO,
+} from "./authorization/dto";
 import { AuthorizationActor, StrictAuthorizationActor } from "@/authorization";
 /**
  * ============================================================================
@@ -165,7 +173,7 @@ export class CompetitionService {
   static async searchAdmin(
     actor: StrictAuthorizationActor,
     filters: RawSearchParams,
-  ): Promise<CompetitionSearchResult<CompetitionManagementTableDTO>> {
+  ): Promise<CompetitionSearchResult<CompetitionAdminTableDTO>> {
     const plan = await planCompetitionSearch({
       scope: "admin",
       params: filters,
@@ -188,10 +196,13 @@ export class CompetitionService {
 
       const permissions = CompetitionPermissionResolver.resolve(context);
 
-      return competitionMapper.toManagementTableDTO({
+      const canRestore = CompetitionPermissionResolver.canRestore(context);
+
+      return competitionMapper.toAdminTableDTO({
         competition,
         role: membership?.role ?? null,
         permissions,
+        canRestore,
       });
     });
 
@@ -200,6 +211,26 @@ export class CompetitionService {
 
       pagination: buildPaginationMeta(parsePagination(filters), total),
     };
+  }
+
+  /**
+   * The admin listing's summary strip — four plain counts, nothing derived
+   * beyond a sum. Not scoped by the current filters: it always describes the
+   * whole admin universe, so the numbers stay stable reference points while
+   * someone filters the table underneath them.
+   */
+  static async getAdminSummary(): Promise<{
+    total: number;
+    active: number;
+    deleted: number;
+    upcoming: number;
+  }> {
+    const [recordState, upcoming] = await Promise.all([
+      CompetitionRepository.countByRecordState(),
+      CompetitionRepository.countByStatus("UPCOMING"),
+    ]);
+
+    return { ...recordState, upcoming };
   }
 
   static async findBySlug(slug: string): Promise<CompetitionDetailDTO | null> {
@@ -264,6 +295,96 @@ export class CompetitionService {
 
   static async restore(context: CompetitionContext) {
     return CompetitionRepository.restore(context.competition.id);
+  }
+
+  // ==========================================================================
+  // Bulk admin actions
+  // ==========================================================================
+  //
+  // Split into two steps deliberately. This method only loads and validates
+  // existence — it builds one `CompetitionContext` per requested row and
+  // hands them back unauthorized. The caller (the controller, per this
+  // class's own "does not authorize users" boundary above) decides
+  // admission from these contexts, all-or-nothing, before `bulkApply` is
+  // ever reached. Nothing here mutates anything.
+
+  /**
+   * Loads every requested competition and the actor's membership in each,
+   * in two queries regardless of how many ids were requested — not N+1.
+   *
+   * Includes soft-deleted rows on purpose: a bulk RESTORE request targets
+   * exactly those, and excluding them would make every id in it look
+   * nonexistent.
+   *
+   * @throws ValidationError naming any requested id that does not exist.
+   */
+  static async loadBulkActionContexts(
+    actor: StrictAuthorizationActor,
+    ids: readonly string[],
+  ): Promise<CompetitionContext[]> {
+    const [competitions, memberships] = await Promise.all([
+      CompetitionRepository.findManyByIds(ids),
+      CompetitionRepository.findMembershipsByCompetitionIds(actor.id, ids),
+    ]);
+
+    if (competitions.length !== ids.length) {
+      const found = new Set(competitions.map((competition) => competition.id));
+      const missing = ids.filter((id) => !found.has(id));
+
+      throw new ValidationError({
+        code: CompetitionErrorCode.BULK_IDS_NOT_FOUND,
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        message: "Some requested competitions do not exist.",
+        details: { missing },
+      });
+    }
+
+    const membershipByCompetitionId = new Map(
+      memberships.map((membership) => [membership.competitionId, membership]),
+    );
+
+    return competitions.map((competition) =>
+      CompetitionContextResolver.fromData({
+        actor,
+        competition,
+        membership: membershipByCompetitionId.get(competition.id) ?? null,
+      }),
+    );
+  }
+
+  /**
+   * Applies one action to every id, in a single transaction.
+   *
+   * Called only after every id has been individually authorized — this
+   * method trusts `ids` completely, which is exactly why nothing upstream of
+   * it may call this before every id has passed that check. One `updateMany`
+   * per action, not one write per row.
+   */
+  static async bulkApply(
+    ids: readonly string[],
+    action: BulkCompetitionAction,
+  ): Promise<{ updated: number }> {
+    const result = await prisma.$transaction(async (tx) => {
+      switch (action.type) {
+        case "SET_STATUS":
+          return CompetitionRepository.bulkSetStatus(ids, action.status, tx);
+
+        case "SET_VISIBILITY":
+          return CompetitionRepository.bulkSetVisibility(
+            ids,
+            action.visibility,
+            tx,
+          );
+
+        case "DELETE":
+          return CompetitionRepository.bulkSoftDelete(ids, tx);
+
+        case "RESTORE":
+          return CompetitionRepository.bulkRestore(ids, tx);
+      }
+    });
+
+    return { updated: result.count };
   }
 
   // ==========================================================================

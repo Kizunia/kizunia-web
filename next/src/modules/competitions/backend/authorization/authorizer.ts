@@ -54,6 +54,21 @@ export class CompetitionAuthorizer {
         );
     }
 
+    /**
+     * Reverses a soft delete. See the note on `CompetitionAction.RESTORE` —
+     * this is admin-only by construction, not by a check written here.
+     */
+    static restore(
+        context: CompetitionContext,
+    ): void {
+        Authorization.assert(
+            CompetitionPolicy.can(
+                context,
+                CompetitionAction.RESTORE,
+            ),
+        );
+    }
+
 
     static can(
         context: CompetitionContext,
