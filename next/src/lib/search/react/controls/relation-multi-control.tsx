@@ -139,7 +139,12 @@ export function RelationMultiControl({
         </div>
       )}
 
-      <ScrollArea className="max-h-56 pr-2">
+      {/* A fixed height, not `max-h-*`: Radix's Viewport sizes itself via
+          `height: 100%`, which does not reliably resolve against a parent
+          whose height is only capped by `max-height` — the list would then
+          overflow the box and spill onto whatever renders after it, which is
+          exactly what happened here before this was a fixed height. */}
+      <ScrollArea className="h-56 pr-2">
         <div className="space-y-0.5">
           {orphaned.map((entry) => renderRow(entry, entry))}
 
