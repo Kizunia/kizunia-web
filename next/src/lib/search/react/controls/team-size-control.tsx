@@ -9,11 +9,11 @@
  *
  * "Can I enter with the people I have" is never asked the same way twice: one
  * person has an exact number, another has a range they could go either way
- * on, another only knows a ceiling or a floor, and some are not asking about
- * their own team at all but about whether the competition permits solo entry
- * in the first place. Splitting these into separate filters — which is how
- * this used to work — meant a person had to already know which of four
- * controls their situation belonged to before they could even start.
+ * on, another only knows a ceiling, and some are not asking about their own
+ * team at all but about whether the competition permits solo entry in the
+ * first place. Splitting these into separate filters — which is how this
+ * used to work — meant a person had to already know which control their
+ * situation belonged to before they could even start.
  *
  * This control instead asks the question in the order a person actually
  * answers it: pick the shape of your team size, then pick the number(s), then
@@ -35,12 +35,11 @@ import type { FilterControlProps } from "./types";
 const DEFAULT_MIN = 1;
 const DEFAULT_MAX = 8;
 
-type SizeMode = "exact" | "range" | "atLeast" | "atMost";
+type SizeMode = "exact" | "range" | "atMost";
 
 const MODE_OPTIONS: readonly { value: SizeMode; label: string }[] = [
   { value: "exact", label: "Exact" },
   { value: "range", label: "Range" },
-  { value: "atLeast", label: "At least" },
   { value: "atMost", label: "At most" },
 ];
 
@@ -52,10 +51,6 @@ function deriveMode(value: TeamSizeValue | undefined): SizeMode | null {
 
   if (value.min !== undefined && value.max !== undefined) {
     return value.min === value.max ? "exact" : "range";
-  }
-
-  if (value.min !== undefined) {
-    return "atLeast";
   }
 
   if (value.max !== undefined) {
@@ -116,10 +111,6 @@ export function TeamSizeControl({
     switch (next) {
       case "exact":
         onChange(normalizeOrUndefined({ ...base, min: seed, max: seed }));
-        return;
-
-      case "atLeast":
-        onChange(normalizeOrUndefined({ ...base, min: seed, max: undefined }));
         return;
 
       case "atMost":
@@ -207,20 +198,6 @@ export function TeamSizeControl({
             disabled={disabled}
             onChange={(next) =>
               onChange(normalizeOrUndefined({ ...value, min: next, max: next }))
-            }
-          />
-        )}
-
-        {mode === "atLeast" && (
-          <SizeStepper
-            label={withUnit(`${value?.min ?? boundsMin}+`, value?.min ?? boundsMin)}
-            value={value?.min ?? boundsMin}
-            min={boundsMin}
-            max={boundsMax}
-            openEndedMax={spec.openEndedMax}
-            disabled={disabled}
-            onChange={(next) =>
-              onChange(normalizeOrUndefined({ ...value, min: next, max: undefined }))
             }
           />
         )}

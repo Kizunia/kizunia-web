@@ -7,31 +7,32 @@ type CompetitionWhere = Prisma.CompetitionWhereInput;
  * Builds the restriction for a team-size filter value.
  *
  * =============================================================================
- * The overlap this clause tests
+ * Containment, not overlap
  * =============================================================================
  *
- * A participant's intent is an interval: `[min ?? 1, max ?? ∞]`. A
- * competition's own rules are also an interval: `[minTeamSize ?? 1,
- * maxTeamSize ?? ∞]`, using `null` for "the organizer declared no limit on
- * this side". A competition matches when the two intervals overlap — there
- * exists at least one team size both sides would accept.
+ * This asks an eligibility question — "can a team like mine actually enter
+ * this competition" — not a looser "do our ranges share any number in
+ * common". A participant's intent is an interval: every size from
+ * `min ?? 1` (Exact and Range both set `min`; At most leaves it unset and
+ * means "as few as 1") up to `max`. The competition can only be a match if
+ * its own declared `[minTeamSize, maxTeamSize]` — `null` on either side
+ * meaning "the organizer declared no limit there" — fully contains that
+ * whole interval, not merely touches it:
  *
- * Interval overlap reduces to two independent conditions, and each is only a
- * real constraint on one side:
+ *   competition's lower bound <= participant's lower bound
+ *   competition's upper bound >= participant's upper bound
  *
- *   participant's lower bound <= competition's upper bound
- *   competition's lower bound <= participant's upper bound
+ * A competition requiring a minimum of 3 cannot honestly be shown to someone
+ * whose team might be 1 or 2, even though 3 falls inside a "1 to 5" request —
+ * that request means the team could turn out to be any size in that range,
+ * and the competition has to be able to take all of them, not just some.
  *
- * The first is only worth asking when the participant declared a lower bound
- * above 1 — a competition's upper bound is never below 1, so "my team is at
- * least 1" restricts nothing. The second mirrors that on the other side: it
- * only matters once the participant has actually named an upper bound.
- *
- * This one pair of conditions is what lets `min`/`max` alone express every
- * shape `TeamSizeControl` offers — exact, range, at-least, at-most — with no
- * per-mode branching here. An exact size of 5 is simply `min: 5, max: 5`, and
- * the clause built for it is identical to what a range of `[5, 5]` would
- * produce.
+ * `max` is always present whenever this clause has anything to check —
+ * Exact and Range both set it, and At most *is* the one-sided case, encoded
+ * as `min` absent (floor of 1) with `max` set. There is no shape where only
+ * `min` is set; that was "At least", which this filter no longer offers (see
+ * `readTeamSize` in `spec-values.ts`, which strips a lone `min` before it
+ * gets here).
  *
  * =============================================================================
  * Policy is a second, independent question
@@ -46,18 +47,19 @@ type CompetitionWhere = Prisma.CompetitionWhereInput;
 export function buildTeamSizeClause(value: TeamSizeValue): CompetitionWhere {
   const clauses: CompetitionWhere[] = [];
 
-  // Participant's lower bound vs. competition's upper bound. A bound of 1 (or
-  // absent) restricts nothing, since no competition's maximum is below 1.
-  if (value.min !== undefined && value.min > 1) {
-    clauses.push({
-      OR: [{ maxTeamSize: null }, { maxTeamSize: { gte: value.min } }],
-    });
-  }
-
-  // Competition's lower bound vs. participant's upper bound.
   if (value.max !== undefined) {
+    // At most leaves `min` unset, meaning the team could be as small as 1 —
+    // the competition must accept that floor, not just the stated ceiling.
+    // Unlike the old overlap check, this is a real constraint even at 1: a
+    // competition can declare `minTeamSize: 3`, which must fail here.
+    const effectiveMin = value.min ?? 1;
+
     clauses.push({
-      OR: [{ minTeamSize: null }, { minTeamSize: { lte: value.max } }],
+      OR: [{ minTeamSize: null }, { minTeamSize: { lte: effectiveMin } }],
+    });
+
+    clauses.push({
+      OR: [{ maxTeamSize: null }, { maxTeamSize: { gte: value.max } }],
     });
   }
 

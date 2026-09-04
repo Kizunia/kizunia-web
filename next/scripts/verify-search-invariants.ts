@@ -830,34 +830,38 @@ function verifyPaginationPreservesSearch(): void {
  * Team-size semantics, checked against the real table.
  *
  * Team size is one consolidated filter now: `teamSizeMin`/`teamSizeMax`
- * express exact, ranged and one-sided intents (see `TeamSizeSpec`), and
- * `teamPolicy` separately asks what the *competition* allows about solo entry.
- * `teamSizeMatches` below is an independent re-derivation of
- * `buildTeamSizeClause`'s logic in plain TypeScript, run against the live
- * table — the point is to catch the clause and the intended semantics
- * drifting apart, which comparing the clause against itself could never do.
+ * express exact and ranged intents, and a lone `teamSizeMax` expresses "at
+ * most" (see `TeamSizeSpec`) — there is no "at least", since an open-ended
+ * lower bound has no competition maximum that could honestly be said to
+ * contain it. `teamPolicy` separately asks what the *competition* allows
+ * about solo entry. `teamSizeMatches` below is an independent re-derivation
+ * of `buildTeamSizeClause`'s containment logic in plain TypeScript, run
+ * against the live table — the point is to catch the clause and the intended
+ * semantics drifting apart, which comparing the clause against itself could
+ * never do.
  */
 function teamSizeMatches(
   competition: { minTeamSize: number | null; maxTeamSize: number | null },
   filter: { min?: number; max?: number; policy?: "SOLO_ONLY" | "SOLO_OR_TEAM" },
 ): boolean {
-  // Participant's lower bound vs. competition's upper bound. A bound of 1 (or
-  // absent) restricts nothing, since no competition's maximum is below 1.
-  if (filter.min !== undefined && filter.min > 1) {
-    const fits =
-      competition.maxTeamSize === null ||
-      competition.maxTeamSize >= filter.min;
-
-    if (!fits) return false;
-  }
-
-  // Competition's lower bound vs. participant's upper bound.
+  // The competition's own range must fully contain every size the requester
+  // might bring — not merely share a size with it. `min` absent means the
+  // team could be as small as 1 (the "at most" case), so the competition's
+  // floor is checked against that even when it is the implicit default.
   if (filter.max !== undefined) {
-    const fits =
-      competition.minTeamSize === null ||
-      competition.minTeamSize <= filter.max;
+    const effectiveMin = filter.min ?? 1;
 
-    if (!fits) return false;
+    const lowFits =
+      competition.minTeamSize === null ||
+      competition.minTeamSize <= effectiveMin;
+
+    if (!lowFits) return false;
+
+    const highFits =
+      competition.maxTeamSize === null ||
+      competition.maxTeamSize >= filter.max;
+
+    if (!highFits) return false;
   }
 
   if (filter.policy === "SOLO_ONLY") {
@@ -917,9 +921,8 @@ async function verifyTeamSizeSemantics(): Promise<void> {
   const cases: { label: string; filter: Parameters<typeof teamSizeMatches>[1] }[] = [
     { label: "exact 1 (solo)", filter: { min: 1, max: 1 } },
     { label: "exact 5", filter: { min: 5, max: 5 } },
+    { label: "range 1–3 (containment, not overlap)", filter: { min: 1, max: 3 } },
     { label: "range 3–5", filter: { min: 3, max: 5 } },
-    { label: "at least 3", filter: { min: 3 } },
-    { label: "at least 7 (an unbounded upper end)", filter: { min: 7 } },
     { label: "at most 4", filter: { max: 4 } },
     { label: "policy: solo only", filter: { policy: "SOLO_ONLY" } },
     { label: "policy: solo & team", filter: { policy: "SOLO_OR_TEAM" } },
@@ -966,13 +969,25 @@ async function verifyTeamSizeSemantics(): Promise<void> {
   );
 
   if (unbounded.length > 0) {
-    const matched = await runEngine(teamSizeParams({ min: 7 }));
+    const matched = await runEngine(teamSizeParams({ min: 7, max: 7 }));
 
     report(
       `competitions with no declared bounds are not excluded (${unbounded.length} such rows)`,
       unbounded.every((c) => matched.includes(c.id)),
     );
   }
+
+  // "At least" is gone — not merely unreachable from the control, but
+  // genuinely unfiltered when a stale bookmark or hand-edited URL supplies
+  // a lone `teamSizeMin`. It must not fall back to the old overlap check.
+  const staleAtLeast = await runEngine({ teamSizeMin: "3", limit: "100" });
+  const unfilteredForAtLeast = await runEngine({ limit: "100" });
+
+  report(
+    "a lone teamSizeMin (the old 'at least') applies no size filter",
+    sorted(staleAtLeast) === sorted(unfilteredForAtLeast),
+    `stale=${staleAtLeast.length} unfiltered=${unfilteredForAtLeast.length}`,
+  );
 
   // The old four-filter URL contract must be gone, not merely unused — a
   // stray bookmark from before this pass should not silently start filtering

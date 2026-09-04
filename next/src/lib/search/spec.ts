@@ -395,8 +395,12 @@ export type TeamSizePolicy = "SOLO_ONLY" | "SOLO_OR_TEAM";
  *
  *   exact N       min = N,   max = N
  *   range [N, M]  min = N,   max = M
- *   at least N    min = N,   max = undefined
  *   at most N     min = undefined, max = N
+ *
+ * There is deliberately no "at least N": an open-ended lower bound has no
+ * well-defined competition to contain it — any finite competition maximum
+ * would fail a team that turned out larger — so the control does not offer
+ * it, and a value with `min` set but `max` unset is never produced or read.
  *
  * `policy` is the orthogonal question about the competition's own rules, and
  * sits in the same filter because it is asked in the same breath ("a

@@ -362,17 +362,18 @@ const registrationTypes: EnumMultiSpec<RegistrationTypeValue> = {
  *   "I can make a team of 5"            → exact
  *   "I can make a team of 3 to 5"       → range
  *   "I can make a team of at most 4"    → at most
- *   "I can make a team of at least 3"   → at least
  *   "I want to go solo"                 → exact, 1
  *   "I want a hackathon for only solo"  → policy: SOLO_ONLY
  *   "I want one that allows solo or team" → policy: SOLO_OR_TEAM
  *
- * `min`/`max` alone express the first five: exact is `min === max`, a range is
- * both set to different values, and each one-sided bound is the other left
- * unset. `policy` is a genuinely separate axis — a question about what the
- * *competition* permits rather than what the participant brings — and lives
- * in the same filter because it is asked in the same breath, not as a second
- * decision. See `TeamSizeSpec` for the full mapping.
+ * `min`/`max` alone express the first four: exact is `min === max`, a range is
+ * both set to different values, and at most leaves `min` unset (a floor of 1).
+ * There is no "at least N" — an open-ended lower bound has no competition that
+ * could honestly be said to contain it. `policy` is a genuinely separate axis
+ * — a question about what the *competition* permits rather than what the
+ * participant brings — and lives in the same filter because it is asked in
+ * the same breath, not as a second decision. See `TeamSizeSpec` for the full
+ * mapping.
  *
  * A competition accepting 1-4 people allows solo entry *and* teams — someone
  * entering alone and someone bringing four both belong in its results, which

@@ -139,6 +139,14 @@ function readTeamSize(
     [min, max] = [max, min];
   }
 
+  // A lone `min` with no `max` was "At least", which this filter no longer
+  // offers — Exact, Range and At most all either set both bounds or set only
+  // `max`. A stale bookmark or a hand-edited URL carrying just `min` degrades
+  // to no size filter rather than resurrecting one-sided behaviour.
+  if (min !== undefined && max === undefined) {
+    min = undefined;
+  }
+
   const policyRaw = normalizeScalar(params[spec.policyParam]);
 
   const policy =
