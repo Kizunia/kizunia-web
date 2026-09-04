@@ -25,6 +25,7 @@ thesis below).
 | [05-implementation-plan.md](05-implementation-plan.md) | Phased delivery with concrete files. |
 | [06-open-questions.md](06-open-questions.md) | Unresolved design areas — location/geo, full-text search, facets. Awaiting product input. |
 | [07-implementation-design.md](07-implementation-design.md) | Phase 1 build spec: verified environment facts, the full edge-case catalogue, corrected contracts. **Supersedes 02 where they differ.** |
+| [08-radius-search-research.md](08-radius-search-research.md) | **Research / proposal.** Radius (nearby) location search for Competitions: audit of the live location + search architecture, five geospatial approaches compared, recommended design, V1 scope and phased plan. Answers 06 §1. Not approved. |
 
 ---
 

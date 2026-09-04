@@ -22,8 +22,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** Long enough to group ordinary typing, short enough to feel immediate. */
-export const DEFAULT_DEBOUNCE_MS = 1000;
+/**
+ * Deliberately slack — do not tune this down without reading
+ * `docs/notes/search-focus-loss.md` first.
+ *
+ * A shorter delay would normally be better: the value only has to be long
+ * enough to group a run of typing. It is 2.5s because every emission currently
+ * costs the person their cursor — the navigation it triggers disables the input
+ * mid-sentence, and a disabled element cannot hold focus — so each timer that
+ * fires while someone is still thinking interrupts them. Firing less often is
+ * a workaround for that, not a judgement about typing speed.
+ *
+ * The fast paths are `flush`: Enter, the search button, and leaving the field.
+ * Nobody has to wait this out to search, which is what makes the slack
+ * affordable in the first place.
+ */
+export const DEFAULT_DEBOUNCE_MS = 2500;
 
 export interface DebouncedValue<T> {
   /** Trails `value` by `delay`, or matches it exactly after a `flush`. */

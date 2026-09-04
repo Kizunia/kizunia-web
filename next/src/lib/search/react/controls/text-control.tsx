@@ -27,17 +27,23 @@ import type { FilterControlProps } from "./types";
  * The search box.
  *
  * =============================================================================
- * Three ways to say "search this"
+ * Four ways to say "search this"
  * =============================================================================
  *
  * Typing debounces, because each emission is a navigation and a server render,
  * and one request per character would make the results list thrash under the
- * reader. Enter and blur bypass the timer entirely: both are unambiguous
- * statements that the query is finished, and waiting out a delay the person
- * cannot see would read as the page being slow rather than as it being careful.
+ * reader. Enter, the magnifier button and blur bypass the timer entirely: all
+ * three are unambiguous statements that the query is finished, and waiting out
+ * a delay the person cannot see would read as the page being slow rather than
+ * as it being careful.
  *
- * All three paths converge on one emission point, so no combination of them
- * can produce two searches for one intent — pressing Enter while a debounce is
+ * The button exists because the timer is long — see `DEFAULT_DEBOUNCE_MS`, and
+ * `docs/notes/search-focus-loss.md` for why it is long. Enter already served
+ * anyone typing; the magnifier serves anyone who has reached for the mouse,
+ * and neither should have to wait 2.5 seconds for a query they have finished.
+ *
+ * All four paths converge on one emission point, so no combination of them can
+ * produce two searches for one intent — pressing Enter while a debounce is
  * pending cancels the timer rather than racing it.
  */
 export function TextControl({
@@ -111,7 +117,29 @@ export function TextControl({
   return (
     <InputGroup className="h-9">
       <InputGroupAddon align="inline-start">
-        <SearchIcon aria-hidden />
+        {/* A button rather than decoration: Enter is the fast path for
+            someone whose hands are on the keyboard, and this is the same
+            thing for someone whose hand is on the mouse. It reaches the
+            search through `flush`, exactly as Enter and blur do, so there is
+            still one emission point and no combination can double-fire.
+
+            Not disabled while the draft matches what is applied — clicking
+            then is a no-op the emission effect already absorbs, and a button
+            that greys itself out on a condition the person cannot see is
+            worse than one that occasionally does nothing. */}
+        <button
+          type="button"
+          disabled={disabled}
+          // Keeps the caret where it was: without this the mousedown blurs
+          // the input first, which would flush through the blur handler
+          // instead and leave the person's place lost for no reason.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={flush}
+          aria-label={`Search ${spec.label.toLowerCase()}`}
+          className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+        >
+          <SearchIcon className="size-4" aria-hidden />
+        </button>
       </InputGroupAddon>
 
       <InputGroupInput
