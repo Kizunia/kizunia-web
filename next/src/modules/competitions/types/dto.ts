@@ -1,5 +1,6 @@
 import type {
   CompetitionMode,
+  CompetitionStatus,
   RegistrationPlatform,
   RegistrationFeeType,
   Competition,
@@ -29,7 +30,7 @@ export interface CompetitionCardDTO {
    */
   locations: CompetitionLocationSummaryDTO[];
   mode: CompetitionMode | null;
-  status: string | null;
+  status: CompetitionStatus | null;
   startDate: Date | null;
   registrationDeadline: Date | null;
   registrationFeeType: RegistrationFeeType | null;

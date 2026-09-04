@@ -85,7 +85,7 @@ export default async function CompetitionsPage({ searchParams }: Props) {
         pagination={pagination}
         params={params}
         pathname={PATHNAME}
-        className="pt-2"
+        className="mx-auto w-full max-w-4xl pt-2"
       />
     </CompetitionsShell>
   );
