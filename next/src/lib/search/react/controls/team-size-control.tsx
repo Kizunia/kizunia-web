@@ -119,7 +119,28 @@ export function TeamSizeControl({
 
       case "range": {
         const lo = value?.min ?? seed;
-        const hi = Math.max(value?.max ?? Math.min(boundsMax, lo + 2), lo);
+
+        // A prior `max` is only worth keeping if it already describes a real
+        // span above `lo` — Exact and At most both leave `value.max` set to
+        // a single number (equal to `lo`, or standing alone), and reusing it
+        // as-is would seed a "range" that is really just that same point,
+        // leaving the control looking like the button did nothing.
+        const priorMax = value?.max;
+        const hi =
+          priorMax !== undefined && priorMax > lo
+            ? priorMax
+            : Math.min(boundsMax, lo + 2);
+
+        if (hi === lo) {
+          // `lo` is already pinned at the top of the allowed span (e.g. an
+          // exact value of `boundsMax`), so there is no room to extend
+          // upward — widen downward instead so the range still spans more
+          // than one size.
+          const adjustedLo = Math.max(boundsMin, lo - 2);
+
+          onChange(normalizeOrUndefined({ ...base, min: adjustedLo, max: lo }));
+          return;
+        }
 
         onChange(normalizeOrUndefined({ ...base, min: lo, max: hi }));
         return;
