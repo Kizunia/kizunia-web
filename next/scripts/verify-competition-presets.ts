@@ -709,12 +709,19 @@ function verifyClearAllResetsPagination(): void {
 }
 
 /**
- * "All filters" contains all of them.
+ * "All filters" contains all of them — with one deliberate exception.
  *
  * The sheet renders `layout.visible` and the quick bar renders `layout.quick`,
  * which is a subset of it. Asserted against the resolved layout rather than
  * against a list written out here, so promoting or demoting a filter cannot
- * make this pass while the interface loses one.
+ * make this pass while the interface loses one — except `registrationTypes`,
+ * which `KIZUNIA_COMPETITION_LAYOUT` hides on purpose: it duplicated the
+ * "Entry format" control now nested inside `teamSize`'s own panel (same
+ * label, same Solo/Team/Either options), and only `teamSize`'s version is
+ * wired to the size/policy coordination logic. Hiding it is presentation
+ * only — the filter itself, its URL parameter and its Prisma clause are all
+ * untouched, and the check below confirms the layout's own safety net still
+ * reveals it the moment a URL actually uses it.
  */
 function verifyAllFiltersCompleteness(): void {
   console.log("\n== The All filters panel holds every filter ==");
@@ -723,13 +730,34 @@ function verifyAllFiltersCompleteness(): void {
 
   const visibleKeys = layout.visible.map((entry) => entry.spec.key);
 
+  const DELIBERATELY_HIDDEN: readonly string[] = ["registrationTypes"];
+
+  const alwaysVisible = specs.filter(
+    (spec) => !DELIBERATELY_HIDDEN.includes(spec.key),
+  );
+
   report(
-    `every one of the ${specs.length} Competition filters is in the panel`,
-    specs.every((spec) => visibleKeys.includes(spec.key)),
-    specs
+    `every one of the ${alwaysVisible.length} non-hidden Competition filters is in the panel`,
+    alwaysVisible.every((spec) => visibleKeys.includes(spec.key)),
+    alwaysVisible
       .filter((spec) => !visibleKeys.includes(spec.key))
       .map((spec) => spec.key)
       .join(", "),
+  );
+
+  report(
+    "registrationTypes is deliberately hidden by default",
+    !visibleKeys.includes("registrationTypes"),
+  );
+
+  const revealedWhenActive = resolveCompetitionFilterLayout(
+    { registrationTypes: "TEAM" },
+    "public",
+  );
+
+  report(
+    "registrationTypes still reveals itself once its URL parameter is in use",
+    revealedWhenActive.visible.some((entry) => entry.spec.key === "registrationTypes"),
   );
 
   // The five the page also promotes. Named explicitly because these are the

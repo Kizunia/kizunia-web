@@ -376,6 +376,24 @@ export interface PlaceSpec extends FilterSpecBase {
 export type TeamSizePolicy = "SOLO_ONLY" | "SOLO_OR_TEAM";
 
 /**
+ * What the *participant* wants, as distinct from `min`/`max` (their possible
+ * size) and `policy` (what the competition permits).
+ *
+ * This is the coordinating axis: it decides whether `min`/`max` apply at all
+ * (a solo entrant has no team size to state) and which `policy` values remain
+ * reachable (a team entrant cannot ask for a solo-only competition). It reads
+ * and writes its own parameter so a shared link remembers which of the three
+ * questions the participant actually answered, but — deliberately — it has no
+ * Prisma clause of its own: everything it implies is already expressible
+ * through `min`/`max` and `policy`, which remain the only two axes
+ * `buildTeamSizeClause` reads. See `readTeamSize` in `spec-values.ts` for the
+ * normalisation this enables (clearing a size that is no longer applicable,
+ * or a policy that has become contradictory) and `TeamSizeControl` for the
+ * interactive form of the same rules.
+ */
+export type TeamEntryFormat = "SOLO" | "TEAM" | "EITHER";
+
+/**
  * "Can I enter with the people I have?" — as one filter.
  *
  * =============================================================================
@@ -415,6 +433,8 @@ export interface TeamSizeSpec extends FilterSpecBase {
   readonly maxParam: string;
 
   readonly policyParam: string;
+
+  readonly entryFormatParam: string;
 
   /** UI bounds for the size pickers. */
   readonly min?: number;
@@ -481,6 +501,8 @@ export interface TeamSizeValue {
   readonly max?: number;
 
   readonly policy?: TeamSizePolicy;
+
+  readonly entryFormat?: TeamEntryFormat;
 }
 
 /**
@@ -552,7 +574,12 @@ export function filterParams(spec: FilterSpec): readonly string[] {
         : [spec.idParam, spec.labelParam, spec.includeOnlineParam];
 
     case "team-size":
-      return [spec.minParam, spec.maxParam, spec.policyParam];
+      return [
+        spec.minParam,
+        spec.maxParam,
+        spec.policyParam,
+        spec.entryFormatParam,
+      ];
 
     default:
       return [spec.key];

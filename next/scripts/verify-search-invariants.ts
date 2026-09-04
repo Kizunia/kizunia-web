@@ -44,10 +44,13 @@ import { dateRangeFilter } from "../src/lib/search/filters/range";
 import { textFilter } from "../src/lib/search/filters/text";
 import type { RawSearchParams } from "../src/lib/search/types";
 import { filterParams } from "../src/lib/search/spec";
-import type { DateRangeSpec, TextSpec } from "../src/lib/search/spec";
+import type { DateRangeSpec, TextSpec, TeamSizeValue } from "../src/lib/search/spec";
 import { writeFilterValue, readFilterValue } from "../src/lib/search/spec-values";
 import { applyParamPatch, isSameSearch } from "../src/lib/search/params";
-import { COMPETITION_FILTER_SPECS } from "../src/modules/competitions/search/ui";
+import {
+  COMPETITION_FILTER_SPECS,
+  competitionFilterSpecs,
+} from "../src/modules/competitions/search/ui";
 import { buildLocationClause } from "../src/modules/competitions/search/location-clause";
 import {
   buildCompetitionQuery,
@@ -572,6 +575,8 @@ async function verifyCodecRoundTrip(): Promise<void> {
     { categories: "ai,web3" },
     { search: "ETHGlobal" },
     { teamSizeMin: "4" },
+    { entryFormat: "TEAM", teamPolicy: "SOLO_OR_TEAM" },
+    { entryFormat: "EITHER", teamSizeMin: "2", teamSizeMax: "4" },
     { startDateFrom: new Date("2026-01-01").toISOString() },
   ];
 
@@ -1007,6 +1012,153 @@ async function verifyTeamSizeSemantics(): Promise<void> {
   );
 }
 
+/**
+ * Entry format ("Solo" / "Team" / "Either") coordinates `min`/`max`/`policy`
+ * without adding a Prisma clause of its own — see the doc comment on
+ * `TeamEntryFormat` in `spec.ts`. What has to hold instead is that
+ * `readTeamSize` (`spec-values.ts`), which both the control and the query
+ * builder decode through, never lets a contradictory combination survive:
+ * Solo with a team size, Team with a strictly-solo competition format, or
+ * any team size above one paired with "Solo only".
+ *
+ * These are pure decode-time checks — no database needed — since
+ * `entryFormat` never reaches a query, only the `min`/`max`/`policy` it
+ * leaves behind does.
+ */
+function verifyEntryFormatCoordination(): void {
+  console.log(
+    "\n== Invariant: entry format never leaves a contradictory team-size/policy combination ==",
+  );
+
+  const decode = (raw: RawSearchParams): TeamSizeValue | undefined =>
+    readFilterValue(competitionFilterSpecs.teamSize, raw);
+
+  // Field-by-field rather than `JSON.stringify` equality: the two objects'
+  // keys are declared in a different order (the fixtures below read most
+  // naturally as entryFormat/policy/min/max; `readTeamSize` returns
+  // min/max/policy/entryFormat), and `JSON.stringify` is key-order-sensitive.
+  const same = (
+    a: TeamSizeValue | undefined,
+    b: TeamSizeValue | undefined,
+  ): boolean => {
+    if (a === undefined || b === undefined) return a === b;
+
+    return (
+      a.min === b.min &&
+      a.max === b.max &&
+      a.policy === b.policy &&
+      a.entryFormat === b.entryFormat
+    );
+  };
+
+  const cases: {
+    label: string;
+    params: RawSearchParams;
+    expected: TeamSizeValue | undefined;
+  }[] = [
+    {
+      label: "Solo + Solo only",
+      params: { entryFormat: "SOLO", teamPolicy: "SOLO_ONLY" },
+      expected: { entryFormat: "SOLO", policy: "SOLO_ONLY", min: undefined, max: undefined },
+    },
+    {
+      label: "Solo + Solo & team",
+      params: { entryFormat: "SOLO", teamPolicy: "SOLO_OR_TEAM" },
+      expected: { entryFormat: "SOLO", policy: "SOLO_OR_TEAM", min: undefined, max: undefined },
+    },
+    {
+      label: "Solo + team size => the size is cleared, entry format survives",
+      params: { entryFormat: "SOLO", teamSizeMin: "3", teamSizeMax: "7" },
+      expected: { entryFormat: "SOLO", policy: undefined, min: undefined, max: undefined },
+    },
+    {
+      label: "Team + Solo & team",
+      params: { entryFormat: "TEAM", teamPolicy: "SOLO_OR_TEAM" },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: undefined, max: undefined },
+    },
+    {
+      label: "Team + Solo only => forced to Solo & team",
+      params: { entryFormat: "TEAM", teamPolicy: "SOLO_ONLY" },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: undefined, max: undefined },
+    },
+    {
+      label: "Team + Solo & team + Exact",
+      params: {
+        entryFormat: "TEAM",
+        teamPolicy: "SOLO_OR_TEAM",
+        teamSizeMin: "3",
+        teamSizeMax: "3",
+      },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: 3, max: 3 },
+    },
+    {
+      label: "Team + Solo & team + Range",
+      params: {
+        entryFormat: "TEAM",
+        teamPolicy: "SOLO_OR_TEAM",
+        teamSizeMin: "2",
+        teamSizeMax: "4",
+      },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: 2, max: 4 },
+    },
+    {
+      label: "Team + Solo & team + At most",
+      params: { entryFormat: "TEAM", teamPolicy: "SOLO_OR_TEAM", teamSizeMax: "4" },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: undefined, max: 4 },
+    },
+    {
+      label: "Either + Solo only + no team size",
+      params: { entryFormat: "EITHER", teamPolicy: "SOLO_ONLY" },
+      expected: { entryFormat: "EITHER", policy: "SOLO_ONLY", min: undefined, max: undefined },
+    },
+    {
+      label: "Either + Solo & team + no team size",
+      params: { entryFormat: "EITHER", teamPolicy: "SOLO_OR_TEAM" },
+      expected: { entryFormat: "EITHER", policy: "SOLO_OR_TEAM", min: undefined, max: undefined },
+    },
+    {
+      label: "Either + Solo & team + Range 2-4",
+      params: {
+        entryFormat: "EITHER",
+        teamPolicy: "SOLO_OR_TEAM",
+        teamSizeMin: "2",
+        teamSizeMax: "4",
+      },
+      expected: { entryFormat: "EITHER", policy: "SOLO_OR_TEAM", min: 2, max: 4 },
+    },
+    {
+      label: "Either + Solo only + Range 2-4 => Solo only is dropped, the range survives",
+      params: {
+        entryFormat: "EITHER",
+        teamPolicy: "SOLO_ONLY",
+        teamSizeMin: "2",
+        teamSizeMax: "4",
+      },
+      expected: { entryFormat: "EITHER", policy: undefined, min: 2, max: 4 },
+    },
+    {
+      label: "no entry format + Solo only + Range 2-4 => still contradictory, still dropped",
+      params: { teamPolicy: "SOLO_ONLY", teamSizeMin: "2", teamSizeMax: "4" },
+      expected: { entryFormat: undefined, policy: undefined, min: 2, max: 4 },
+    },
+    {
+      label: "no entry format + Solo only + Exact 1 => not contradictory, both survive",
+      params: { teamPolicy: "SOLO_ONLY", teamSizeMin: "1", teamSizeMax: "1" },
+      expected: { entryFormat: undefined, policy: "SOLO_ONLY", min: 1, max: 1 },
+    },
+  ];
+
+  for (const { label, params, expected } of cases) {
+    const actual = decode(params);
+
+    report(
+      label,
+      same(actual, expected),
+      `actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   await verifyCaseInsensitivity();
   await verifyGracefulDegradation();
@@ -1022,6 +1174,7 @@ async function main(): Promise<void> {
   verifyClearAll();
   verifyPaginationPreservesSearch();
   await verifyTeamSizeSemantics();
+  verifyEntryFormatCoordination();
 
   console.log(`\n${checks - failures}/${checks} checks passed.`);
 

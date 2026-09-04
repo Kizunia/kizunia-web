@@ -45,6 +45,7 @@ import {
   type FilterOption,
   type FilterSpec,
   type PlaceValue,
+  type TeamEntryFormat,
   type TeamSizePolicy,
   type TeamSizeValue,
   type ValueOfSpec,
@@ -117,13 +118,26 @@ const TEAM_SIZE_POLICIES: ReadonlySet<string> = new Set<TeamSizePolicy>([
   "SOLO_OR_TEAM",
 ]);
 
+const TEAM_ENTRY_FORMATS: ReadonlySet<string> = new Set<TeamEntryFormat>([
+  "SOLO",
+  "TEAM",
+  "EITHER",
+]);
+
 /**
- * Reads a participant's team-size intent and a competition's solo policy.
+ * Reads a participant's team-size intent, a competition's solo policy, and
+ * which of the two the participant's own entry format leaves in play —
+ * then normalizes away any combination the three together make contradictory.
  *
  * `min` and `max` are read independently — neither implies the other — which
  * is what lets one pair of parameters express an exact size, a range, or a
  * one-sided bound. See `TeamSizeSpec` for how each combination is meant to be
- * read.
+ * read, and `TeamEntryFormat` for why the normalization below exists: a
+ * hand-edited or stale-bookmarked URL can name a size and a policy that
+ * cannot both be satisfied, and this is the one place both the interactive
+ * control and the query builder decode from — so fixing it here fixes it in
+ * both places at once, exactly as the URL round-trip contract in this
+ * module's header comment promises.
  */
 function readTeamSize(
   params: RawSearchParams,
@@ -149,16 +163,49 @@ function readTeamSize(
 
   const policyRaw = normalizeScalar(params[spec.policyParam]);
 
-  const policy =
+  let policy =
     policyRaw !== undefined && TEAM_SIZE_POLICIES.has(policyRaw)
       ? (policyRaw as TeamSizePolicy)
       : undefined;
 
-  if (min === undefined && max === undefined && policy === undefined) {
+  const entryFormatRaw = normalizeScalar(params[spec.entryFormatParam]);
+
+  const entryFormat =
+    entryFormatRaw !== undefined && TEAM_ENTRY_FORMATS.has(entryFormatRaw)
+      ? (entryFormatRaw as TeamEntryFormat)
+      : undefined;
+
+  // A solo entrant has no team size to state, regardless of what a stale or
+  // hand-edited URL claims.
+  if (entryFormat === "SOLO") {
+    min = undefined;
+    max = undefined;
+  }
+
+  // A team entrant can never be satisfied by a strictly-solo competition —
+  // "Solo & team" is the only policy value compatible with requiring a team.
+  if (entryFormat === "TEAM") {
+    policy = "SOLO_OR_TEAM";
+  }
+
+  // A real team size (more than a lone person) can never be satisfied by a
+  // strictly-solo competition either, independent of entry format — the two
+  // together would match nothing. The size is the more specific request, so
+  // the now-contradictory policy is what gives way.
+  if (policy === "SOLO_ONLY" && max !== undefined && max > 1) {
+    policy = undefined;
+  }
+
+  if (
+    min === undefined &&
+    max === undefined &&
+    policy === undefined &&
+    entryFormat === undefined
+  ) {
     return undefined;
   }
 
-  return { min, max, policy };
+  return { min, max, policy, entryFormat };
 }
 
 /**
@@ -354,6 +401,7 @@ export function writeFilterValue<TSpec extends FilterSpec>(
         [spec.maxParam]:
           teamSize.max !== undefined ? String(teamSize.max) : undefined,
         [spec.policyParam]: teamSize.policy,
+        [spec.entryFormatParam]: teamSize.entryFormat,
       };
     }
   }
@@ -511,12 +559,8 @@ function teamSizeLabel(
     return withUnit(`${value.min}–${value.max}`, value.max);
   }
 
-  if (value.min !== undefined) {
-    return withUnit(`At least ${value.min}`, value.min);
-  }
-
-  // `value.max` is guaranteed set here: the caller only reaches this branch
-  // when at least one of `min`/`max` is defined.
+  // `min` alone (the old "At least") is normalized away in `readTeamSize`,
+  // so `max` is guaranteed set whenever this branch is reached at all.
   return withUnit(`At most ${value.max}`, value.max as number);
 }
 
@@ -650,6 +694,25 @@ export function describeFilterChips(
       const teamSize = value as TeamSizeValue;
 
       const chips: FilterChip[] = [];
+
+      // Independently removable from size and policy, same reasoning as
+      // place's id and includeOnline: removing just the entry-format chip
+      // never strands a contradiction — dropping "Solo" leaves no size
+      // behind to conflict with anything, and dropping "Team" leaves
+      // "Solo & team" behind, which stays valid on its own.
+      if (teamSize.entryFormat) {
+        chips.push({
+          ...base,
+          id: spec.entryFormatParam,
+          label:
+            teamSize.entryFormat === "SOLO"
+              ? "Solo"
+              : teamSize.entryFormat === "TEAM"
+                ? "Team"
+                : "Solo or team",
+          remove: { [spec.entryFormatParam]: undefined },
+        });
+      }
 
       // Two independently removable chips, same reasoning as place's id and
       // includeOnline: a person narrowing "solo only, and my team is 4" to

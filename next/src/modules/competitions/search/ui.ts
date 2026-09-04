@@ -378,6 +378,12 @@ const registrationTypes: EnumMultiSpec<RegistrationTypeValue> = {
  * A competition accepting 1-4 people allows solo entry *and* teams — someone
  * entering alone and someone bringing four both belong in its results, which
  * is exactly the case a one-sided bound alone could never express.
+ *
+ * A third field, `entryFormat`, coordinates the other two without adding a
+ * clause of its own: "Solo" clears `min`/`max` (a solo entrant has no team
+ * size to state), and "Team" rules out `policy: SOLO_ONLY` (a strictly-solo
+ * competition can never satisfy a team entrant). See `TeamEntryFormat` in
+ * `@/lib/search/spec` for the full reasoning.
  */
 const teamSize: TeamSizeSpec = {
   kind: "team-size",
@@ -389,13 +395,13 @@ const teamSize: TeamSizeSpec = {
   minParam: "teamSizeMin",
   maxParam: "teamSizeMax",
   policyParam: "teamPolicy",
+  entryFormatParam: "entryFormat",
   unit: "people",
   unitOne: "person",
   min: 1,
   max: 8,
   openEndedMax: true,
-  description:
-    "Competitions a team like yours can enter, or that match what you want from a competition's own solo policy.",
+  description: "Choose the team size a competition should accommodate.",
 };
 
 const organizerTypes: EnumMultiSpec<OrganizerTypeValue> = {

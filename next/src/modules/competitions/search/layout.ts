@@ -79,6 +79,17 @@ export const KIZUNIA_COMPETITION_LAYOUT: FilterLayoutSource = {
   overrides: [
     { key: "technologies", group: "advanced", weight: 5 },
     { key: "difficultyLevels", group: "advanced", weight: 6 },
+
+    // Presentation only — see the note on `FilterLayoutOverride.hidden`.
+    // `registrationTypes` and `teamSize` are declared right next to each
+    // other and happen to share a label ("Entry format" vs. `teamSize`'s own
+    // nested "Entry format" section), which read as the same control shown
+    // twice. `teamSize`'s version is the one wired to the size/policy
+    // coordination logic, so it is the one that stays. Hiding here leaves
+    // `registrationTypes` itself completely untouched — still a real filter,
+    // still applied if a URL names it, and still revealed (via
+    // `revealedBecauseActive`) if one does.
+    { key: "registrationTypes", hidden: true },
   ],
 };
 

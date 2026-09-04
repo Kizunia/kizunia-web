@@ -53,6 +53,7 @@ export type {
   PlaceSpec,
   PlaceValue,
   RelationMultiSpec,
+  TeamEntryFormat,
   TeamSizePolicy,
   TeamSizeSpec,
   TeamSizeValue,
