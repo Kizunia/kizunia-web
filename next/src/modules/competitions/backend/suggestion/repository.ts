@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 
-import type { Prisma } from "@/generated/prisma";
+import type { Prisma, PrismaClient } from "@/generated/prisma";
 
 
 import { NotFoundError } from "@/lib/errors";
@@ -12,8 +12,11 @@ export class CompetitionSuggestionRepository {
   // Read
   // ===========================================================================
 
-  static async findById(id: string) {
-    return prisma.competitionSuggestion.findFirst({
+  static async findById(
+    id: string,
+    db: PrismaClient | Prisma.TransactionClient = prisma,
+  ) {
+    return db.competitionSuggestion.findFirst({
       where: {
         id,
         deletedAt: null,
@@ -41,8 +44,11 @@ export class CompetitionSuggestionRepository {
     });
   }
 
-  static async findByIdOrThrow(id: string) {
-    const suggestion = await this.findById(id);
+  static async findByIdOrThrow(
+    id: string,
+    db: PrismaClient | Prisma.TransactionClient = prisma,
+  ) {
+    const suggestion = await this.findById(id, db);
 
     if (!suggestion) {
       throw new NotFoundError({
@@ -120,6 +126,15 @@ export class CompetitionSuggestionRepository {
 
       include: {
         suggestionContent: true,
+
+        assets: {
+          include: {
+            asset: true,
+          },
+          orderBy: {
+            order: "asc",
+          },
+        },
       },
     });
   }
@@ -233,6 +248,43 @@ export class CompetitionSuggestionRepository {
           },
         },
       });
+    });
+  }
+
+  // ===========================================================================
+  // Assets
+  // ===========================================================================
+
+  /** Attaches an already-finalized Asset. Duplicate attachment is prevented
+   * by the `@@id([suggestionId, assetId])` composite key, not application
+   * code. */
+  static async addAsset(
+    tx: Prisma.TransactionClient,
+    suggestionId: string,
+    assetId: string,
+  ) {
+    return tx.competitionSuggestionAsset.create({
+      data: {
+        suggestionId,
+        assetId,
+      },
+    });
+  }
+
+  /** Removes the join row only — the underlying Asset is detached, not
+   * deleted, by the caller (see CompetitionSuggestionAssetService). */
+  static async removeAsset(
+    tx: Prisma.TransactionClient,
+    suggestionId: string,
+    assetId: string,
+  ) {
+    return tx.competitionSuggestionAsset.delete({
+      where: {
+        suggestionId_assetId: {
+          suggestionId,
+          assetId,
+        },
+      },
     });
   }
 
