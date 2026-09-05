@@ -22,7 +22,11 @@ import {
   UploadIntentNotFoundError,
   UploadPolicyViolationError,
 } from "./errors";
-import { getUploadPolicy } from "./policies/upload-policy";
+import {
+  getUploadPolicy,
+  resolveUploadCategory,
+  resolveUploadMaxSize,
+} from "./policies/upload-policy";
 import { assetService } from "./service";
 import { getStorageProvider } from "./storage";
 import type { StorageUploadAuthorization } from "./storage/storage-provider";
@@ -118,9 +122,11 @@ export class UploadIntentService {
       );
     }
 
-    if (declaredSize > policy.maxSize) {
+    const declaredMaxSize = resolveUploadMaxSize(policy, declaredMimeType);
+
+    if (declaredSize > declaredMaxSize) {
       throw new UploadPolicyViolationError(
-        `${purpose} allows files up to ${policy.maxSize} bytes; this file declares ${declaredSize} bytes.`,
+        `${purpose} allows files up to ${declaredMaxSize} bytes; this file declares ${declaredSize} bytes.`,
       );
     }
 
@@ -140,11 +146,13 @@ export class UploadIntentService {
     // result can be securely matched back to exactly this intent.
     const correlationId = crypto.randomUUID();
 
+    const resolvedCategory = resolveUploadCategory(policy, declaredMimeType);
+
     const authorization = await getStorageProvider().authorizeUpload({
       correlationId,
-      category: policy.category,
+      category: resolvedCategory,
       declaredMimeType,
-      maxBytes: policy.maxSize,
+      maxBytes: declaredMaxSize,
     });
 
     const expiresAt = new Date(Date.now() + UPLOAD_INTENT_TTL_MS);
@@ -152,7 +160,7 @@ export class UploadIntentService {
     const intent = await this.repository.create({
       actorId: actor.id,
       purpose,
-      category: policy.category,
+      category: resolvedCategory,
       targetEntityType: targetEntityType ?? null,
       targetEntityId: targetEntityId ?? null,
       providerCorrelationId: correlationId,
@@ -200,8 +208,13 @@ export class UploadIntentService {
 
     const policy = getUploadPolicy(intent.purpose);
 
+    const confirmedMaxSize = resolveUploadMaxSize(
+      policy,
+      confirmed.mimeType ?? intent.declaredMimeType,
+    );
+
     const violatesPolicy =
-      (confirmed.bytes ?? 0) > policy.maxSize ||
+      (confirmed.bytes ?? 0) > confirmedMaxSize ||
       (confirmed.mimeType !== null &&
         !policy.allowedMimeTypes.includes(confirmed.mimeType));
 

@@ -13,7 +13,7 @@
  * current actor uploaded themselves.
  */
 
-import type { Prisma, PrismaClient } from "@/generated/prisma";
+import type { Asset, Prisma, PrismaClient } from "@/generated/prisma";
 import { AssetPurpose, AssetStatus } from "@/generated/prisma";
 
 import {
@@ -22,7 +22,7 @@ import {
   AssetNotFoundError,
 } from "./errors";
 import { AssetRepository } from "./repository";
-import { getUploadPolicy } from "./policies/upload-policy";
+import { getUploadPolicy, resolveAllowedCategories } from "./policies/upload-policy";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -34,7 +34,7 @@ export async function assertAssetReferenceAllowed({
   db?: Db;
   assetId: string;
   purpose: AssetPurpose;
-}): Promise<void> {
+}): Promise<Asset> {
   const repository = new AssetRepository(db);
 
   const asset = await repository.findById({ id: assetId });
@@ -51,9 +51,21 @@ export async function assertAssetReferenceAllowed({
 
   const policy = getUploadPolicy(purpose);
 
-  if (asset.category !== policy.category) {
+  // A purpose with `mimeTypeOverrides` (see upload-policy.ts) accepts more
+  // than one category, so this checks membership in the full set of
+  // categories the policy allows, rather than deriving a single "expected"
+  // category from the asset's own `mimeType` — that field is nullable and
+  // not guaranteed to be populated for every provider/category, so it isn't
+  // reliable to re-derive from at validation time. `asset.category` was
+  // already resolved correctly, from the actor's declared and policy-checked
+  // mime type, at upload-intent creation — it's the authoritative field.
+  const allowedCategories = resolveAllowedCategories(policy);
+
+  if (!allowedCategories.includes(asset.category)) {
     throw new AssetCategoryMismatchError(
-      `${purpose} requires a ${policy.category} asset, but this asset is ${asset.category}.`,
+      `${purpose} does not accept ${asset.category} assets.`,
     );
   }
+
+  return asset;
 }

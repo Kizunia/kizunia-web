@@ -20,6 +20,14 @@ export interface UploadPolicy {
   singleActive: boolean;
   /** Whether this purpose requires a target entity to be declared up front. */
   requiresTargetEntity: boolean;
+  /**
+   * Per-mime-type overrides of `category`/`maxSize`, for the rare policy that
+   * accepts more than one Asset category under a single purpose (e.g. images
+   * *and* a PDF in the same gallery). Absent for every ordinary single-
+   * category policy, which just uses `category`/`maxSize` above for every
+   * mime type it allows.
+   */
+  mimeTypeOverrides?: Record<string, { category: AssetCategory; maxSize: number }>;
 }
 
 const MB = 1024 * 1024;
@@ -66,8 +74,20 @@ export const UPLOAD_POLICIES: Record<AssetPurpose, UploadPolicy> = {
   [AssetPurpose.COMPETITION_BANNER]: imagePolicy(),
   [AssetPurpose.COMPETITION_COVER]: imagePolicy(),
 
+  // V1: extended to also accept a single supporting PDF alongside the
+  // gallery images. This is the one isolated place that grants PDF support
+  // for this purpose — `allowedMimeTypes`/`mimeTypeOverrides` below — so
+  // removing it later is a one-entry revert; it does not touch PDF
+  // configuration for any other purpose (see PORTFOLIO_RESUME above).
   [AssetPurpose.COMPETITION_SUGGESTION_GALLERY]: imagePolicy({
     singleActive: false,
+    allowedMimeTypes: [...IMAGE_MIME_TYPES, ...RESUME_MIME_TYPES],
+    mimeTypeOverrides: {
+      "application/pdf": {
+        category: AssetCategory.DOCUMENT,
+        maxSize: DEFAULT_DOCUMENT_MAX_SIZE,
+      },
+    },
   }),
 
   [AssetPurpose.PORTFOLIO_RESUME]: {
@@ -89,4 +109,42 @@ export const UPLOAD_POLICIES: Record<AssetPurpose, UploadPolicy> = {
 
 export function getUploadPolicy(purpose: AssetPurpose): UploadPolicy {
   return UPLOAD_POLICIES[purpose];
+}
+
+/** The AssetCategory a given mime type resolves to under `policy`. */
+export function resolveUploadCategory(
+  policy: UploadPolicy,
+  mimeType: string,
+): AssetCategory {
+  return policy.mimeTypeOverrides?.[mimeType]?.category ?? policy.category;
+}
+
+/**
+ * Every AssetCategory this policy can ever produce, across its base category
+ * and any `mimeTypeOverrides`. Used to validate an already-persisted Asset
+ * against a purpose without re-deriving the category from `Asset.mimeType`
+ * (nullable per schema, and not guaranteed to survive round-tripping through
+ * every storage provider/resource type — e.g. a provider that doesn't
+ * reliably report format for a given category). `Asset.category` is set once
+ * from the policy-resolved category at upload-intent creation time and is
+ * the authoritative field for this check.
+ */
+export function resolveAllowedCategories(
+  policy: UploadPolicy,
+): AssetCategory[] {
+  const categories = new Set<AssetCategory>([policy.category]);
+
+  for (const override of Object.values(policy.mimeTypeOverrides ?? {})) {
+    categories.add(override.category);
+  }
+
+  return [...categories];
+}
+
+/** The max byte size a given mime type is held to under `policy`. */
+export function resolveUploadMaxSize(
+  policy: UploadPolicy,
+  mimeType: string,
+): number {
+  return policy.mimeTypeOverrides?.[mimeType]?.maxSize ?? policy.maxSize;
 }

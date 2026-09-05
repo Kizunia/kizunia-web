@@ -5,8 +5,10 @@ import { SessionService } from "@/lib/auth/session";
 
 
 import { CompetitionSuggestionService } from "./service";
+import { CompetitionSuggestionAssetService } from "./asset-service";
 import { CreateCompetitionSuggestionSchema } from "../../schemas/create-competition-suggestion";
 import { UpdateCompetitionSuggestionSchema } from "../../schemas/update-competition-suggestion";
+import { AttachCompetitionSuggestionAssetSchema } from "../../schemas/attach-competition-suggestion-asset";
 
 export class CompetitionSuggestionController {
   // ===========================================================================
@@ -175,6 +177,85 @@ static async findMine(request: NextRequest) {
           banned: actor.banned,
         },
         id: suggestionId,
+      });
+
+      // -----------------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------------
+
+      return ApiResponse.ok(suggestion);
+    });
+  }
+
+  // ===========================================================================
+  // Assets
+  // ===========================================================================
+
+  static async attachAsset(
+    request: NextRequest,
+    suggestionId: string,
+  ) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------------
+
+      const data = AttachCompetitionSuggestionAssetSchema.parse(
+        await request.json(),
+      );
+
+      // -----------------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------------
+
+      const suggestion = await CompetitionSuggestionAssetService.attach({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+        suggestionId,
+        assetId: data.assetId,
+      });
+
+      // -----------------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------------
+
+      return ApiResponse.created(suggestion);
+    });
+  }
+
+  static async detachAsset(
+    request: NextRequest,
+    suggestionId: string,
+    assetId: string,
+  ) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------------
+
+      const suggestion = await CompetitionSuggestionAssetService.detach({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+        suggestionId,
+        assetId,
       });
 
       // -----------------------------------------------------------------------
