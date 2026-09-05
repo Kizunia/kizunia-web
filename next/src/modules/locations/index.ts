@@ -2,6 +2,7 @@ export { LocationService } from "./services/location.service";
 export { SearchAreaService } from "./services/search-area.service";
 export {
   PlaceMatchService,
+  isTransientResolutionFailure,
   type PlaceResolution,
   type PlaceResolutionFailure,
 } from "./services/place-match.service";
@@ -16,6 +17,7 @@ export { SearchAreaMapper, searchAreaMapper } from "./mapper/search-area.mapper"
 export { LocationInputSchema, type LocationInput } from "./schemas/location-input";
 export {
   PlaceAutocompleteQuerySchema,
+  PlaceIdSchema,
   SearchAreaQuerySchema,
   type PlaceAutocompleteQuery,
   type SearchAreaQuery,
@@ -23,9 +25,12 @@ export {
 
 export type { LocationDTO } from "./types/location.dto";
 export type { SearchAreaDTO } from "./types/search-area.dto";
+export { PlaceProviderError } from "./types/place";
 export type {
   PlaceProvider,
   PlaceDetails,
+  PlaceIdentityDetails,
+  PlaceProviderErrorKind,
   PlaceSuggestion,
   PlaceAddressComponent,
   PlaceContainingArea,
@@ -49,7 +54,7 @@ export {
 export {
   buildContextLabel,
   contextualIdentityKey,
-  normalizeName,
+  normalizeIdentityName,
   providerIdentityKey,
 } from "./utils/identity";
 

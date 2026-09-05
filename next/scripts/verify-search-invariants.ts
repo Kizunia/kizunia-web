@@ -41,8 +41,27 @@ import { bindFilter } from "../src/lib/search/bind";
 import { defineScope } from "../src/lib/search/scope";
 import { defineSortRegistry } from "../src/lib/search/sort";
 import { dateRangeFilter } from "../src/lib/search/filters/range";
-import { textContainsFilter } from "../src/lib/search/filters/text";
+import { textFilter } from "../src/lib/search/filters/text";
 import type { RawSearchParams } from "../src/lib/search/types";
+import { filterParams } from "../src/lib/search/spec";
+import type { DateRangeSpec, TextSpec, TeamSizeValue } from "../src/lib/search/spec";
+import { writeFilterValue, readFilterValue } from "../src/lib/search/spec-values";
+import { applyParamPatch, isSameSearch } from "../src/lib/search/params";
+import {
+  COMPETITION_FILTER_SPECS,
+  competitionFilterSpecs,
+} from "../src/modules/competitions/search/ui";
+import { buildLocationClause } from "../src/modules/competitions/search/location-clause";
+import {
+  buildCompetitionQuery,
+  planCompetitionSearch,
+} from "../src/modules/competitions/search/plan";
+import { resolvableFiltersForScope } from "../src/lib/search/engine";
+import {
+  clearAllFiltersPatch,
+  describeAllChips,
+} from "../src/lib/search/spec-values";
+import { pageHref } from "../src/lib/search/params";
 
 const prisma = new PrismaClient();
 
@@ -92,30 +111,36 @@ async function runEngine(
 async function verifyCaseInsensitivity(): Promise<void> {
   console.log("\n== Invariant: text filters match case-insensitively ==");
 
-  const sample = await prisma.competition.findFirst({
-    where: { deletedAt: null, visibility: "PUBLIC", locations: { some: {} } },
-    select: { locations: { take: 1, select: { location: { select: { displayName: true } } } } },
-  });
+  // This block used to exercise a `location` text filter through a parameter
+  // named `location`. That filter was replaced by a `place` spec owning
+  // `placeId`, `placeLabel` and `includeOnline`, so nothing claims `location`
+  // any more — and the check quietly became vacuous. All three runs returned
+  // the same *unfiltered* list, which satisfied the assertion and reported
+  // green for a property nothing was testing.
+  //
+  // What replaces it is the invariant that made the old check meaningless, now
+  // asserted directly: a parameter no filter owns must change nothing. That
+  // holds regardless of which filters exist, so a future rename cannot turn
+  // this into a no-op the way it did last time.
+  const unowned = "location";
 
-  const displayName = sample?.locations[0]?.location.displayName;
+  report(
+    `"${unowned}" is genuinely unowned by any filter`,
+    COMPETITION_FILTER_SPECS.every(
+      (spec) => !filterParams(spec).includes(unowned),
+    ),
+  );
 
-  if (!displayName) {
-    report("location case-insensitivity (needs fixture data)", false, "no public competition has a location");
-  } else {
-    const [lower, upper, exact] = await Promise.all([
-      runEngine({ location: displayName.toLowerCase() }),
-      runEngine({ location: displayName.toUpperCase() }),
-      runEngine({ location: displayName }),
-    ]);
+  const [withUnowned, unfiltered] = await Promise.all([
+    runEngine({ [unowned]: "Pune" }),
+    runEngine({}),
+  ]);
 
-    report(
-      `location matches regardless of case (fixture: ${JSON.stringify(displayName)})`,
-      lower.length > 0 &&
-        JSON.stringify(lower) === JSON.stringify(upper) &&
-        JSON.stringify(lower) === JSON.stringify(exact),
-      `lower=${lower.length} upper=${upper.length} exact=${exact.length} rows`,
-    );
-  }
+  report(
+    "an unowned parameter does not filter, and cannot fake a passing check",
+    JSON.stringify(withUnowned) === JSON.stringify(unfiltered),
+    `${withUnowned.length} vs ${unfiltered.length} rows`,
+  );
 
   const org = await prisma.competition.findFirst({
     where: { deletedAt: null, visibility: "PUBLIC", organizer: { not: null } },
@@ -299,7 +324,24 @@ async function verifyDefinitionValidation(): Promise<void> {
 
   type W = { AND?: W | W[]; visibility?: unknown };
 
-  const ui = { label: "x", group: "quick" as const };
+  // Minimal specs for the validator cases. Built here rather than imported so
+  // a change to the Competition registry cannot silently alter what these
+  // assertions are testing.
+  const textSpec = (key: string): TextSpec => ({
+    kind: "text",
+    key,
+    label: key,
+    group: "quick",
+    weight: 0,
+  });
+
+  const dateSpec = (key: string): DateRangeSpec => ({
+    kind: "date-range",
+    key,
+    label: key,
+    group: "advanced",
+    weight: 0,
+  });
 
   const sorts = defineSortRegistry<{ id: "asc" }>({
     options: [{ key: "newest", label: "N", orderBy: [{ id: "asc" as const }] }],
@@ -331,7 +373,7 @@ async function verifyDefinitionValidation(): Promise<void> {
       sorts,
       scopes: openScopes,
       filters: [
-        bindFilter(textContainsFilter<W>({ key: "page", toWhere: () => ({}), ui })),
+        bindFilter(textFilter<W>({ spec: textSpec("page"), toWhere: () => ({}) })),
       ],
     }),
   );
@@ -345,9 +387,9 @@ async function verifyDefinitionValidation(): Promise<void> {
       // collides on a *derived* parameter while the two keys differ — the
       // case a key-only check would miss.
       filters: [
-        bindFilter(dateRangeFilter<W>({ key: "startDate", toWhere: () => ({}), ui })),
+        bindFilter(dateRangeFilter<W>({ spec: dateSpec("startDate"), toWhere: () => ({}) })),
         bindFilter(
-          textContainsFilter<W>({ key: "startDateFrom", toWhere: () => ({}), ui }),
+          textFilter<W>({ spec: textSpec("startDateFrom"), toWhere: () => ({}) }),
         ),
       ],
     }),
@@ -359,8 +401,8 @@ async function verifyDefinitionValidation(): Promise<void> {
       sorts,
       scopes: openScopes,
       filters: [
-        bindFilter(textContainsFilter<W>({ key: "a", toWhere: () => ({}), ui })),
-        bindFilter(textContainsFilter<W>({ key: "a", toWhere: () => ({}), ui })),
+        bindFilter(textFilter<W>({ spec: textSpec("a"), toWhere: () => ({}) })),
+        bindFilter(textFilter<W>({ spec: textSpec("a"), toWhere: () => ({}) })),
       ],
     }),
   );
@@ -379,7 +421,7 @@ async function verifyDefinitionValidation(): Promise<void> {
       },
       filters: [
         bindFilter(
-          textContainsFilter<W>({ key: "visibility", toWhere: () => ({}), ui }),
+          textFilter<W>({ spec: textSpec("visibility"), toWhere: () => ({}) }),
         ),
       ],
     }),
@@ -401,8 +443,8 @@ async function verifyDefinitionValidation(): Promise<void> {
       sorts,
       scopes: openScopes,
       filters: [
-        bindFilter(dateRangeFilter<W>({ key: "startDate", toWhere: () => ({}), ui })),
-        bindFilter(textContainsFilter<W>({ key: "location", toWhere: () => ({}), ui })),
+        bindFilter(dateRangeFilter<W>({ spec: dateSpec("startDate"), toWhere: () => ({}) })),
+        bindFilter(textFilter<W>({ spec: textSpec("place"), toWhere: () => ({}) })),
       ],
     });
   } catch {
@@ -532,7 +574,9 @@ async function verifyCodecRoundTrip(): Promise<void> {
     { modes: "HYBRID,ONLINE" },
     { categories: "ai,web3" },
     { search: "ETHGlobal" },
-    { minTeamSize: "4" },
+    { teamSizeMin: "4" },
+    { entryFormat: "TEAM", teamPolicy: "SOLO_OR_TEAM" },
+    { entryFormat: "EITHER", teamSizeMin: "2", teamSizeMax: "4" },
     { startDateFrom: new Date("2026-01-01").toISOString() },
   ];
 
@@ -548,14 +592,571 @@ async function verifyCodecRoundTrip(): Promise<void> {
   }
 }
 
-function normalizeAll(raw: RawSearchParams): Record<string, string | undefined> {
-  const result: Record<string, string | undefined> = {};
+/**
+ * Canonicalises a parameter bag through the spec layer.
+ *
+ * Reads each filter's value and writes it straight back, which is exactly the
+ * round trip a control performs. Idempotence here is what guarantees a shared
+ * URL, a saved search and a freshly built one all serialise identically.
+ */
+function normalizeAll(raw: RawSearchParams): Record<string, string> {
+  let patch: Record<string, string | undefined> = {};
 
-  for (const filter of competitionSearchDefinition.filters) {
-    Object.assign(result, filter.normalize(raw));
+  for (const spec of COMPETITION_FILTER_SPECS) {
+    const value = readFilterValue(spec, raw);
+
+    patch = { ...patch, ...writeFilterValue(spec, value) };
   }
 
-  return result;
+  return applyParamPatch(raw, patch);
+}
+
+
+// =============================================================================
+// Invariants introduced by the spec / resolvable-filter architecture
+// =============================================================================
+
+/**
+ * The highest-risk regression in the whole subsystem.
+ *
+ * An ordinary filter that decodes to nothing is dropped by the engine. If
+ * location were an ordinary filter, a real place with no competitions would
+ * therefore return *every* competition on the platform. Registering it as a
+ * resolvable filter makes its clause a base clause, which cannot be dropped.
+ */
+async function verifyResolvedLocationNeverWidens(): Promise<void> {
+  console.log(
+    "\n== Invariant: a location matching nothing returns nothing, not everything ==",
+  );
+
+  const clause = buildLocationClause({
+    searchAreaIds: [],
+    includeOnline: false,
+  });
+
+  report(
+    "zero matched areas yields an unsatisfiable clause",
+    JSON.stringify(clause) === JSON.stringify({ id: { in: [] } }),
+    `got ${JSON.stringify(clause)}`,
+  );
+
+  const total = await prisma.competition.count({
+    where: { deletedAt: null, visibility: "PUBLIC" },
+  });
+
+  const matched = await prisma.competition.count({
+    where: { AND: [{ deletedAt: null }, clause, { visibility: "PUBLIC" }] },
+  });
+
+  report(
+    "against the real database it matches 0 rows",
+    matched === 0,
+    `matched=${matched} of ${total}`,
+  );
+
+  const withOnline = buildLocationClause({
+    searchAreaIds: [],
+    includeOnline: true,
+  });
+
+  const onlineOnly = await prisma.competition.count({
+    where: { AND: [{ deletedAt: null }, withOnline, { visibility: "PUBLIC" }] },
+  });
+
+  const actualOnline = await prisma.competition.count({
+    where: { deletedAt: null, visibility: "PUBLIC", mode: "ONLINE" },
+  });
+
+  report(
+    "with includeOnline it matches exactly the online competitions",
+    onlineOnly === actualOnline,
+    `clause=${onlineOnly} direct=${actualOnline}`,
+  );
+}
+
+/**
+ * Rows and totals are built from one plan, so they cannot diverge.
+ *
+ * Before planning existed, `findMany` and `count` each built their own query
+ * from raw parameters — two independent resolutions that could straddle a
+ * cache expiry and disagree.
+ */
+async function verifyPlanSymmetry(): Promise<void> {
+  console.log("\n== Invariant: rows and totals are built from one plan ==");
+
+  const cases: RawSearchParams[] = [
+    {},
+    { modes: "ONLINE" },
+    { search: "hack", categories: "ai", sort: "start-date-asc" },
+    { page: "3", limit: "5" },
+  ];
+
+  for (const params of cases) {
+    const plan = await planCompetitionSearch({ scope: "public", params });
+
+    const a = buildCompetitionQuery(plan);
+    const b = buildCompetitionQuery(plan);
+
+    report(
+      `identical where for ${JSON.stringify(params)}`,
+      JSON.stringify(a.where) === JSON.stringify(b.where),
+    );
+  }
+
+  // Location is registered rather than wired into one service method, so no
+  // scope can quietly skip it — the defect this replaces.
+  for (const scope of ["public", "management", "admin"] as const) {
+    const resolvable = resolvableFiltersForScope(
+      competitionSearchDefinition,
+      scope,
+    );
+
+    report(
+      `scope "${scope}" sees the location resolvable filter`,
+      resolvable.some((filter) => filter.key === "location"),
+    );
+  }
+}
+
+/** Removing a chip removes exactly that value and nothing else. */
+function verifyChipRemoval(): void {
+  console.log("\n== Invariant: a chip removes only its own value ==");
+
+  const params: RawSearchParams = {
+    modes: "ONLINE,HYBRID",
+    categories: "ai,web3",
+    search: "hack",
+  };
+
+  const chips = describeAllChips(COMPETITION_FILTER_SPECS, params);
+
+  report("one chip per value", chips.length === 5, `got ${chips.length}`);
+
+  const onlineChip = chips.find((chip) => chip.id === "modes:ONLINE");
+
+  if (!onlineChip) {
+    report("an Online chip exists", false);
+    return;
+  }
+
+  const after = applyParamPatch(params, onlineChip.remove);
+
+  report(
+    "removing Online leaves Hybrid",
+    after.modes === "HYBRID",
+    `modes=${after.modes}`,
+  );
+
+  report(
+    "removing Online leaves the other filters untouched",
+    after.categories === "ai,web3" && after.search === "hack",
+    JSON.stringify(after),
+  );
+}
+
+/** Clear all removes every registered parameter and nothing else. */
+function verifyClearAll(): void {
+  console.log("\n== Invariant: Clear all clears filters, not the URL ==");
+
+  const params: RawSearchParams = {
+    modes: "ONLINE",
+    placeId: "abc",
+    placeLabel: "Pune",
+    includeOnline: "true",
+    startDateFrom: "2026-01-01",
+    utm_source: "newsletter",
+    sort: "start-date-asc",
+  };
+
+  const cleared = applyParamPatch(
+    params,
+    clearAllFiltersPatch(COMPETITION_FILTER_SPECS),
+  );
+
+  for (const key of [
+    "modes",
+    "placeId",
+    "placeLabel",
+    "includeOnline",
+    "startDateFrom",
+  ]) {
+    report(`"${key}" is cleared`, cleared[key] === undefined);
+  }
+
+  report("an unrelated parameter survives", cleared.utm_source === "newsletter");
+
+  // Sort is engine-owned, not filter-owned, so Clear all leaves it: a person
+  // clearing filters has said nothing about how they want results ordered.
+  report("sort survives", cleared.sort === "start-date-asc");
+}
+
+/**
+ * Paging preserves the search.
+ *
+ * Guards the original defect: a link written as `?page=2` that discarded every
+ * filter the person had applied.
+ */
+function verifyPaginationPreservesSearch(): void {
+  console.log("\n== Invariant: paging keeps every filter ==");
+
+  const params: RawSearchParams = {
+    modes: "ONLINE",
+    categories: "ai",
+    placeId: "abc",
+    sort: "start-date-asc",
+  };
+
+  const href = pageHref("/competitions", params, 3);
+
+  const query = new URLSearchParams(href.split("?")[1] ?? "");
+
+  report("page is set", query.get("page") === "3", href);
+
+  for (const [key, value] of Object.entries(params)) {
+    report(`"${key}" survives`, query.get(key) === value, href);
+  }
+
+  const first = pageHref("/competitions", params, 1);
+
+  report(
+    "page 1 omits the parameter, so one view has one URL",
+    !first.includes("page="),
+    first,
+  );
+
+  report(
+    "paging does not change which search it is",
+    isSameSearch(params, Object.fromEntries(query.entries())),
+  );
+}
+
+
+/**
+ * Team-size semantics, checked against the real table.
+ *
+ * Team size is one consolidated filter now: `teamSizeMin`/`teamSizeMax`
+ * express exact and ranged intents, and a lone `teamSizeMax` expresses "at
+ * most" (see `TeamSizeSpec`) — there is no "at least", since an open-ended
+ * lower bound has no competition maximum that could honestly be said to
+ * contain it. `teamPolicy` separately asks what the *competition* allows
+ * about solo entry. `teamSizeMatches` below is an independent re-derivation
+ * of `buildTeamSizeClause`'s containment logic in plain TypeScript, run
+ * against the live table — the point is to catch the clause and the intended
+ * semantics drifting apart, which comparing the clause against itself could
+ * never do.
+ */
+function teamSizeMatches(
+  competition: { minTeamSize: number | null; maxTeamSize: number | null },
+  filter: { min?: number; max?: number; policy?: "SOLO_ONLY" | "SOLO_OR_TEAM" },
+): boolean {
+  // The competition's own range must fully contain every size the requester
+  // might bring — not merely share a size with it. `min` absent means the
+  // team could be as small as 1 (the "at most" case), so the competition's
+  // floor is checked against that even when it is the implicit default.
+  if (filter.max !== undefined) {
+    const effectiveMin = filter.min ?? 1;
+
+    const lowFits =
+      competition.minTeamSize === null ||
+      competition.minTeamSize <= effectiveMin;
+
+    if (!lowFits) return false;
+
+    const highFits =
+      competition.maxTeamSize === null ||
+      competition.maxTeamSize >= filter.max;
+
+    if (!highFits) return false;
+  }
+
+  if (filter.policy === "SOLO_ONLY") {
+    if (!(competition.maxTeamSize !== null && competition.maxTeamSize <= 1)) {
+      return false;
+    }
+  }
+
+  if (filter.policy === "SOLO_OR_TEAM") {
+    const allowsSolo =
+      competition.minTeamSize === null || competition.minTeamSize <= 1;
+
+    const allowsTeam =
+      competition.maxTeamSize === null || competition.maxTeamSize > 1;
+
+    if (!allowsSolo || !allowsTeam) return false;
+  }
+
+  return true;
+}
+
+function teamSizeParams(filter: {
+  min?: number;
+  max?: number;
+  policy?: "SOLO_ONLY" | "SOLO_OR_TEAM";
+}): RawSearchParams {
+  const params: RawSearchParams = { limit: "100" };
+
+  if (filter.min !== undefined) params.teamSizeMin = String(filter.min);
+  if (filter.max !== undefined) params.teamSizeMax = String(filter.max);
+  if (filter.policy) params.teamPolicy = filter.policy;
+
+  return params;
+}
+
+async function verifyTeamSizeSemantics(): Promise<void> {
+  console.log(
+    "\n== Invariant: team size answers 'can we enter', not 'what are the limits' ==",
+  );
+
+  const all = await prisma.competition.findMany({
+    where: { deletedAt: null, visibility: "PUBLIC" },
+    select: { id: true, minTeamSize: true, maxTeamSize: true },
+  });
+
+  if (all.length === 0 || all.length > 100) {
+    report(
+      "team-size semantics (needs a comparable dataset)",
+      false,
+      `${all.length} public competitions; expected 1..100`,
+    );
+    return;
+  }
+
+  const sorted = (ids: string[]) => JSON.stringify([...ids].sort());
+
+  const cases: { label: string; filter: Parameters<typeof teamSizeMatches>[1] }[] = [
+    { label: "exact 1 (solo)", filter: { min: 1, max: 1 } },
+    { label: "exact 5", filter: { min: 5, max: 5 } },
+    { label: "range 1–3 (containment, not overlap)", filter: { min: 1, max: 3 } },
+    { label: "range 3–5", filter: { min: 3, max: 5 } },
+    { label: "at most 4", filter: { max: 4 } },
+    { label: "policy: solo only", filter: { policy: "SOLO_ONLY" } },
+    { label: "policy: solo & team", filter: { policy: "SOLO_OR_TEAM" } },
+    {
+      label: "combined: range 2–4 and solo-or-team",
+      filter: { min: 2, max: 4, policy: "SOLO_OR_TEAM" },
+    },
+  ];
+
+  for (const { label, filter } of cases) {
+    const expected = all
+      .filter((c) => teamSizeMatches(c, filter))
+      .map((c) => c.id);
+
+    const actual = await runEngine(teamSizeParams(filter));
+
+    report(
+      `${label} matches exactly the competitions the predicate expects (${expected.length} rows)`,
+      sorted(actual) === sorted(expected),
+      `engine=${actual.length} expected=${expected.length}`,
+    );
+  }
+
+  // The one-click "Just me (solo)" shortcut in the control and the policy
+  // toggle's "Solo only" answer different questions — bringing exactly one
+  // person is not the same as requiring a competition to be solo-only — and
+  // must not silently coincide on this dataset by accident.
+  const soloSize = all.filter((c) => teamSizeMatches(c, { min: 1, max: 1 }));
+  const soloOnlyPolicy = all.filter((c) =>
+    teamSizeMatches(c, { policy: "SOLO_ONLY" }),
+  );
+
+  report(
+    "a team of exactly 1 and a solo-only competition are different questions",
+    soloSize.length >= soloOnlyPolicy.length &&
+      soloOnlyPolicy.every((c) => soloSize.some((s) => s.id === c.id)),
+    `solo-size=${soloSize.length} solo-only-policy=${soloOnlyPolicy.length}`,
+  );
+
+  // A competition that declared no bounds has not refused anyone. Reading a
+  // missing value as a refusal would hide exactly the most permissive entries.
+  const unbounded = all.filter(
+    (c) => c.minTeamSize === null && c.maxTeamSize === null,
+  );
+
+  if (unbounded.length > 0) {
+    const matched = await runEngine(teamSizeParams({ min: 7, max: 7 }));
+
+    report(
+      `competitions with no declared bounds are not excluded (${unbounded.length} such rows)`,
+      unbounded.every((c) => matched.includes(c.id)),
+    );
+  }
+
+  // "At least" is gone — not merely unreachable from the control, but
+  // genuinely unfiltered when a stale bookmark or hand-edited URL supplies
+  // a lone `teamSizeMin`. It must not fall back to the old overlap check.
+  const staleAtLeast = await runEngine({ teamSizeMin: "3", limit: "100" });
+  const unfilteredForAtLeast = await runEngine({ limit: "100" });
+
+  report(
+    "a lone teamSizeMin (the old 'at least') applies no size filter",
+    sorted(staleAtLeast) === sorted(unfilteredForAtLeast),
+    `stale=${staleAtLeast.length} unfiltered=${unfilteredForAtLeast.length}`,
+  );
+
+  // The old four-filter URL contract must be gone, not merely unused — a
+  // stray bookmark from before this pass should not silently start filtering
+  // by a parameter nothing owns any more.
+  const stale = await runEngine({
+    minTeamSize: "50",
+    maxTeamSize: "1",
+    allowsSolo: "true",
+    limit: "100",
+  });
+  const unfilteredIds = await runEngine({ limit: "100" });
+
+  report(
+    "the retired minTeamSize/maxTeamSize/allowsSolo/teamSize=N parameters are no longer owned",
+    sorted(stale) === sorted(unfilteredIds),
+    `stale=${stale.length} unfiltered=${unfilteredIds.length}`,
+  );
+}
+
+/**
+ * Entry format ("Solo" / "Team" / "Either") coordinates `min`/`max`/`policy`
+ * without adding a Prisma clause of its own — see the doc comment on
+ * `TeamEntryFormat` in `spec.ts`. What has to hold instead is that
+ * `readTeamSize` (`spec-values.ts`), which both the control and the query
+ * builder decode through, never lets a contradictory combination survive:
+ * Solo with a team size, Team with a strictly-solo competition format, or
+ * any team size above one paired with "Solo only".
+ *
+ * These are pure decode-time checks — no database needed — since
+ * `entryFormat` never reaches a query, only the `min`/`max`/`policy` it
+ * leaves behind does.
+ */
+function verifyEntryFormatCoordination(): void {
+  console.log(
+    "\n== Invariant: entry format never leaves a contradictory team-size/policy combination ==",
+  );
+
+  const decode = (raw: RawSearchParams): TeamSizeValue | undefined =>
+    readFilterValue(competitionFilterSpecs.teamSize, raw);
+
+  // Field-by-field rather than `JSON.stringify` equality: the two objects'
+  // keys are declared in a different order (the fixtures below read most
+  // naturally as entryFormat/policy/min/max; `readTeamSize` returns
+  // min/max/policy/entryFormat), and `JSON.stringify` is key-order-sensitive.
+  const same = (
+    a: TeamSizeValue | undefined,
+    b: TeamSizeValue | undefined,
+  ): boolean => {
+    if (a === undefined || b === undefined) return a === b;
+
+    return (
+      a.min === b.min &&
+      a.max === b.max &&
+      a.policy === b.policy &&
+      a.entryFormat === b.entryFormat
+    );
+  };
+
+  const cases: {
+    label: string;
+    params: RawSearchParams;
+    expected: TeamSizeValue | undefined;
+  }[] = [
+    {
+      label: "Solo + Solo only",
+      params: { entryFormat: "SOLO", teamPolicy: "SOLO_ONLY" },
+      expected: { entryFormat: "SOLO", policy: "SOLO_ONLY", min: undefined, max: undefined },
+    },
+    {
+      label: "Solo + Solo & team",
+      params: { entryFormat: "SOLO", teamPolicy: "SOLO_OR_TEAM" },
+      expected: { entryFormat: "SOLO", policy: "SOLO_OR_TEAM", min: undefined, max: undefined },
+    },
+    {
+      label: "Solo + team size => the size is cleared, entry format survives",
+      params: { entryFormat: "SOLO", teamSizeMin: "3", teamSizeMax: "7" },
+      expected: { entryFormat: "SOLO", policy: undefined, min: undefined, max: undefined },
+    },
+    {
+      label: "Team + Solo & team",
+      params: { entryFormat: "TEAM", teamPolicy: "SOLO_OR_TEAM" },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: undefined, max: undefined },
+    },
+    {
+      label: "Team + Solo only => forced to Solo & team",
+      params: { entryFormat: "TEAM", teamPolicy: "SOLO_ONLY" },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: undefined, max: undefined },
+    },
+    {
+      label: "Team + Solo & team + Exact",
+      params: {
+        entryFormat: "TEAM",
+        teamPolicy: "SOLO_OR_TEAM",
+        teamSizeMin: "3",
+        teamSizeMax: "3",
+      },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: 3, max: 3 },
+    },
+    {
+      label: "Team + Solo & team + Range",
+      params: {
+        entryFormat: "TEAM",
+        teamPolicy: "SOLO_OR_TEAM",
+        teamSizeMin: "2",
+        teamSizeMax: "4",
+      },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: 2, max: 4 },
+    },
+    {
+      label: "Team + Solo & team + At most",
+      params: { entryFormat: "TEAM", teamPolicy: "SOLO_OR_TEAM", teamSizeMax: "4" },
+      expected: { entryFormat: "TEAM", policy: "SOLO_OR_TEAM", min: undefined, max: 4 },
+    },
+    {
+      label: "Either + Solo only + no team size",
+      params: { entryFormat: "EITHER", teamPolicy: "SOLO_ONLY" },
+      expected: { entryFormat: "EITHER", policy: "SOLO_ONLY", min: undefined, max: undefined },
+    },
+    {
+      label: "Either + Solo & team + no team size",
+      params: { entryFormat: "EITHER", teamPolicy: "SOLO_OR_TEAM" },
+      expected: { entryFormat: "EITHER", policy: "SOLO_OR_TEAM", min: undefined, max: undefined },
+    },
+    {
+      label: "Either + Solo & team + Range 2-4",
+      params: {
+        entryFormat: "EITHER",
+        teamPolicy: "SOLO_OR_TEAM",
+        teamSizeMin: "2",
+        teamSizeMax: "4",
+      },
+      expected: { entryFormat: "EITHER", policy: "SOLO_OR_TEAM", min: 2, max: 4 },
+    },
+    {
+      label: "Either + Solo only + Range 2-4 => Solo only is dropped, the range survives",
+      params: {
+        entryFormat: "EITHER",
+        teamPolicy: "SOLO_ONLY",
+        teamSizeMin: "2",
+        teamSizeMax: "4",
+      },
+      expected: { entryFormat: "EITHER", policy: undefined, min: 2, max: 4 },
+    },
+    {
+      label: "no entry format + Solo only + Range 2-4 => still contradictory, still dropped",
+      params: { teamPolicy: "SOLO_ONLY", teamSizeMin: "2", teamSizeMax: "4" },
+      expected: { entryFormat: undefined, policy: undefined, min: 2, max: 4 },
+    },
+    {
+      label: "no entry format + Solo only + Exact 1 => not contradictory, both survive",
+      params: { teamPolicy: "SOLO_ONLY", teamSizeMin: "1", teamSizeMax: "1" },
+      expected: { entryFormat: undefined, policy: "SOLO_ONLY", min: 1, max: 1 },
+    },
+  ];
+
+  for (const { label, params, expected } of cases) {
+    const actual = decode(params);
+
+    report(
+      label,
+      same(actual, expected),
+      `actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`,
+    );
+  }
 }
 
 async function main(): Promise<void> {
@@ -567,6 +1168,13 @@ async function main(): Promise<void> {
   await verifySortDeterminism();
   await verifyWildcardEscaping();
   await verifyCodecRoundTrip();
+  await verifyResolvedLocationNeverWidens();
+  await verifyPlanSymmetry();
+  verifyChipRemoval();
+  verifyClearAll();
+  verifyPaginationPreservesSearch();
+  await verifyTeamSizeSemantics();
+  verifyEntryFormatCoordination();
 
   console.log(`\n${checks - failures}/${checks} checks passed.`);
 

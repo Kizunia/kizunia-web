@@ -60,6 +60,14 @@ export const COMPETITION_STATUS_OPTIONS: {
   },
 ] as const;
 
+/**
+ * All four values of `CompetitionVisibility`, in the order a person deciding
+ * how visible to make a competition would consider them: fully public,
+ * reachable only by direct link, visible to nobody but its team, and
+ * retired from active use. Every consumer of this constant — the editor's
+ * general tab, the admin table's inline editor, any future visibility
+ * badge — gets the complete set from this one place.
+ */
 export const COMPETITION_VISIBILITY_OPTIONS: {
   value: CompetitionVisibility;
   label: string;
@@ -69,8 +77,16 @@ export const COMPETITION_VISIBILITY_OPTIONS: {
     label: "Public",
   },
   {
+    value: CompetitionVisibility.UNLISTED,
+    label: "Unlisted",
+  },
+  {
     value: CompetitionVisibility.PRIVATE,
     label: "Private",
+  },
+  {
+    value: CompetitionVisibility.ARCHIVED,
+    label: "Archived",
   },
 ] as const;
 

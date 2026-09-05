@@ -1,85 +1,64 @@
 /**
  * Search Core - Free-text filter primitives
  *
- * All values are LIKE-escaped. Prisma does not escape `%` or `_`, so
- * without this a search for "50%" matches every row.
+ * All values are LIKE-escaped before reaching a clause. Prisma does not escape
+ * `%` or `_`, so without this a search for "50%" matches every row — verified
+ * against the live database, not assumed.
+ *
+ * Escaping happens here rather than during decoding so the canonical URL and
+ * the text shown in the input keep the user's literal input. Only the clause
+ * sees the escaped form.
  */
 
-import type { FilterDescriptor, FilterUiMeta } from "../types";
-import {
-  escapeLikeWildcards,
-  normalizeList,
-  normalizeText,
-} from "../guards";
+import { escapeLikeWildcards } from "../guards";
+import type { TextAnySpec, TextSpec } from "../spec";
+import type { FilterDescriptor } from "../types";
 
 /** Case-insensitive `contains` against a single column. */
-export function textContainsFilter<TWhere>(config: {
-  key: string;
+export function textFilter<TWhere>(config: {
+  spec: TextSpec;
   toWhere: (value: string) => TWhere;
-  ui: FilterUiMeta;
-}): FilterDescriptor<TWhere, string> {
+}): FilterDescriptor<TWhere, TextSpec> {
   return {
-    key: config.key,
+    spec: config.spec,
 
-    keys: [config.key],
-
-    kind: "text",
-
-    decode: (params) => normalizeText(params[config.key]),
-
-    encode: (value) => ({ [config.key]: value }),
-
-    // Escaping happens here rather than in decode, so the canonical URL
-    // keeps the user's literal input.
     toWhere: (value) => config.toWhere(escapeLikeWildcards(value)),
-
-    ui: config.ui,
   };
 }
 
 /**
  * Case-insensitive `contains` across several columns, OR-ed together.
- * This is the seam to swap for Postgres full-text search later.
+ *
+ * Behaviourally identical to `textFilter` — the caller's `toWhere` is what
+ * spans several columns. It exists as a distinct, named export because this
+ * is the documented swap point for Postgres full-text search, and grepping
+ * for it should find every call site that will need revisiting when a
+ * `tsvector` column lands.
  */
 export function multiFieldTextFilter<TWhere>(config: {
-  key: string;
+  spec: TextSpec;
   toWhere: (value: string) => TWhere;
-  ui: FilterUiMeta;
-}): FilterDescriptor<TWhere, string> {
-  // Decoding, escaping and UI are identical to `textContainsFilter`; the
-  // caller's `toWhere` is what spans several columns. Kept as a distinct,
-  // named export because this is the documented swap point for Postgres
-  // full-text search, and grepping for it should find every call site.
-  return textContainsFilter(config);
+}): FilterDescriptor<TWhere, TextSpec> {
+  return textFilter(config);
 }
 
 /**
- * Multi-value free text, OR-ed as a set of `contains` predicates — used
- * where `in` cannot apply because the match is a substring (organizers).
+ * Multi-value free text, OR-ed as a set of `contains` predicates — used where
+ * `in` cannot apply because the match is a substring.
  *
- * Never emits an empty `OR`, which would match zero rows.
- *
- * Note: values are comma-separated, so a value legitimately containing a
- * comma ("Acme, Inc") splits into two tokens. Documented limitation.
+ * Known limitation: values are comma-separated, so a value legitimately
+ * containing a comma ("Acme, Inc") splits into two tokens and matches more
+ * broadly than intended. Acceptable for a substring filter, where the two
+ * fragments still match the original string; it would not be acceptable for
+ * an exact-match filter, and this primitive should not be reused for one.
  */
-export function textContainsAnyFilter<TWhere>(config: {
-  key: string;
+export function textAnyFilter<TWhere>(config: {
+  spec: TextAnySpec;
   toWhere: (values: string[]) => TWhere;
-  ui: FilterUiMeta;
-}): FilterDescriptor<TWhere, string[]> {
+}): FilterDescriptor<TWhere, TextAnySpec> {
   return {
-    key: config.key,
-
-    keys: [config.key],
-
-    kind: "text",
-
-    decode: (params) => normalizeList(params[config.key]),
-
-    encode: (values) => ({ [config.key]: values.join(",") }),
+    spec: config.spec,
 
     toWhere: (values) => config.toWhere(values.map(escapeLikeWildcards)),
-
-    ui: config.ui,
   };
 }

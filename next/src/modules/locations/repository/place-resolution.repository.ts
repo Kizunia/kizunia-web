@@ -1,3 +1,4 @@
+import { PlaceResolutionStatus, type PlaceResolution } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
 
 export class PlaceResolutionRepository {
@@ -18,30 +19,62 @@ export class PlaceResolutionRepository {
    * ✗ DTO Mapping
    */
 
-  static async find(placeId: string) {
+  static async find(params: { placeId: string }): Promise<PlaceResolution | null> {
     return prisma.placeResolution.findUnique({
-      where: { placeId },
+      where: { placeId: params.placeId },
     });
   }
 
   /**
    * Records a successful resolution.
    *
-   * Only ever called for a success. A failed provider call must leave no row,
-   * so a transient outage cannot be frozen into a permanent "this place matches
-   * nothing" — which would be indistinguishable, later, from a genuine result.
+   * Overwrites a previous NOT_FOUND for the same id: place ids are occasionally
+   * revived or re-pointed by the provider, and a row that once recorded a miss
+   * must not outrank a fresh success.
    */
-  static async save(params: {
+  static async saveResolved(params: {
     placeId: string;
     identityKeys: string[];
     displayName: string | null;
     contextLabel: string | null;
     extractionVersion: number;
-  }) {
+  }): Promise<PlaceResolution> {
     const data = {
+      status: PlaceResolutionStatus.RESOLVED,
       identityKeys: params.identityKeys,
       displayName: params.displayName,
       contextLabel: params.contextLabel,
+      extractionVersion: params.extractionVersion,
+      resolvedAt: new Date(),
+    };
+
+    return prisma.placeResolution.upsert({
+      where: { placeId: params.placeId },
+      create: { placeId: params.placeId, ...data },
+      update: data,
+    });
+  }
+
+  /**
+   * Records that the provider refused this id.
+   *
+   * Only ever called for a *permanent* refusal. A transient failure must leave
+   * no row, so an outage cannot be frozen into a lasting "this place matches
+   * nothing" — which would be indistinguishable, later, from a genuine result.
+   *
+   * Identity keys are cleared rather than preserved: a row that says NOT_FOUND
+   * while still carrying keys would be one stale read away from silently
+   * behaving like a success.
+   */
+  static async saveNotFound(params: {
+    placeId: string;
+    extractionVersion: number;
+  }): Promise<PlaceResolution> {
+    const data = {
+      status: PlaceResolutionStatus.NOT_FOUND,
+      identityKeys: [],
+      displayName: null,
+      contextLabel: null,
       extractionVersion: params.extractionVersion,
       resolvedAt: new Date(),
     };

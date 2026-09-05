@@ -8,6 +8,7 @@
 
 import type { PaginationInput, PaginationMeta, RawSearchParams } from "./types";
 import { normalizeScalar } from "./guards";
+import { LIMIT_PARAM, PAGE_PARAM } from "./params";
 
 export const DEFAULT_PAGE = 1;
 export const DEFAULT_LIMIT = 20;
@@ -51,8 +52,13 @@ export function parsePagination(
   params: RawSearchParams,
   config: PaginationConfig = DEFAULT_PAGINATION_CONFIG,
 ): PaginationInput {
-  const page = clampInt(params.page, DEFAULT_PAGE, 1, MAX_PAGE);
-  const limit = clampInt(params.limit, config.defaultLimit, 1, config.maxLimit);
+  const page = clampInt(params[PAGE_PARAM], DEFAULT_PAGE, 1, MAX_PAGE);
+  const limit = clampInt(
+    params[LIMIT_PARAM],
+    config.defaultLimit,
+    1,
+    config.maxLimit,
+  );
 
   return { page, limit };
 }

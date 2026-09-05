@@ -3,13 +3,19 @@
 // interface FindCompetitionsOptions {
 //   search?: string;
 
-import { Prisma } from "@/generated/prisma";
+import {
+  Prisma,
+  type CompetitionStatus,
+  type CompetitionVisibility,
+} from "@/generated/prisma";
 import prisma from "@/lib/prisma";
 import { CompetitionNotFoundError } from "../errors";
 import { CreateCompetitionInput } from "../schemas/create-competition";
 import { UpdateCompetitionInput } from "../schemas/update-competition";
-import { type ExtraBaseClauses, CompetitionSearchBuilder } from "../search/builder";
-import type { RawSearchParams } from "@/lib/search";
+import {
+  buildCompetitionQuery,
+  type CompetitionSearchPlan,
+} from "../search/plan";
 import { CompetitionAssetSlot } from "../types/asset-slot";
 
 
@@ -131,11 +137,15 @@ export class CompetitionRepository {
     ],
   } satisfies Prisma.Competition$locationsArgs;
 
-  static async findMany(
-    filters: RawSearchParams,
-    extraBaseClauses?: ExtraBaseClauses,
-  ) {
-    const query = CompetitionSearchBuilder.build(filters, extraBaseClauses);
+  /**
+   * Rows for a planned search.
+   *
+   * Takes a plan rather than raw parameters so it cannot re-resolve anything:
+   * `count` below is handed the same plan and therefore builds a byte-identical
+   * `where`. See `search/plan.ts` for why that is enforced by the type.
+   */
+  static async findMany(plan: CompetitionSearchPlan) {
+    const query = buildCompetitionQuery(plan);
 
     return prisma.competition.findMany({
       ...query,
@@ -148,11 +158,19 @@ export class CompetitionRepository {
     });
   }
 
+  /**
+   * Rows the actor can manage.
+   *
+   * `actorId` is passed separately from the plan because it serves a different
+   * purpose here: the plan's scope guard is what *restricts* the rows, while
+   * this only decides which membership row to hydrate for presentation. Reading
+   * it out of the plan would blur a filtering concern into a loading one.
+   */
   static async findManyManageable(
     actorId: string,
-    filters: RawSearchParams,
+    plan: CompetitionSearchPlan,
   ) {
-    const query = CompetitionSearchBuilder.buildManagement(actorId, filters);
+    const query = buildCompetitionQuery(plan);
 
     return prisma.competition.findMany({
       ...query,
@@ -177,8 +195,8 @@ export class CompetitionRepository {
     });
   }
 
-  static async findManyAdmin(actorId: string, filters: RawSearchParams) {
-    const query = CompetitionSearchBuilder.buildAdmin(filters);
+  static async findManyAdmin(actorId: string, plan: CompetitionSearchPlan) {
+    const query = buildCompetitionQuery(plan);
 
     return prisma.competition.findMany({
       ...query,
@@ -280,6 +298,31 @@ export class CompetitionRepository {
 
   static async findByIdOrThrow(id: string) {
     const competition = await this.findById(id);
+
+    if (!competition) {
+      throw new CompetitionNotFoundError(`Competition with given id not found.`);
+    }
+
+    return competition;
+  }
+
+  /**
+   * Like `findById`, but does not exclude soft-deleted rows.
+   *
+   * Every other lookup in this class filters `deletedAt: null` because a
+   * deleted competition is meant to behave as though it does not exist for
+   * ordinary reads, edits and deletes. Restore is the one operation that is
+   * only ever meaningful on a row exactly like that, so it needs the one path
+   * that can actually find it — see `CompetitionContextResolver.resolveIncludingDeleted`.
+   */
+  static async findByIdIncludingDeleted(id: string) {
+    return prisma.competition.findFirst({
+      where: { id },
+    });
+  }
+
+  static async findByIdIncludingDeletedOrThrow(id: string) {
+    const competition = await this.findByIdIncludingDeleted(id);
 
     if (!competition) {
       throw new CompetitionNotFoundError(`Competition with given id not found.`);
@@ -551,6 +594,79 @@ export class CompetitionRepository {
     });
   }
 
+  // ==========================================================================
+  // Bulk admin actions
+  // ==========================================================================
+  //
+  // Every method here takes the full requested id set and acts on it in one
+  // statement. None of them decide *who* may act — that happens in the
+  // service, per row, before any of these are called. By the time one of
+  // these runs, every id in it has already been individually authorized.
+
+  /**
+   * Loads every requested competition, deliberately including soft-deleted
+   * ones — a bulk RESTORE request targets exactly those rows, and the
+   * ordinary `findById` would make them invisible to it. Returning fewer
+   * rows than ids requested is how the caller detects a nonexistent id.
+   */
+  static async findManyByIds(ids: readonly string[]) {
+    return prisma.competition.findMany({
+      where: { id: { in: [...ids] } },
+    });
+  }
+
+  /** The actor's membership across every requested competition, in one query. */
+  static async findMembershipsByCompetitionIds(
+    userId: string,
+    competitionIds: readonly string[],
+  ) {
+    return prisma.competitionMember.findMany({
+      where: { userId, competitionId: { in: [...competitionIds] } },
+    });
+  }
+
+  static async bulkSetStatus(
+    ids: readonly string[],
+    status: CompetitionStatus,
+    db: Prisma.TransactionClient | Prisma.DefaultPrismaClient = prisma,
+  ) {
+    return db.competition.updateMany({
+      where: { id: { in: [...ids] } },
+      data: { status },
+    });
+  }
+
+  static async bulkSetVisibility(
+    ids: readonly string[],
+    visibility: CompetitionVisibility,
+    db: Prisma.TransactionClient | Prisma.DefaultPrismaClient = prisma,
+  ) {
+    return db.competition.updateMany({
+      where: { id: { in: [...ids] } },
+      data: { visibility },
+    });
+  }
+
+  static async bulkSoftDelete(
+    ids: readonly string[],
+    db: Prisma.TransactionClient | Prisma.DefaultPrismaClient = prisma,
+  ) {
+    return db.competition.updateMany({
+      where: { id: { in: [...ids] } },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  static async bulkRestore(
+    ids: readonly string[],
+    db: Prisma.TransactionClient | Prisma.DefaultPrismaClient = prisma,
+  ) {
+    return db.competition.updateMany({
+      where: { id: { in: [...ids] } },
+      data: { deletedAt: null },
+    });
+  }
+
   static async findMembership(competitionId: string, userId: string) {
     return prisma.competitionMember.findUnique({
       where: {
@@ -601,35 +717,32 @@ export class CompetitionRepository {
     });
   }
 
-  static async count(
-    filters: RawSearchParams,
-    extraBaseClauses?: ExtraBaseClauses,
-  ) {
-    // Must receive exactly what `findMany` received: a clause applied to one
-    // and not the other makes the reported total disagree with the rows.
-    const { where } = CompetitionSearchBuilder.build(filters, extraBaseClauses);
+  /**
+   * Total for a planned search.
+   *
+   * Must be given the very same plan object `findMany` received. Building from
+   * one plan is what guarantees the two `where` clauses are identical — a
+   * total computed against a different predicate produces a pager to pages
+   * that do not exist.
+   */
+  static async count(plan: CompetitionSearchPlan) {
+    const { where } = buildCompetitionQuery(plan);
 
     return prisma.competition.count({
       where,
     });
   }
 
-  static async countManageable(
-    actorId: string,
-    filters: RawSearchParams,
-  ) {
-    const { where } = CompetitionSearchBuilder.buildManagement(
-      actorId,
-      filters,
-    );
+  static async countManageable(plan: CompetitionSearchPlan) {
+    const { where } = buildCompetitionQuery(plan);
 
     return prisma.competition.count({
       where,
     });
   }
 
-  static async countAdmin(filters: RawSearchParams) {
-    const { where } = CompetitionSearchBuilder.buildAdmin(filters);
+  static async countAdmin(plan: CompetitionSearchPlan) {
+    const { where } = buildCompetitionQuery(plan);
 
     return prisma.competition.count({
       where,
@@ -660,6 +773,26 @@ export class CompetitionRepository {
         deletedAt: null,
       },
     });
+  }
+
+  /**
+   * The admin summary strip's numbers: active, deleted, and their sum.
+   *
+   * Two queries rather than one `groupBy`, computing `total` in memory —
+   * simple, and the admin listing is not a page where an extra count query
+   * is a cost worth engineering around.
+   */
+  static async countByRecordState(): Promise<{
+    total: number;
+    active: number;
+    deleted: number;
+  }> {
+    const [active, deleted] = await Promise.all([
+      prisma.competition.count({ where: { deletedAt: null } }),
+      prisma.competition.count({ where: { deletedAt: { not: null } } }),
+    ]);
+
+    return { total: active + deleted, active, deleted };
   }
 
   /**

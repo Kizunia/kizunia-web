@@ -77,7 +77,8 @@ export class LocationController {
       );
 
       try {
-        const suggestions = await provider.autocomplete(q, {
+        const suggestions = await provider.autocomplete({
+          query: q,
           limit,
           signal: controller.signal,
           sessionToken,

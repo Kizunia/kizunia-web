@@ -16,6 +16,7 @@ import { CompetitionRepository } from "./repository";
 import {
   CompetitionPermissionsDTO,
   CompetitionManagementTableDTO,
+  CompetitionAdminTableDTO,
 } from "./authorization/dto";
 import { competitionLocationMapper } from "./competition-location.mapper";
 
@@ -129,6 +130,25 @@ export class CompetitionMapper {
     competitions: ManageableCompetition[],
   ): CompetitionManagementTableDTO[] {
     throw new Error("Use the service to map management DTOs.");
+  }
+
+  /**
+   * The admin table's row — everything `toManagementTableDTO` returns, plus
+   * `deletedAt`. Used only by `CompetitionService.searchAdmin`; every other
+   * caller of the shared fields keeps using `toManagementTableDTO`, whose
+   * return type has no deletion-state field for `deletedAt` to occupy.
+   */
+  toAdminTableDTO(params: {
+    competition: ManageableCompetition;
+    role: CompetitionMemberRole;
+    permissions: CompetitionPermissionsDTO;
+    canRestore: boolean;
+  }): CompetitionAdminTableDTO {
+    return {
+      ...this.toManagementTableDTO(params),
+      deletedAt: params.competition.deletedAt,
+      canRestore: params.canRestore,
+    };
   }
 
     toEditDTO(params: {

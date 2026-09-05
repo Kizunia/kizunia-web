@@ -105,3 +105,36 @@ export function resolveSort<TOrderBy>(
     ? [...option.orderBy]
     : [...option.orderBy, registry.tiebreaker];
 }
+
+// =============================================================================
+// Client-safe projection
+// =============================================================================
+
+/**
+ * One sort option as the interface sees it.
+ *
+ * A `SortRegistry` carries the entity's `orderBy` shape, which for a Prisma
+ * entity is a Prisma type — so the registry itself must not cross into a
+ * client bundle. This is the projection that may: the key that goes in the
+ * URL, and the label that goes on the control, and nothing else.
+ */
+export interface SortOptionSummary {
+  readonly key: string;
+  readonly label: string;
+}
+
+/**
+ * Projects a registry into the client-safe summaries a sort control renders.
+ *
+ * Called on the server and passed down as props, so the option list and the
+ * allowlist the server validates against are the same declaration and cannot
+ * disagree about which sorts exist.
+ */
+export function toSortOptionSummaries<TOrderBy>(
+  registry: SortRegistry<TOrderBy>,
+): readonly SortOptionSummary[] {
+  return registry.options.map((option) => ({
+    key: option.key,
+    label: option.label,
+  }));
+}

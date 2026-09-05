@@ -1,39 +1,25 @@
 /**
  * Search Core - Boolean filter primitive
  *
- * For flags like "hasCertificate" or "isFeatured". Only "true" is
- * meaningful as a query param; absence and "false" both mean "not filtered"
- * — a boolean filter narrows results when set, it does not let a caller
- * explicitly request `false` (there is no column that would need it in the
- * current entities, and adding that would double the parameter's states
- * for no present use case).
+ * For flags such as "has certificate" or "is featured".
+ *
+ * Only `true` is meaningful as a query parameter: absence and "false" both
+ * mean "not filtered". A boolean filter narrows results when set; it does not
+ * let a caller explicitly request `false`. No current column needs that, and
+ * supporting it would double the parameter's states — and give one view two
+ * URLs — for no use case.
  */
 
-import type { FilterDescriptor, FilterUiMeta } from "../types";
-import { normalizeScalar } from "../guards";
+import type { BooleanSpec } from "../spec";
+import type { FilterDescriptor } from "../types";
 
 export function booleanFilter<TWhere>(config: {
-  key: string;
+  spec: BooleanSpec;
   toWhere: (value: true) => TWhere;
-  ui: FilterUiMeta;
-}): FilterDescriptor<TWhere, true> {
+}): FilterDescriptor<TWhere, BooleanSpec> {
   return {
-    key: config.key,
-
-    keys: [config.key],
-
-    kind: "boolean",
-
-    decode: (params) => {
-      const value = normalizeScalar(params[config.key]);
-
-      return value?.toLowerCase() === "true" ? true : undefined;
-    },
-
-    encode: () => ({ [config.key]: "true" }),
+    spec: config.spec,
 
     toWhere: config.toWhere,
-
-    ui: config.ui,
   };
 }

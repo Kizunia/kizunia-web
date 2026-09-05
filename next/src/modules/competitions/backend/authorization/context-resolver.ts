@@ -31,6 +31,43 @@ export class CompetitionContextResolver {
       membership,
     };
   }
+  /**
+   * Like `resolve`, but can find a soft-deleted competition.
+   *
+   * `resolve` deliberately cannot — every ordinary read/edit/delete path
+   * treats a deleted competition as not found, and `findByIdOrThrow` enforces
+   * that at the query itself. Restore is the one operation that only ever
+   * makes sense on a row in exactly that state, so it needs the one lookup
+   * that does not exclude it. Authorization is unaffected: the policy still
+   * decides who may act on what it finds here — this only changes whether
+   * the row is findable at all.
+   */
+  static async resolveIncludingDeleted(params: {
+    actor: AuthorizationActor;
+    competitionId: string;
+  }): Promise<CompetitionContext> {
+    const { actor, competitionId } = params;
+
+    if (!actor.id) {
+      throw new ValidationError({
+        code: "ACTOR_ID_REQUIRED",
+        status: 400,
+        message: "Actor ID is required to resolve competition context",
+      });
+    }
+
+    const [competition, membership] = await Promise.all([
+      CompetitionRepository.findByIdIncludingDeletedOrThrow(competitionId),
+      CompetitionRepository.findMembership(competitionId, actor.id),
+    ]);
+
+    return {
+      actor,
+      competition,
+      membership,
+    };
+  }
+
   static async resolveBySlug({
     actor,
     slug,
