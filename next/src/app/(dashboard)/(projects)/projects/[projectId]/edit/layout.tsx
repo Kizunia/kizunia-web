@@ -18,7 +18,7 @@ export default async function ProjectEditLayout({
     <PageWrapper>
       <ProjectEditorLayout projectId={projectId}>
         {children}
-      </ProjectEditorLayout>{" "}
+      </ProjectEditorLayout>
     </PageWrapper>
   );
 }

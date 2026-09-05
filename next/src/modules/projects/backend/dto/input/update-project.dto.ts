@@ -3,8 +3,11 @@ import {
 } from "@/generated/prisma";
 
 /**
- * @deprecated Use UpdateProjectProfileDto or similar instead.
- *  */
+ * @deprecated Superseded by the split, per-section update contracts:
+ * `UpdateProjectProfileDto` (title/slug/shortDescription/status/visibility)
+ * and `UpdateProjectContentDto` (content). Do not add new fields here or
+ * introduce new callers.
+ */
 export interface UpdateProjectDto {
   title?: string;
 

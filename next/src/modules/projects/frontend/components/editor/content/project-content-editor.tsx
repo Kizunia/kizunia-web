@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { ForwardRefEditor } from "@/components/shared/mdx/ForwardRefEditor";
 
 import { useProjectStore } from "../../../store/project.store";
 import { useProjectContentStore } from "../../../store/project-content.store";
@@ -23,6 +23,10 @@ export function ProjectContentEditor({
 
   const isSaving = useProjectContentStore(
     (state) => state.isSaving,
+  );
+
+  const isDirty = useProjectContentStore(
+    (state) => state.isDirty(),
   );
 
   const error = useProjectContentStore(
@@ -49,6 +53,22 @@ export function ProjectContentEditor({
     initialize(project);
   }, [project, initialize]);
 
+  useEffect(() => {
+    if (!isDirty) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isDirty]);
+
   if (!project) {
     return (
       <section className="rounded-lg border p-6">
@@ -58,6 +78,8 @@ export function ProjectContentEditor({
       </section>
     );
   }
+
+  const canManageContent = project.permissions.canManageContent;
 
   return (
     <section className="max-w-4xl space-y-6">
@@ -72,17 +94,25 @@ export function ProjectContentEditor({
         </p>
       </div>
 
-      <Textarea
-        value={content}
-        onChange={(event) =>
-          setContent(event.target.value)
-        }
-        rows={20}
-        placeholder="Write your project content..."
-      />
+      {!canManageContent && (
+        <div className="rounded-md border border-border bg-muted/50 p-3">
+          <p className="text-sm text-muted-foreground">
+            You have view-only access to this project&apos;s
+            content.
+          </p>
+        </div>
+      )}
 
-      
-      
+      <div className="rounded-lg border">
+        <Suspense fallback={null}>
+          <ForwardRefEditor
+            markdown={content}
+            onChange={(markdown) => setContent(markdown)}
+            readOnly={!canManageContent}
+            className=""
+          />
+        </Suspense>
+      </div>
 
       {error && (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
@@ -92,18 +122,20 @@ export function ProjectContentEditor({
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button
-          disabled={isSaving}
-          onClick={() =>
-            void updateContent({
-              id: projectId,
-            })
-          }
-        >
-          {isSaving ? "Saving..." : "Save content"}
-        </Button>
-      </div>
+      {canManageContent && (
+        <div className="flex justify-end">
+          <Button
+            disabled={isSaving || !isDirty}
+            onClick={() =>
+              void updateContent({
+                id: projectId,
+              })
+            }
+          >
+            {isSaving ? "Saving..." : "Save content"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

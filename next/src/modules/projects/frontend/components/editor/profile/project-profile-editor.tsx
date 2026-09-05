@@ -30,8 +30,14 @@ export function ProjectProfileEditor({
   const isSaving = useProjectProfileStore(
     (state) => state.isSaving,
   );
+  const isDirty = useProjectProfileStore(
+    (state) => state.isDirty(),
+  );
   const error = useProjectProfileStore(
     (state) => state.error,
+  );
+  const fieldErrors = useProjectProfileStore(
+    (state) => state.fieldErrors,
   );
 
   const initialize = useProjectProfileStore(
@@ -54,6 +60,22 @@ export function ProjectProfileEditor({
     initialize(project);
   }, [project, initialize]);
 
+  useEffect(() => {
+    if (!isDirty) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isDirty]);
+
   if (!project) {
     return (
       <div className="rounded-lg border p-6">
@@ -63,6 +85,8 @@ export function ProjectProfileEditor({
       </div>
     );
   }
+
+  const canEdit = project.permissions.canEdit;
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -77,6 +101,15 @@ export function ProjectProfileEditor({
         </p>
       </div>
 
+      {!canEdit && (
+        <div className="rounded-md border border-border bg-muted/50 p-3">
+          <p className="text-sm text-muted-foreground">
+            You have view-only access to this project. Fields
+            below are read-only.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-6">
         <div className="space-y-2">
           <label className="text-sm font-medium">
@@ -85,10 +118,18 @@ export function ProjectProfileEditor({
 
           <Input
             value={form.title}
+            disabled={!canEdit}
             onChange={(event) =>
               setField("title", event.target.value)
             }
+            aria-invalid={Boolean(fieldErrors.title)}
           />
+
+          {fieldErrors.title && (
+            <p className="text-xs text-destructive">
+              {fieldErrors.title}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -98,14 +139,22 @@ export function ProjectProfileEditor({
 
           <Input
             value={form.slug}
+            disabled={!canEdit}
             onChange={(event) =>
               setField("slug", event.target.value)
             }
+            aria-invalid={Boolean(fieldErrors.slug)}
           />
 
           <p className="text-xs text-muted-foreground">
             Used in the public project URL.
           </p>
+
+          {fieldErrors.slug && (
+            <p className="text-xs text-destructive">
+              {fieldErrors.slug}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -115,6 +164,7 @@ export function ProjectProfileEditor({
 
           <Textarea
             value={form.shortDescription}
+            disabled={!canEdit}
             onChange={(event) =>
               setField(
                 "shortDescription",
@@ -122,7 +172,14 @@ export function ProjectProfileEditor({
               )
             }
             rows={4}
+            aria-invalid={Boolean(fieldErrors.shortDescription)}
           />
+
+          {fieldErrors.shortDescription && (
+            <p className="text-xs text-destructive">
+              {fieldErrors.shortDescription}
+            </p>
+          )}
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2">
@@ -133,6 +190,7 @@ export function ProjectProfileEditor({
 
             <Select
               value={form.status}
+              disabled={!canEdit}
               onValueChange={(value) =>
                 setField(
                   "status",
@@ -163,6 +221,7 @@ export function ProjectProfileEditor({
 
             <Select
               value={form.visibility}
+              disabled={!canEdit}
               onValueChange={(value) =>
                 setField(
                   "visibility",
@@ -199,22 +258,24 @@ export function ProjectProfileEditor({
           </div>
         )}
 
-        <div className="flex justify-end border-t pt-6">
-          <Button
-            disabled={isSaving}
-            onClick={() =>
-              void updateProfile({
-                id: projectId,
-              })
-            }
-          >
-            <Save />
+        {canEdit && (
+          <div className="flex justify-end border-t pt-6">
+            <Button
+              disabled={isSaving || !isDirty}
+              onClick={() =>
+                void updateProfile({
+                  id: projectId,
+                })
+              }
+            >
+              <Save />
 
-            {isSaving
-              ? "Saving..."
-              : "Save changes"}
-          </Button>
-        </div>
+              {isSaving
+                ? "Saving..."
+                : "Save changes"}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

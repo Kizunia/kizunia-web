@@ -53,6 +53,17 @@ export class ProjectAuthorizer {
     );
   }
 
+  static manageContent(
+    context: ProjectContext,
+  ): void {
+    Authorization.assert(
+      ProjectPolicy.can(
+        context,
+        ProjectAction.MANAGE_CONTENT,
+      ),
+    );
+  }
+
   static can(
     context: ProjectContext,
     action: ProjectAction,
