@@ -75,12 +75,6 @@ export class ProjectMapper {
       slug: dto.slug,
 
       shortDescription: dto.shortDescription,
-
-      visibility: dto.visibility,
-
-      startDate: dto.startDate,
-
-      endDate: dto.endDate,
     };
   }
 

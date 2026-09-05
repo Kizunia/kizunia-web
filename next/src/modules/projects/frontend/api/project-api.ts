@@ -1,10 +1,25 @@
 import { HttpClient } from "@/lib/http/client";
 import { UpdateProjectProfileDto, UpdateProjectContentDto } from "../../backend/dto/input";
+import { CreateProjectDto } from "../../schemas";
 import { ProjectDetailsDto } from "../../backend/dto/output";
 
 
 
 export class ProjectApi {
+  static async create(
+    dto: CreateProjectDto,
+  ): Promise<ProjectDetailsDto> {
+    const response = await HttpClient.post<
+      ProjectDetailsDto,
+      CreateProjectDto
+    >(
+      "/api/v1/projects",
+      dto,
+    );
+
+    return response.data;
+  }
+
   static async getById(
     id: string,
   ): Promise<ProjectDetailsDto> {

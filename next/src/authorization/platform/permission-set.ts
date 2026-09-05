@@ -11,6 +11,7 @@ import { PlatformAction } from "./actions";
  */
 const BASELINE: readonly PlatformAction[] = [
     PlatformAction.VIEW_PUBLIC_PROJECTS,
+    PlatformAction.CREATE_PROJECT,
     PlatformAction.CREATE_COMPETITION_SUGGESTION,
 ];
 

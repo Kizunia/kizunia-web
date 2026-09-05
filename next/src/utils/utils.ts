@@ -26,6 +26,14 @@ export const IS_VALID_DOMAIN = (domain: string): boolean => {
   return false;
 };
 
+export function slugify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function getInitials(
   text: string,
   minLength = 1,
