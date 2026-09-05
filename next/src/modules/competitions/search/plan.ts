@@ -157,10 +157,26 @@ export async function planCompetitionSearch(
   const resolution = await resolveBaseClauses(resolvable, args.params);
 
   if (resolution.status === "FAILED") {
+    // Two failures that must not share a message. Every other reason means "we
+    // could not find out", and retrying genuinely may work. A missing radius
+    // anchor means we *did* find out and there is no centre to measure from —
+    // telling that user to try again in a moment would be false, and they would
+    // keep trying.
+    const anchorUnavailable =
+      resolution.reason === CompetitionErrorCode.RADIUS_ANCHOR_UNAVAILABLE;
+
     throw new ExternalServiceError({
-      code: CompetitionErrorCode.LOCATION_RESOLUTION_FAILED,
-      message:
-        "We could not look that location up right now. Please try again in a moment.",
+      code: anchorUnavailable
+        ? CompetitionErrorCode.RADIUS_ANCHOR_UNAVAILABLE
+        : CompetitionErrorCode.LOCATION_RESOLUTION_FAILED,
+      message: anchorUnavailable
+        ? "We don't have coordinates for that place, so we can't search by distance around it. Try a nearby city, or search without a distance."
+        : "We could not look that location up right now. Please try again in a moment.",
+      // The machine-readable half of that same distinction. `ExternalServiceError`
+      // defaults to retryable, which is right for a lookup that failed and wrong
+      // for a place that simply has no coordinates: a client honouring the flag
+      // would retry forever against an answer that will never change.
+      retryable: !anchorUnavailable,
       details: { filter: resolution.key, reason: resolution.reason },
     });
   }

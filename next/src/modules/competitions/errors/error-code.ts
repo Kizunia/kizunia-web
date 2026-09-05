@@ -19,6 +19,22 @@ export const CompetitionErrorCode = {
 
     LOCATION_RESOLUTION_FAILED: "COMPETITION_LOCATION_RESOLUTION_FAILED",
 
+    /**
+     * A radius was requested around a place the provider has no coordinates
+     * for.
+     *
+     * Distinct from LOCATION_RESOLUTION_FAILED on purpose. That one means "we
+     * could not find out, try again"; this one means "we found out, and there
+     * is no centre to measure from" — retrying will never help, so telling the
+     * user to retry would be false.
+     *
+     * It is an error rather than a silent fallback to search-area matching:
+     * answering a distance question with an identity match would present a
+     * different search than the one that was asked for, and the user would have
+     * no way to tell.
+     */
+    RADIUS_ANCHOR_UNAVAILABLE: "COMPETITION_RADIUS_ANCHOR_UNAVAILABLE",
+
     BULK_IDS_NOT_FOUND: "COMPETITION_BULK_IDS_NOT_FOUND",
 
     BULK_UNAUTHORIZED: "COMPETITION_BULK_UNAUTHORIZED",

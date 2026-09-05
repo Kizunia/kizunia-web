@@ -1,6 +1,44 @@
 # Radius / Nearby Location Search — Research & Design Proposal
 
-> **Status:** RESEARCH / PROPOSAL. Nothing here is approved, and no
+> **Status:** SUPERSEDED IN PART — IMPLEMENTED 2026-09-05. This document remains
+> accurate as *research*: its reading of the codebase, its database findings, and
+> its analysis of the options all held up when the feature was built. But three
+> of its recommendations were overridden by product decision before
+> implementation. **Read the Amendment below before treating any recommendation
+> here as current.**
+
+---
+
+## Amendment — what was actually built (2026-09-05)
+
+Three deliberate departures from this document's recommendations, decided by
+product review rather than discovered during implementation:
+
+| # | This document recommended | What shipped | Why |
+| --- | --- | --- | --- |
+| 1 | **Union** semantics (§12.3): "recorded in Pune, *or* within 25 km of it" | **Replace.** With a radius set, matching is by distance alone and the SearchArea arm is dropped. | "Within 25 km" is a question about geography. Answering it partly by stored identity would return a competition tagged "Pune District" from 90 km away with nothing on the page to explain it. The accepted cost is that a location with no coordinates cannot match a radius search at all — which is why `scripts/report-location-coverage.ts` exists. |
+| 2 | **Defer** browser geolocation (§8), and implement it later as reverse-geocode → place id | **Built now, with bare coordinates.** `lat`/`lng` in the URL, never reverse geocoded, never persisted as a `Location`. | Device position is an ephemeral search input, not a place. Turning it into one would add a billed provider capability, a second cache, and a second way places enter the system — the "second system" this document rightly warns against. |
+| 3 | `findIdsWithinRadius` returning the ids **inside** the circle, capped by `MAX_RADIUS_LOCATION_IDS` with a warning on truncation (§10, §21) | **`findLocationIdsOutsideRadius`** — the ids to *exclude* — paired with a Prisma bounding box. **No cap anywhere.** | The inside-list is authoritative: anything missing from it is a competition that silently vanishes, so capping it produces a quietly incomplete search. Inverting it makes completeness *structural* — the box is a strict superset, so an incomplete exclusion list can only over-include a near-boundary result, never lose a valid one. It is also ~3.7× smaller (the corner region is ~21% of box hits against ~79% inside). |
+
+Two further notes:
+
+- **Finding 1 of §1 was right and is now fixed in the code.** `PlaceRadiusConfig`'s
+  original comment claimed radius "changes the resolution result, not the clause
+  shape". It does change the clause. That comment has been rewritten in
+  `src/lib/search/spec.ts` to say so.
+- **No Postgres extension was adopted, and §9's analysis of why is unchanged —
+  but its framing was incomplete.** An extension would not have removed the
+  intermediate materialisation anyway: the materialisation is forced by Prisma
+  having no raw-SQL escape inside `where`, not by the absence of a spatial index.
+  `cube`/`earthdistance` would make the lookup indexed; it would still have to
+  hand ids back to TypeScript.
+
+Ceiling shipped at **200 km**, steps `[5, 10, 25, 50, 100, 200]`. Distance
+sorting was **not** built (§17's reasoning stands).
+
+---
+
+> **Original status:** RESEARCH / PROPOSAL. Nothing here is approved, and no
 > implementation code has been written.
 >
 > **Scope:** Competitions only.

@@ -320,9 +320,13 @@ function verifyPlatformMappings(): void {
 
   report(
     "and decodes back as a selected place with online excluded",
-    place?.id === pune.placeId &&
-      place?.label === "Pune" &&
-      place?.includeOnline === false,
+    place?.center.kind === "place" &&
+      place.center.id === pune.placeId &&
+      place.center.label === "Pune" &&
+      place.includeOnline === false &&
+      // The platform preset carries no radius, so applying it must not turn
+      // distance matching on.
+      place.radiusKm === undefined,
     JSON.stringify(place),
   );
 }
@@ -1443,8 +1447,11 @@ function verifyAcceptanceScenarios(): void {
   const refined = apply(
     apply({}, applyPresetPatch(specs, "custom", myAi)),
     writeFilterValue(competitionFilterSpecs.location, {
-      id: "ChIJARFGZy6_wjsRQ-Oenb9DjYI",
-      label: "Pune",
+      center: {
+        kind: "place",
+        id: "ChIJARFGZy6_wjsRQ-Oenb9DjYI",
+        label: "Pune",
+      },
       includeOnline: false,
     }),
   );

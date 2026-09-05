@@ -90,27 +90,119 @@ function readDateRange(
   return { from, to };
 }
 
+/**
+ * Reads one half of a device coordinate.
+ *
+ * Deliberately not `normalizeInteger` — a coordinate is fractional. Rejects
+ * anything non-finite or outside the valid range, so a hand-edited
+ * `?lat=999` simply has no centre rather than placing a search somewhere
+ * impossible.
+ */
+function readCoordinate(
+  raw: string | string[] | undefined,
+  limit: number,
+): number | undefined {
+  const value = normalizeScalar(raw);
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < -limit || parsed > limit) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+/**
+ * Reads and bounds the radius.
+ *
+ * Two different failure modes, deliberately handled differently:
+ *
+ *   - **Invalid** (`0`, `-5`, `2.5`, `abc`, `NaN`, `Infinity`) is dropped, so
+ *     the filter behaves as though no radius were given. That is this
+ *     codebase's standing policy for a stale or hand-edited URL: degrade to
+ *     something sane rather than render an error page.
+ *   - **Too large** is *clamped*, not dropped. Dropping it would silently
+ *     narrow a search the user was explicitly trying to widen — the one
+ *     direction this must never fail in.
+ *
+ * Clamping lives here, in the decoder, rather than in the control, because the
+ * control is only one of five writers: a preset restored from `localStorage`, a
+ * hand-edited URL, a shared link and the API all reach this function too, and
+ * only this function is on every one of those paths.
+ */
+function readRadiusKm(
+  params: RawSearchParams,
+  spec: Extract<FilterSpec, { kind: "place" }>,
+): number | undefined {
+  if (!spec.radius) {
+    return undefined;
+  }
+
+  const requested = normalizeInteger(params[spec.radius.radiusParam]);
+
+  if (requested === undefined) {
+    return undefined;
+  }
+
+  return Math.min(requested, spec.radius.maxKm);
+}
+
 function readPlace(
   params: RawSearchParams,
   spec: Extract<FilterSpec, { kind: "place" }>,
 ): PlaceValue | undefined {
+  const radiusKm = readRadiusKm(params, spec);
+
+  const includeOnline =
+    normalizeScalar(params[spec.includeOnlineParam])?.toLowerCase() === "true";
+
   const id = normalizeScalar(params[spec.idParam]);
 
-  // No place means no location filter, regardless of the other two
-  // parameters. A stray `includeOnline=true` with nothing selected must not
-  // become a silent "online only" filter the user never asked for.
-  if (id === undefined) {
-    return undefined;
+  // A selected place takes precedence over a device position. Both can appear
+  // together in a stale URL — someone picks a city after having used "near me"
+  // — and one of them has to win deterministically, because a radius has
+  // exactly one centre. Preferring the place is the honest choice: it is the
+  // one the user named, and it is the one that renders as a readable chip.
+  if (id !== undefined) {
+    return {
+      center: {
+        kind: "place",
+        id,
+        label: normalizeScalar(params[spec.labelParam]),
+      },
+
+      includeOnline,
+
+      ...(radiusKm !== undefined && { radiusKm }),
+    };
   }
 
-  return {
-    id,
+  // A device centre has no identity, so it can only ever mean "within X of
+  // here". Without a radius there is nothing to ask, which is why — unlike a
+  // place — it is not a filter on its own.
+  if (spec.radius && radiusKm !== undefined) {
+    const latitude = readCoordinate(params[spec.radius.latitudeParam], 90);
 
-    label: normalizeScalar(params[spec.labelParam]),
+    const longitude = readCoordinate(params[spec.radius.longitudeParam], 180);
 
-    includeOnline:
-      normalizeScalar(params[spec.includeOnlineParam])?.toLowerCase() === "true",
-  };
+    if (latitude !== undefined && longitude !== undefined) {
+      return {
+        center: { kind: "device", latitude, longitude },
+        includeOnline,
+        radiusKm,
+      };
+    }
+  }
+
+  // No centre means no location filter, regardless of the other parameters. A
+  // stray `includeOnline=true`, or a radius with nothing to centre it on, must
+  // not become a filter the user never asked for.
+  return undefined;
 }
 
 const TEAM_SIZE_POLICIES: ReadonlySet<string> = new Set<TeamSizePolicy>([
@@ -381,13 +473,31 @@ export function writeFilterValue<TSpec extends FilterSpec>(
     case "place": {
       const place = value as PlaceValue;
 
+      // Exactly one centre reaches the URL. `cleared` already names every
+      // parameter this filter owns, so the unused centre's parameters are
+      // removed rather than left behind — switching from "near me" to a chosen
+      // city cannot strand a stale coordinate that would outlive its chip.
+      const center =
+        place.center.kind === "place"
+          ? {
+              [spec.idParam]: place.center.id,
+              [spec.labelParam]: place.center.label,
+            }
+          : {
+              [spec.radius!.latitudeParam]: String(place.center.latitude),
+              [spec.radius!.longitudeParam]: String(place.center.longitude),
+            };
+
       return {
         ...cleared,
-        [spec.idParam]: place.id,
-        [spec.labelParam]: place.label,
+        ...center,
         // Written only when true: `false` is the default, and encoding a
         // default produces a second URL for one view.
         [spec.includeOnlineParam]: place.includeOnline ? "true" : undefined,
+        ...(spec.radius && {
+          [spec.radius.radiusParam]:
+            place.radiusKm !== undefined ? String(place.radiusKm) : undefined,
+        }),
       };
     }
 
@@ -669,11 +779,36 @@ export function describeFilterChips(
         {
           ...base,
           id: spec.idParam,
-          // A URL that lost its label still produces a usable, removable chip.
-          label: withPrefix(spec, place.label ?? "Selected place"),
+          label: withPrefix(
+            spec,
+            place.center.kind === "device"
+              ? // Never the raw coordinates. They are unreadable, they are the
+                // person's position, and they are not what they asked for —
+                // they asked to search near themselves.
+                "Near me"
+              : // A URL that lost its label still produces a usable, removable chip.
+                (place.center.label ?? "Selected place"),
+          ),
           remove: clearFilterPatch(spec),
         },
       ];
+
+      // Separately removable, for the same reason the online toggle is:
+      // narrowing "Pune within 25 km" back to "Pune" should not require
+      // clearing the place and picking it again.
+      //
+      // Not offered for a device centre, because removing the radius there
+      // would leave a centre that means nothing on its own — `readPlace` would
+      // drop the whole filter, so the chip would appear to clear two things.
+      // The single "Near me" chip already clears it as one unit.
+      if (place.radiusKm !== undefined && place.center.kind === "place") {
+        chips.push({
+          ...base,
+          id: spec.radius!.radiusParam,
+          label: `Within ${place.radiusKm} km`,
+          remove: { [spec.radius!.radiusParam]: undefined },
+        });
+      }
 
       // The online toggle is a separate chip because it is separately
       // removable: a user narrowing to "Pune only" should not have to clear

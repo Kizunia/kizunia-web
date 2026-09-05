@@ -1,6 +1,6 @@
 # Location
 
-> **Status:** In Progress — SearchArea discovery implemented; radius search and public filter UI not started
+> **Status:** In Progress — SearchArea discovery implemented; radius search implemented (place or device centre, distance-only, 200 km ceiling); distance sorting not started
 >
 > **Version:** 2.0
 >
@@ -295,10 +295,21 @@ database.
       This is Phase 2 of the search plan.
 - [ ] **Manual browser walkthrough** with a real `GOOGLE_MAPS_API_KEY` — the
       Google provider has been verified against fixtures, not the live API.
-- [ ] **Radius / "near me"** — needs a `geo-radius` filter kind escaping Prisma
-      via `$queryRaw`, plus parameterised sorts that `SortRegistry` does not yet
-      support. Pre-specified in `search/06-open-questions.md` §1; deliberately
-      not built speculatively.
+- [x] **Radius / "near me"** — built. Not as a `geo-radius` filter kind, but as
+      a modifier on the existing `place` filter: a radius has exactly one centre,
+      so it can never be an independent registry entry. The centre is either a
+      provider place (anchor read from `place_resolution`, which now stores the
+      coordinates Google was already returning) or the device's own position,
+      carried as bare `lat`/`lng` and never reverse geocoded or persisted.
+      The predicate is a Prisma bounding box intersected with a SQL
+      corner-exclusion list, so filtering, sorting, counting and pagination all
+      stay in the database and nothing is capped. When a radius is set it
+      **replaces** SearchArea matching rather than widening it — see
+      `search/08-radius-search-research.md` § Amendment.
+- [ ] **Distance sorting ("nearest first")** — still not started. `SortRegistry`
+      holds a static `orderBy` per option and cannot be parameterised by a
+      request value, and "distance to a competition" is a `MIN()` over its
+      locations that Prisma cannot express. Would require a raw row query.
 - [ ] **Enrichment pass** to add containment a provider did not return first time.
 - [ ] No automated test framework in the repo; verification harnesses are
       temporary scripts.

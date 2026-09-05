@@ -1,4 +1,4 @@
-import { PlaceResolutionStatus } from "@/generated/prisma";
+import { PlaceResolutionStatus, type Prisma } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -106,6 +106,18 @@ export function isTransientResolutionFailure(
 }
 
 /**
+ * A place's own coordinates — the point a radius search measures from.
+ *
+ * Null is a legitimate, distinct outcome: the place resolved, but the provider
+ * reported no coordinates for it. That is neither a failure nor an empty
+ * result, and callers must not collapse it into either.
+ */
+export interface PlaceAnchor {
+  latitude: number;
+  longitude: number;
+}
+
+/**
  * The three outcomes a location search can have, kept deliberately distinct.
  *
  * `RESOLVED` with no matching areas is a *successful* search of a real place
@@ -119,15 +131,74 @@ export type PlaceResolution =
       identityKeys: string[];
       searchAreaIds: string[];
       displayName: string | null;
+      /**
+       * Populated only when the caller asked for it. `null` means either "not
+       * requested" or "the provider has none" — a distinction the caller does
+       * not need, because it only ever reads this when it asked.
+       */
+      anchor: PlaceAnchor | null;
     }
   | { status: "RESOLUTION_FAILED"; reason: PlaceResolutionFailure };
 
-/** In-flight lookups, so concurrent identical searches make one provider call. */
+/**
+ * In-flight lookups, so concurrent identical searches make one provider call.
+ *
+ * Keyed by place id **and** whether an anchor was requested. Without the second
+ * half, a plain area search already in flight would satisfy a radius search
+ * arriving a moment later and hand it a result with no anchor — silently
+ * disabling the radius. The two requests are not interchangeable, so they do
+ * not share a slot.
+ */
 const inFlight = new Map<string, Promise<PlaceResolution>>();
 
 const failed = (
   reason: PlaceResolutionFailure,
 ): PlaceResolution => ({ status: "RESOLUTION_FAILED", reason });
+
+/**
+ * Anything carrying a coordinate pair — a cached row (`Prisma.Decimal`) or a
+ * fresh provider response (plain `number`).
+ */
+interface CoordinateSource {
+  latitude: Prisma.Decimal | number | null;
+  longitude: Prisma.Decimal | number | null;
+}
+
+/**
+ * Unwraps a stored coordinate into a plain number.
+ *
+ * `Prisma.Decimal` does not survive JSON serialization as a number, and a
+ * non-finite value is not a coordinate. Both degrade to `null` rather than
+ * propagating something a distance calculation would silently turn into `NaN`.
+ */
+function toCoordinate(value: Prisma.Decimal | number | null): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  const numeric = typeof value === "number" ? value : value.toNumber();
+
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+/**
+ * Reads an anchor, insisting on a complete pair.
+ *
+ * A half-set coordinate is not a usable centre, and treating one as an anchor
+ * would place a search on the equator or the prime meridian — a confidently
+ * wrong answer, which is worse than admitting there is none.
+ */
+function toAnchor(source: CoordinateSource): PlaceAnchor | null {
+  const latitude = toCoordinate(source.latitude);
+
+  const longitude = toCoordinate(source.longitude);
+
+  if (latitude === null || longitude === null) {
+    return null;
+  }
+
+  return { latitude, longitude };
+}
 
 export class PlaceMatchService {
   /**
@@ -166,8 +237,19 @@ export class PlaceMatchService {
    */
   static async resolve({
     placeId,
+    requireAnchor = false,
   }: {
     placeId: string;
+    /**
+     * Whether the caller needs the place's coordinates.
+     *
+     * Off by default, so the ordinary area search is completely unaffected: it
+     * neither requests an anchor nor re-resolves a cached row that lacks one.
+     * Radius search turns it on, which is what makes the cache migration cost
+     * nothing — only places someone actually asks for a radius around are
+     * re-resolved, and even then at no extra provider billing.
+     */
+    requireAnchor?: boolean;
   }): Promise<PlaceResolution> {
     const parsed = PlaceIdSchema.safeParse(placeId);
 
@@ -180,27 +262,34 @@ export class PlaceMatchService {
 
     const id = parsed.data;
 
-    const existing = inFlight.get(id);
+    const key = `${id}:${requireAnchor ? "anchor" : "area"}`;
+
+    const existing = inFlight.get(key);
 
     if (existing) {
       return existing;
     }
 
-    const pending = this.resolveUncached({ placeId: id }).finally(() => {
-      inFlight.delete(id);
+    const pending = this.resolveUncached({
+      placeId: id,
+      requireAnchor,
+    }).finally(() => {
+      inFlight.delete(key);
     });
 
-    inFlight.set(id, pending);
+    inFlight.set(key, pending);
 
     return pending;
   }
 
   private static async resolveUncached({
     placeId,
+    requireAnchor,
   }: {
     placeId: string;
+    requireAnchor: boolean;
   }): Promise<PlaceResolution> {
-    const cached = await this.readCache({ placeId });
+    const cached = await this.readCache({ placeId, requireAnchor });
 
     if (cached.fresh) {
       // A fresh negative entry is the whole point of caching misses: a dead id
@@ -212,6 +301,7 @@ export class PlaceMatchService {
       return this.toResolved({
         identityKeys: cached.entry.identityKeys,
         displayName: cached.entry.displayName,
+        anchor: requireAnchor ? toAnchor(cached.entry) : null,
       });
     }
 
@@ -229,6 +319,7 @@ export class PlaceMatchService {
         reason: "PROVIDER_RATE_LIMITED",
         cached: cached.entry,
         placeId,
+        requireAnchor,
       });
     }
 
@@ -239,6 +330,7 @@ export class PlaceMatchService {
         reason: details.reason,
         cached: cached.entry,
         placeId,
+        requireAnchor,
       });
     }
 
@@ -249,6 +341,7 @@ export class PlaceMatchService {
     const resolution = await this.toResolved({
       identityKeys,
       displayName: details.details.displayName,
+      anchor: requireAnchor ? toAnchor(details.details) : null,
     });
 
     await this.writeCache({
@@ -271,7 +364,13 @@ export class PlaceMatchService {
    * again" rather than failing the search. The alternative — surfacing a
    * storage error — would turn a slow database into a broken location filter.
    */
-  private static async readCache({ placeId }: { placeId: string }): Promise<
+  private static async readCache({
+    placeId,
+    requireAnchor,
+  }: {
+    placeId: string;
+    requireAnchor: boolean;
+  }): Promise<
     | { fresh: true; entry: NonNullable<Awaited<ReturnType<typeof PlaceResolutionRepository.find>>> }
     | { fresh: false; entry: Awaited<ReturnType<typeof PlaceResolutionRepository.find>> }
   > {
@@ -295,6 +394,21 @@ export class PlaceMatchService {
     // A version mismatch means the keys were produced by rules that no longer
     // match what ingestion writes, so they are worse than useless.
     if (entry.extractionVersion !== EXTRACTION_VERSION) {
+      return { fresh: false, entry };
+    }
+
+    // A successful row cached before the anchor columns existed is perfectly
+    // good for an area search and useless for a radius one. Rather than
+    // invalidating the whole table with an EXTRACTION_VERSION bump — which
+    // would re-bill every place at once — such a row is treated as stale only
+    // for the callers that actually need the anchor. The cost of the migration
+    // is therefore paid one place at a time, by the searches that need it, and
+    // never by ordinary browsing.
+    if (
+      requireAnchor &&
+      entry.status === PlaceResolutionStatus.RESOLVED &&
+      toAnchor(entry) === null
+    ) {
       return { fresh: false, entry };
     }
 
@@ -328,11 +442,19 @@ export class PlaceMatchService {
     details: PlaceIdentityDetails;
   }): Promise<void> {
     try {
+      // Persisted unconditionally, not only when a radius asked for it: the
+      // provider already returned the coordinates and we have already paid for
+      // them, so discarding them would guarantee a second billed lookup the
+      // first time anyone does ask.
+      const anchor = toAnchor(details);
+
       await PlaceResolutionRepository.saveResolved({
         placeId,
         identityKeys,
         displayName: details.displayName,
         contextLabel: details.formattedAddress,
+        latitude: anchor?.latitude ?? null,
+        longitude: anchor?.longitude ?? null,
         extractionVersion: EXTRACTION_VERSION,
       });
     } catch (error) {
@@ -359,16 +481,23 @@ export class PlaceMatchService {
     reason,
     cached,
     placeId,
+    requireAnchor,
   }: {
     reason: PlaceResolutionFailure;
     cached: Awaited<ReturnType<typeof PlaceResolutionRepository.find>>;
     placeId: string;
+    requireAnchor: boolean;
   }): Promise<PlaceResolution> {
     if (isTransientResolutionFailure(reason)) {
       if (cached && cached.status === PlaceResolutionStatus.RESOLVED) {
+        // A stale row may carry no anchor. That is returned as `null` rather
+        // than escalated to a failure: the area half of the answer is still
+        // true, and the radius caller has its own honest way to report a
+        // missing centre.
         return this.toResolved({
           identityKeys: cached.identityKeys,
           displayName: cached.displayName,
+          anchor: requireAnchor ? toAnchor(cached) : null,
         });
       }
 
@@ -410,16 +539,22 @@ export class PlaceMatchService {
   private static async toResolved({
     identityKeys,
     displayName,
+    anchor,
   }: {
     identityKeys: string[];
     displayName: string | null;
+    anchor: PlaceAnchor | null;
   }): Promise<PlaceResolution> {
     if (identityKeys.length === 0) {
+      // No stored area, but possibly a perfectly good anchor: a place nothing
+      // has been ingested under can still be the centre of a radius search.
+      // The two halves of this answer are independent.
       return {
         status: "RESOLVED",
         identityKeys,
         searchAreaIds: [],
         displayName,
+        anchor,
       };
     }
 
@@ -434,6 +569,7 @@ export class PlaceMatchService {
         identityKeys,
         searchAreaIds: areas.map((area) => area.id),
         displayName,
+        anchor,
       };
     } catch (error) {
       console.error("Could not look up search areas for a resolved place.", error);

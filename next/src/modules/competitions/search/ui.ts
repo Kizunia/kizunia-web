@@ -10,9 +10,14 @@
  * it sits by default.
  *
  * This module must remain importable from a `"use client"` component, which
- * means it may import only from `@/lib/search/client` and must never import
- * `@/generated/prisma`. Enum option values are therefore written out as
- * strings rather than derived from the Prisma enums.
+ * means it must never import `@/generated/prisma`, directly or through a
+ * barrel. Enum option values are therefore written out as strings rather than
+ * derived from the Prisma enums.
+ *
+ * Imports are limited to `@/lib/search/client` and to individually named pure
+ * modules that reach nothing — currently only `@/modules/locations/utils/radius`,
+ * deep-imported so the locations barrel and its repositories stay out of the
+ * client bundle. A module qualifies only if it has no imports of its own.
  *
  * That is safe because `definition.ts` — which does have the enums — asserts
  * at module load that every list here matches its database enum exactly. A
@@ -55,6 +60,11 @@ import {
   type TextAnySpec,
   type TextSpec,
 } from "@/lib/search/client";
+// Deep import, never the `@/modules/locations` barrel: the barrel re-exports
+// repositories that pull in `@/generated/prisma`, which would drag the Prisma
+// client into every client bundle importing this file. `utils/radius` is a
+// pure module with no imports of its own, so it is safe here.
+import { MAX_RADIUS_KM, RADIUS_STEPS } from "@/modules/locations/utils/radius";
 
 // =============================================================================
 // Option value unions
@@ -192,9 +202,10 @@ const technologies: RelationMultiSpec = {
  * it is simply another filter, which is the point: nothing in the UI layer has
  * to know how its clause is produced.
  *
- * `radius` is deliberately absent. Radius search is not implemented, and the
- * shape it would take is documented on `PlaceRadiusConfig`. Adding it later
- * means setting that one field; no other module changes.
+ * `radius` turns distance search on. Setting that one field was the whole
+ * wiring: everything registry-driven — chips, Clear all, presets, URL
+ * canonicalisation, duplicate-parameter detection — picked the three new
+ * parameters up from `filterParams` without another module changing.
  */
 const location: PlaceSpec = {
   kind: "place",
@@ -209,7 +220,29 @@ const location: PlaceSpec = {
   suggestEndpoint: "/api/v1/places/autocomplete",
   placeholder: "Search for a city or place",
   description:
-    "Matches competitions held in the selected place or anywhere inside it. Online competitions have no location, so include them explicitly if you want both.",
+    "Matches competitions held in the selected place or anywhere inside it. Add a distance to search by how far away they are instead. Online competitions have no location, so include them explicitly if you want both.",
+
+  // Setting this is what enables radius search for Competitions. Everything
+  // registry-driven — clearing, chips, presets, duplicate-parameter detection —
+  // picks the new parameters up from `filterParams` without further wiring.
+  radius: {
+    radiusParam: "radius",
+    latitudeParam: "lat",
+    longitudeParam: "lng",
+
+    // Seeds the control only; never written to the URL on its own, for the same
+    // reason `page=1` and the default sort are not written.
+    defaultKm: 25,
+
+    // Taken from the radius module rather than restated here. The ceiling and
+    // the offered distances are the same facts the query layer clamps and
+    // measures against, and two copies of a fact drift: a step the interface
+    // offers but `clampRadiusKm` rejects would be a control that silently does
+    // nothing. `verify-radius-math.ts` asserts these stay identical.
+    maxKm: MAX_RADIUS_KM,
+
+    steps: RADIUS_STEPS,
+  },
 };
 
 const registrationFeeTypes: EnumMultiSpec<RegistrationFeeTypeValue> = {

@@ -37,15 +37,22 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { CheckIcon, MapPinIcon, XIcon } from "lucide-react";
+import { CheckIcon, LocateFixedIcon, MapPinIcon, XIcon } from "lucide-react";
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+
+// Imported by direct path rather than through `@/modules/locations`. The barrel
+// re-exports repositories and services, which pull the generated Prisma client
+// into whatever imports them — and this is a client component. `radius.ts` is
+// pure and has no such dependencies.
+import { roundDeviceCoordinate } from "@/modules/locations/utils/radius";
 
 import type { PlaceSpec } from "../../spec";
 import type { FilterControlProps } from "./types";
@@ -66,6 +73,26 @@ const MIN_QUERY_LENGTH = 2;
 /** Groups a run of keystrokes into roughly one request. */
 const SEARCH_DEBOUNCE_MS = 1000;
 
+/**
+ * What the browser last told us about where the user is.
+ *
+ * Four outcomes rather than a boolean, because each needs different words. A
+ * refusal is not a failure, a timeout is worth retrying, and an insecure or
+ * unsupported context is not something the user can fix by pressing the button
+ * again.
+ */
+type LocatingState = "idle" | "locating" | "denied" | "timeout" | "unavailable";
+
+const LOCATING_MESSAGE: Readonly<Record<LocatingState, string | null>> = {
+  idle: null,
+  locating: null,
+  denied:
+    "Location access is blocked. Allow it in your browser settings, or search for a place instead.",
+  timeout: "That took too long. Try again, or search for a place instead.",
+  unavailable:
+    "We can't get your location on this device. Search for a place instead.",
+};
+
 export function PlaceControl({
   spec,
   value,
@@ -73,9 +100,16 @@ export function PlaceControl({
   disabled,
 }: FilterControlProps<PlaceSpec>) {
   const [query, setQuery] = useState("");
+  const [locating, setLocating] = useState<LocatingState>("idle");
   const [suggestions, setSuggestions] = useState<PlaceSuggestionResponse[]>([]);
   const [searching, setSearching] = useState(false);
   const [providerAvailable, setProviderAvailable] = useState(true);
+
+  /**
+   * Absent for entities that have not enabled radius search, which is what
+   * gates both the distance slider and the "use my current location" action.
+   */
+  const radiusConfig = spec.radius;
 
   /**
    * Discards responses that arrive out of order.
@@ -173,11 +207,16 @@ export function PlaceControl({
 
   const select = (suggestion: PlaceSuggestionResponse) => {
     onChange({
-      id: suggestion.providerPlaceId,
-      label: suggestion.primaryText,
-      // Carried over rather than reset: a person who asked to include online
-      // results and then changed city still wants online results.
+      center: {
+        kind: "place",
+        id: suggestion.providerPlaceId,
+        label: suggestion.primaryText,
+      },
+      // Both carried over rather than reset: a person who asked to include
+      // online results, or to search within 25 km, and then changed city still
+      // wants both.
       includeOnline: value?.includeOnline ?? false,
+      ...(value?.radiusKm !== undefined && { radiusKm: value.radiusKm }),
     });
 
     setQuery("");
@@ -185,7 +224,7 @@ export function PlaceControl({
   };
 
   const setIncludeOnline = (includeOnline: boolean) => {
-    // Meaningless without a place, and the value layer would drop it anyway.
+    // Meaningless without a centre, and the value layer would drop it anyway.
     if (!value) {
       return;
     }
@@ -193,10 +232,144 @@ export function PlaceControl({
     onChange({ ...value, includeOnline });
   };
 
-  const selectedLabel = useMemo(
-    () => value?.label ?? (value ? "Selected place" : undefined),
-    [value],
-  );
+  /**
+   * Sets or clears the distance.
+   *
+   * Writes a plain number and nothing else. Range checking, clamping and
+   * rejection all live in the decoder, because this control is only one of
+   * several writers — a preset, a hand-edited URL, a shared link and the API
+   * reach the same value without passing through here. Duplicating the rules
+   * would mean maintaining them twice and having them disagree once.
+   */
+  const setRadiusKm = (radiusKm: number | undefined) => {
+    if (!value) {
+      return;
+    }
+
+    // A device centre has no meaning without a distance — "here" is not a
+    // filter — so clearing the radius clears the whole thing rather than
+    // leaving a centre the decoder would silently drop.
+    if (radiusKm === undefined && value.center.kind === "device") {
+      onChange(undefined);
+      return;
+    }
+
+    if (radiusKm === undefined) {
+      // Rebuilt field by field rather than spread-and-delete, so the absence of
+      // a radius is explicit in the value that goes out.
+      onChange({
+        center: value.center,
+        includeOnline: value.includeOnline,
+      });
+      return;
+    }
+
+    onChange({ ...value, radiusKm });
+  };
+
+  /**
+   * Asks the browser where the user is.
+   *
+   * The coordinates are used directly as a search centre and nothing else: they
+   * are not reverse geocoded into a place, not given an identity, and never
+   * persisted. They live for exactly as long as the URL that carries them.
+   */
+  const useCurrentLocation = () => {
+    if (!radiusConfig) {
+      return;
+    }
+
+    // Geolocation is a secure-context API. Without this check the callback
+    // simply never fires on plain HTTP and the button looks broken.
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.geolocation ||
+      !window.isSecureContext
+    ) {
+      setLocating("unavailable");
+      return;
+    }
+
+    setLocating("locating");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating("idle");
+
+        onChange({
+          center: {
+            kind: "device",
+            // Rounded here, where the value is written, rather than on read —
+            // rounding on read would silently alter a coordinate someone typed.
+            // ~11 m: finer than the smallest radius offered, and coarse enough
+            // that a shared link does not carry someone's doorstep.
+            latitude: roundDeviceCoordinate(position.coords.latitude),
+            longitude: roundDeviceCoordinate(position.coords.longitude),
+          },
+          includeOnline: value?.includeOnline ?? false,
+          // A device centre is meaningless without one, so a distance is always
+          // supplied — the spec's default when the user has not chosen.
+          radiusKm: value?.radiusKm ?? radiusConfig.defaultKm,
+        });
+
+        setQuery("");
+        setSuggestions([]);
+      },
+      (error) => {
+        // Distinguished rather than collapsed into one message: "you said no"
+        // and "we could not tell" call for different next steps from the user.
+        setLocating(
+          error.code === error.PERMISSION_DENIED
+            ? "denied"
+            : error.code === error.TIMEOUT
+              ? "timeout"
+              : "unavailable",
+        );
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 },
+    );
+  };
+
+  /**
+   * Where the slider thumb sits.
+   *
+   * Index 0 means "no radius"; the steps follow. A value that is in range but
+   * off-step — which a hand-edited or shared URL may legitimately carry, since
+   * the steps are an affordance rather than a contract — snaps the thumb to the
+   * nearest step while the readout above keeps showing the real number. The
+   * control never rewrites a value the user did not touch.
+   */
+  const radiusSliderIndex = useMemo(() => {
+    if (!radiusConfig || value?.radiusKm === undefined) {
+      return 0;
+    }
+
+    const radiusKm = value.radiusKm;
+
+    let closest = 0;
+
+    radiusConfig.steps.forEach((step, index) => {
+      const best = radiusConfig.steps[closest];
+
+      if (Math.abs(step - radiusKm) < Math.abs(best - radiusKm)) {
+        closest = index;
+      }
+    });
+
+    return closest + 1;
+  }, [radiusConfig, value?.radiusKm]);
+
+  const selectedLabel = useMemo(() => {
+    if (!value) {
+      return undefined;
+    }
+
+    // Never the raw coordinates: they are unreadable, and they are not what the
+    // person asked for — they asked to search near themselves.
+    return value.center.kind === "device"
+      ? "Near me"
+      : (value.center.label ?? "Selected place");
+  }, [value]);
 
   return (
     <div className="space-y-3">
@@ -288,6 +461,91 @@ export function PlaceControl({
             works.
           </p>
         )}
+
+      {/* Offered only where radius search is enabled: a device position is
+          nothing but a centre to measure from, so without a radius there would
+          be no question for it to answer. */}
+      {!value && radiusConfig && (
+        <div>
+          <button
+            type="button"
+            disabled={disabled || locating === "locating"}
+            onClick={useCurrentLocation}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+              "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "disabled:cursor-not-allowed disabled:opacity-60",
+            )}
+          >
+            {locating === "locating" ? (
+              <Spinner className="size-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <LocateFixedIcon
+                className="size-4 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+            )}
+
+            <span className="flex-1">
+              {locating === "locating"
+                ? "Finding your location…"
+                : "Use my current location"}
+            </span>
+          </button>
+
+          {LOCATING_MESSAGE[locating] && (
+            <p className="mt-2 text-xs text-muted-foreground" role="status">
+              {LOCATING_MESSAGE[locating]}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Hidden until a centre exists, following the same rule the online
+          switch already uses: a radius with nothing to centre it on cannot be
+          expressed, and the decoder would drop it anyway. */}
+      {value && radiusConfig && (
+        <>
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <Label className="text-sm font-normal">Search radius</Label>
+
+              <span className="text-sm font-medium tabular-nums">
+                {value.radiusKm === undefined
+                  ? "Exact place"
+                  : `${value.radiusKm} km`}
+              </span>
+            </div>
+
+            <Slider
+              value={[radiusSliderIndex]}
+              min={0}
+              max={radiusConfig.steps.length}
+              step={1}
+              disabled={disabled}
+              aria-label="Search radius in kilometres"
+              onValueChange={([next]) => {
+                // Index 0 is "no radius" rather than the smallest one, so the
+                // control can express today's exact-place behaviour and is not
+                // a one-way door into distance matching.
+                setRadiusKm(
+                  next === 0 ? undefined : radiusConfig.steps[next - 1],
+                );
+              }}
+            />
+
+            <p className="text-xs text-muted-foreground">
+              {value.radiusKm === undefined
+                ? "Matches competitions recorded in this place."
+                : value.center.kind === "device"
+                  ? `Matches competitions within ${value.radiusKm} km of you.`
+                  : `Matches competitions within ${value.radiusKm} km, by distance rather than by which place they are listed under.`}
+            </p>
+          </div>
+        </>
+      )}
 
       {value && (
         <>

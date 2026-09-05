@@ -109,9 +109,12 @@ const inPune: PlatformPreset = {
   name: "In Pune",
   description: "Competitions happening in and around Pune.",
   filters: presetFilters(
+    // No radius, deliberately. "In Pune" means the identity match it has always
+    // meant, and adding a distance would silently change what every existing
+    // `?preset=platform:in-pune` link returns. A radius-flavoured preset should
+    // be a *new* entry, not a redefinition of this one.
     presetFilter(competitionFilterSpecs.location, {
-      id: PUNE_PLACE_ID,
-      label: "Pune",
+      center: { kind: "place", id: PUNE_PLACE_ID, label: "Pune" },
       includeOnline: false,
     }),
   ),

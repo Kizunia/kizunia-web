@@ -585,6 +585,131 @@ async function verifyExtractionVersionInvalidates(): Promise<void> {
 
 // =============================================================================
 
+/**
+ * Radius anchors: fetched free, persisted, and re-resolved only when needed.
+ *
+ * =============================================================================
+ * The property that makes this cheap
+ * =============================================================================
+ *
+ * The anchor coordinate was *already* being fetched and paid for before radius
+ * search existed — `location` has always been in the identity field mask — and
+ * then discarded at the last step. So the feature must add **no** provider
+ * request and **no** billed field group. That is asserted here rather than
+ * trusted, because growing the mask is a one-word change with a recurring bill.
+ *
+ * =============================================================================
+ * And the property that keeps the migration cheap
+ * =============================================================================
+ *
+ * Rows cached before the anchor columns existed carry no coordinates. Bumping
+ * EXTRACTION_VERSION would have invalidated every row at once and re-billed the
+ * lot. Instead such a row stays perfectly fresh for an ordinary area search and
+ * counts as stale *only* when a caller actually asks for an anchor — so the
+ * migration is paid one place at a time, by the searches that need it.
+ */
+async function verifyAnchorPersistence(): Promise<void> {
+  console.log("\n== Invariant: radius anchors cost nothing extra ==");
+
+  const placeId = `${FIXTURE_PREFIX}anchor`;
+
+  await prisma.placeResolution.deleteMany({ where: { placeId } });
+
+  stubFetch(() => json(detailsPayload(placeId)));
+
+  const cold = await PlaceMatchService.resolve({ placeId, requireAnchor: true });
+
+  report(
+    "a cold resolve returns the anchor",
+    cold.status === "RESOLVED" &&
+      cold.anchor?.latitude === 18.52 &&
+      cold.anchor?.longitude === 73.85,
+    JSON.stringify(cold),
+  );
+
+  report(
+    "asking for an anchor still costs exactly 1 provider request",
+    recorded.length === 1,
+    `made ${recorded.length}`,
+  );
+
+  report(
+    "asking for an anchor does not grow the billed field mask",
+    (recorded[0]?.fieldMask ?? "").includes("location") &&
+      !(recorded[0]?.fieldMask ?? "").includes("addressDescriptor"),
+    recorded[0]?.fieldMask ?? "(no mask)",
+  );
+
+  const stored = await prisma.placeResolution.findUnique({ where: { placeId } });
+
+  report(
+    "the anchor is persisted to place_resolution",
+    Number(stored?.latitude) === 18.52 && Number(stored?.longitude) === 73.85,
+    `${stored?.latitude}, ${stored?.longitude}`,
+  );
+
+  // Warm read: served from cache, no further provider traffic.
+  const before = recorded.length;
+
+  const warm = await PlaceMatchService.resolve({ placeId, requireAnchor: true });
+
+  report(
+    "a warm resolve returns the anchor from cache without a provider call",
+    warm.status === "RESOLVED" &&
+      warm.anchor?.latitude === 18.52 &&
+      recorded.length === before,
+    `${recorded.length - before} extra requests`,
+  );
+
+  // An ordinary area search must not be handed an anchor it did not ask for,
+  // and must not pay to acquire one.
+  const areaOnly = await PlaceMatchService.resolve({ placeId });
+
+  report(
+    "an area search gets no anchor, because it did not ask",
+    areaOnly.status === "RESOLVED" && areaOnly.anchor === null,
+  );
+
+  // ---- the migration path ----
+
+  await prisma.placeResolution.update({
+    where: { placeId },
+    data: { latitude: null, longitude: null },
+  });
+
+  const legacyArea = recorded.length;
+
+  const areaOnLegacyRow = await PlaceMatchService.resolve({ placeId });
+
+  report(
+    "a pre-migration row is still fresh for an area search (no re-bill)",
+    areaOnLegacyRow.status === "RESOLVED" &&
+      recorded.length === legacyArea,
+    `${recorded.length - legacyArea} extra requests`,
+  );
+
+  const legacyAnchor = recorded.length;
+
+  const anchorOnLegacyRow = await PlaceMatchService.resolve({
+    placeId,
+    requireAnchor: true,
+  });
+
+  report(
+    "the same row is stale for a radius search, so the anchor is re-resolved",
+    anchorOnLegacyRow.status === "RESOLVED" &&
+      anchorOnLegacyRow.anchor?.latitude === 18.52 &&
+      recorded.length === legacyAnchor + 1,
+    `${recorded.length - legacyAnchor} extra requests`,
+  );
+
+  report(
+    "EXTRACTION_VERSION was not bumped for the anchor migration",
+    EXTRACTION_VERSION === 3,
+    `version ${EXTRACTION_VERSION}`,
+  );
+}
+
 async function main(): Promise<void> {
   try {
     await verifyNoSearchFanOut();
@@ -596,6 +721,7 @@ async function main(): Promise<void> {
     await verifyTransientIsNotCached();
     await verifyStaleCachePolicy();
     await verifyExtractionVersionInvalidates();
+    await verifyAnchorPersistence();
   } finally {
     restoreFetch();
     await cleanupFixtures();
