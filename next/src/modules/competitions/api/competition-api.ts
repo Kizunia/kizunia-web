@@ -7,11 +7,14 @@ import { CompetitionEditDTOWithPermissions } from "../types/edit-dto";
 import { UpdateCompetitionRequestDTO } from "../types/update-request-dto";
 import { CreateAssetDTO } from "@/modules/assets/dto/create-asset.dto";
 import type { BulkCompetitionActionInput } from "../schemas/bulk-competition-action";
+import type { Competition } from "@/generated/prisma";
 
 export class CompetitionApi {
   static async create(data: CreateCompetitionInput) {
-    // const response = await axios.post("/api/v1/admin/competitions/new", data);
-    const response = HttpClient.post("/api/v1/admin/competitions/new", data);
+    const response = await HttpClient.post<Competition, CreateCompetitionInput>(
+      "/api/v1/admin/competitions/new",
+      data,
+    );
 
     return response;
   }
