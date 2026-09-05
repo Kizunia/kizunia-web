@@ -78,6 +78,13 @@ export class ProjectApi {
     return response.data;
   }
 
+  static async clearAsset(
+    id: string,
+    slot: ProjectAssetSlot,
+  ): Promise<ProjectDetailsDto> {
+    return this.setAsset(id, slot, { assetId: null });
+  }
+
   static async delete(
     id: string,
   ): Promise<void> {

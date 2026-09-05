@@ -271,7 +271,7 @@ export class CompetitionService {
   }: {
     context: CompetitionContext;
     slot: CompetitionAssetSlot;
-    assetId: string;
+    assetId: string | null;
   }) {
     return CompetitionAssetService.setAsset(context, { slot, assetId });
   }

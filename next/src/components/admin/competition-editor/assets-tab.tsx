@@ -58,7 +58,12 @@ export function AssetsTab() {
               }
             }}
             onDelete={async () => {
-                toast.error("Delete functionality not implemented yet.");
+              const updated = await CompetitionApi.clearAsset(
+                competition.id,
+                "logo",
+              );
+
+              setCompetition(updated);
             }}
           />
         </DialogContent>
@@ -97,7 +102,12 @@ export function AssetsTab() {
               }
             }}
             onDelete={async () => {
-                toast.error("Delete functionality not implemented yet.");
+              const updated = await CompetitionApi.clearAsset(
+                competition.id,
+                "banner",
+              );
+
+              setCompetition(updated);
             }}
           />
         </DialogContent>

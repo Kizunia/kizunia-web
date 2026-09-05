@@ -95,9 +95,10 @@ function OptionButton({
 
 interface MainOptionsViewProps {
   onSelect(view: ViewState): void;
+  showDelete: boolean;
   children?: React.ReactNode;
 }
-function MainOptionsView({ onSelect, children }: MainOptionsViewProps) {
+function MainOptionsView({ onSelect, showDelete, children }: MainOptionsViewProps) {
   return (
     <div className="flex flex-col gap-3 w-full">
       <OptionButton
@@ -114,12 +115,14 @@ function MainOptionsView({ onSelect, children }: MainOptionsViewProps) {
           Choose from Gallery
         </OptionButton>
       }
-      <OptionButton
-        icon={<Trash2 className="h-5 w-5" />}
-        onClick={() => onSelect("delete")}
-      >
-        Delete Image
-      </OptionButton>
+      {showDelete && (
+        <OptionButton
+          icon={<Trash2 className="h-5 w-5" />}
+          onClick={() => onSelect("delete")}
+        >
+          Delete Image
+        </OptionButton>
+      )}
       {children}
     </div>
   );
@@ -422,13 +425,23 @@ function ReusableImageUploader({
 
   /* ----- Delete ----- */
   const handleDelete = async () => {
+    if (!onDelete) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "ReusableImageUploader: handleDelete invoked with no onDelete handler.",
+        );
+      }
+      toast.error("Delete is not available.");
+      return;
+    }
+
     try {
-      await onDelete?.();
-      toast.success("Image deleted!");
+      await onDelete();
+      toast.success("Image removed!");
       setView("main");
       setOpen?.(false);
-    } catch {
-      toast.error("Delete failed");
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e));
     }
   };
 
@@ -457,7 +470,9 @@ function ReusableImageUploader({
       {/* <BackHeader onBack={onBack} /> */}
 
       {view === "main" && (
-        <MainOptionsView onSelect={setView}>{children}</MainOptionsView>
+        <MainOptionsView onSelect={setView} showDelete={Boolean(onDelete)}>
+          {children}
+        </MainOptionsView>
       )}
 
       {view === "upload" && (

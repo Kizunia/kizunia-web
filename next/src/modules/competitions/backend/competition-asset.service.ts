@@ -37,10 +37,13 @@ export class CompetitionAssetService {
     const { slot, assetId } = dto;
     const competitionId = context.competition.id;
 
-    await assertAssetReferenceAllowed({
-      assetId,
-      purpose: SLOT_PURPOSE[slot],
-    });
+    // A null assetId clears the slot and has nothing to validate.
+    if (assetId !== null) {
+      await assertAssetReferenceAllowed({
+        assetId,
+        purpose: SLOT_PURPOSE[slot],
+      });
+    }
 
     const previousAssetId =
       context.competition[SLOT_ASSET_ID_FIELD[slot] as "logoAssetId" | "bannerAssetId" | "coverAssetId"];
