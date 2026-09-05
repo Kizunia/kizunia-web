@@ -21,6 +21,10 @@ export class AssetMapper {
       bytes: asset.bytes,
 
       originalFilename: asset.originalFilename,
+
+      status: asset.status,
+
+      category: asset.category,
     };
   }
 }

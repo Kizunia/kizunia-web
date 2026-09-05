@@ -14,6 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { toast } from "sonner";
+
+import ReusableImageUploader from "@/components/cloudinary/imageUploader/reusableImageUploader";
+import { ProjectApi } from "../../../api/project-api";
 import { useProjectStore } from "../../../store/project.store";
 import { useProjectProfileStore } from "../../../store/project-profile.store";
 
@@ -25,6 +29,7 @@ export function ProjectProfileEditor({
   projectId,
 }: ProjectProfileEditorProps) {
   const project = useProjectStore((state) => state.project);
+  const setProject = useProjectStore((state) => state.setProject);
 
   const form = useProjectProfileStore((state) => state.form);
   const isSaving = useProjectProfileStore(
@@ -249,6 +254,76 @@ export function ProjectProfileEditor({
             </Select>
           </div>
         </div>
+
+        {canEdit && (
+          <div className="grid gap-6 sm:grid-cols-2 border-t pt-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Logo</label>
+
+              <ReusableImageUploader
+                title="Project logo"
+                initialImage={project.logo?.url ?? ""}
+                purpose="PROJECT_LOGO"
+                targetEntityId={project.id}
+                customCropShape="round"
+                aspectRatio={1}
+                accept="image/*"
+                onUpload={async (_, asset) => {
+                  if (!asset) return;
+
+                  try {
+                    const updated = await ProjectApi.setAsset(
+                      project.id,
+                      "logo",
+                      { assetId: asset.id },
+                    );
+
+                    setProject(updated);
+
+                    toast.success("Logo updated.");
+                  } catch (error) {
+                    console.error(error);
+
+                    toast.error("Failed to update logo.");
+                  }
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Cover</label>
+
+              <ReusableImageUploader
+                title="Project cover"
+                initialImage={project.cover?.url ?? ""}
+                purpose="PROJECT_COVER"
+                targetEntityId={project.id}
+                customCropShape="rect"
+                aspectRatio={16 / 9}
+                accept="image/*"
+                onUpload={async (_, asset) => {
+                  if (!asset) return;
+
+                  try {
+                    const updated = await ProjectApi.setAsset(
+                      project.id,
+                      "cover",
+                      { assetId: asset.id },
+                    );
+
+                    setProject(updated);
+
+                    toast.success("Cover updated.");
+                  } catch (error) {
+                    console.error(error);
+
+                    toast.error("Failed to update cover.");
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">

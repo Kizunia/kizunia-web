@@ -20,13 +20,11 @@ export default function UserProfileEdit() {
           <ReusableImageUploader
             title="jhjhjh"
             initialImage={""}
-            cloudinaryFolder="users/avatars"
+            purpose="USER_AVATAR"
             customCropShape="rect"
             accept="image/*"
             // setOpen={true}
-            onUpload={async (url, info) => {
-              console.log("uploaded url", url);
-              console.log("uploaded info", info);
+            onUpload={async (url) => {
               toast.success(url);
               try {
                 await authClient.updateUser({ image: url });

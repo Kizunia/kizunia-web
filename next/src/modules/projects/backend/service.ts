@@ -33,10 +33,18 @@ import {
   UpdateProjectContentDto,
   UpdateProjectProfileDto,
 } from "./dto/input";
-import { ProjectRole, ProjectStatus, ProjectVisibility } from "@/generated/prisma";
+import { AssetPurpose, ProjectRole, ProjectStatus, ProjectVisibility } from "@/generated/prisma";
 import { PlatformAction } from "@/authorization/platform/actions";
 import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
 import { ProjectDuplicateSlugError } from "@/modules/projects/backend/errors/index";
+import { assertAssetReferenceAllowed } from "@/modules/assets/backend/reference-policy";
+import { assetService } from "@/modules/assets/backend/service";
+import type { ProjectAssetSlot } from "../types/asset-slot";
+
+const SLOT_PURPOSE: Record<ProjectAssetSlot, AssetPurpose> = {
+  logo: AssetPurpose.PROJECT_LOGO,
+  cover: AssetPurpose.PROJECT_COVER,
+};
 
 export class ProjectService {
   private readonly repository = new ProjectRepository();
@@ -272,6 +280,62 @@ export class ProjectService {
           },
         },
       });
+    });
+
+    const permissions = ProjectPermissionResolver.resolve(context);
+
+    return ProjectMapper.toDetailsDto(updatedProject, permissions);
+  }
+
+  async setAsset({
+    id,
+    actor,
+    slot,
+    assetId,
+  }: {
+    id: string;
+    actor: StrictAuthorizationActor;
+    slot: ProjectAssetSlot;
+    assetId: string;
+  }): Promise<ProjectDetailsDto> {
+    const project = await this.getProjectOrThrow({ id });
+
+    const membership = await this.repository.findMembership({
+      projectId: project.id,
+      userId: actor.id,
+    });
+
+    const context = ProjectContextResolver.fromData({
+      actor,
+      project,
+      membership,
+    });
+
+    ProjectAuthorizer.edit(context);
+
+    // Target-domain authorization (above) only establishes that this actor
+    // may edit this project. It does not establish that the specific Asset
+    // being attached is actually usable as a project logo/cover — a shared
+    // Asset is not automatically valid just because the actor can edit this
+    // project. See docs/architecture/domain/assets/overview.md.
+    await assertAssetReferenceAllowed({
+      assetId,
+      purpose: SLOT_PURPOSE[slot],
+    });
+
+    const previousAssetId =
+      slot === "logo" ? project.logoAssetId : project.coverAssetId;
+
+    const updatedProject = await prisma.$transaction(async (tx) => {
+      const repository = new ProjectRepository(tx);
+
+      const updated = await repository.setAsset({ id, slot, assetId });
+
+      if (previousAssetId && previousAssetId !== assetId) {
+        await assetService.detachIfUnreferenced(tx, previousAssetId);
+      }
+
+      return updated;
     });
 
     const permissions = ProjectPermissionResolver.resolve(context);

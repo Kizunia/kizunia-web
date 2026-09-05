@@ -1,252 +1,32 @@
-# Media
+# Media (Superseded)
 
-> **Status:** Stable
+> **Status:** Superseded by [`docs/architecture/domain/assets/overview.md`](./assets/overview.md)
 >
-> **Version:** 1.0
+> **Version:** 1.0 (final)
 >
-> **Referenced By:** Users, Projects, Teams, Hackathons, Blogs, Portfolios
->
-> **Last Updated:** 2026-07-18
+> **Last Updated:** 2026-09-05
 
 ---
 
-# Purpose
+## This Document Has Been Superseded
 
-The Media model represents visual assets associated with entities across Kizunia.
+This document originally described an image-only "Media" concept: uploaded visual assets, stored via Cloudinary, with videos intentionally excluded in favor of external links.
 
-Media provides a reusable way to attach images to users, projects, teams, hackathons, blogs, and future entities.
+That direction has changed. Kizunia is moving from an image-only Media concept to a broader **Asset** concept that can represent images, videos, and documents (e.g. a portfolio resume PDF) under one lifecycle, while keeping the storage provider (Cloudinary today) an infrastructure detail rather than a domain assumption.
 
-The platform intentionally limits uploaded media to images.
+The reasons this document is retired rather than edited in place:
 
-Videos should be referenced using external links instead of being uploaded directly.
+- It states "Kizunia intentionally limits uploaded media to images" and "videos are not uploaded directly to Kizunia." The target architecture explicitly allows for a `VIDEO` asset category (see [`assets/overview.md`](./assets/overview.md#asset-categories)) — this is a direct conflict, not a wording difference.
+- It has no lifecycle concept at all — no equivalent of the `UPLOADING` / `ACTIVE` / `DETACHED` / `DELETING` / `DELETED` states now defined in [`assets/lifecycle.md`](./assets/lifecycle.md).
+- Its `url`/`type`/`alt`/`caption` field list does not reflect the actual `Asset` Prisma model (`publicId`, `secureUrl`, `provider`, `format`, `mimeType`, `width`, `height`, `bytes`, `checksum`, `originalFilename`) or the target's domain/provider metadata split (see [`assets/storage.md`](./assets/storage.md)).
 
----
+**Read the current architecture here instead:**
 
-# Design Philosophy
+- [`assets/overview.md`](./assets/overview.md) — what an Asset is, categories, metadata, relationships
+- [`assets/lifecycle.md`](./assets/lifecycle.md) — the five-state lifecycle
+- [`assets/upload.md`](./assets/upload.md) — upload flow, current vs. target
+- [`assets/policies.md`](./assets/policies.md) — upload purposes and policy-driven restrictions
+- [`assets/storage.md`](./assets/storage.md) — the storage-provider abstraction
+- [`assets/security.md`](./assets/security.md) — authorization, rate limiting, validation, orphan cleanup
 
-Media should represent assets owned by the platform.
-
-Images improve presentation and documentation.
-
-Videos consume significant storage and bandwidth while providing little additional value when platforms such as YouTube and Google Drive already solve this problem well.
-
-Kizunia should store only what it needs to own.
-
----
-
-# Responsibilities
-
-The Media model is responsible for:
-
-- Image storage
-- Image metadata
-- Display ordering
-- Asset classification
-
-The Media model is **not** responsible for:
-
-- Video hosting
-- File storage beyond images
-- Rich embeds
-
----
-
-# Fields
-
-| Field | Required | Description |
-|--------|----------|-------------|
-| id | Yes | Primary identifier |
-| url | Yes | Cloudinary image URL |
-| type | Yes | Purpose of the image |
-| alt | No | Accessibility text |
-| caption | No | Optional image caption |
-| order | Yes | Display order |
-| createdAt | Yes | Creation timestamp |
-| updatedAt | Yes | Last modification timestamp |
-
----
-
-# Image Types
-
-Every image has a purpose.
-
-Supported types include:
-
-- Avatar
-- Banner
-- Logo
-- Gallery
-- Thumbnail
-- Cover
-
-Future image types may be added without changing the overall architecture.
-
----
-
-# Storage
-
-Images are uploaded to Cloudinary.
-
-The database stores only the resulting URL and metadata.
-
-Binary image data is never stored inside the database.
-
----
-
-# Relationships
-
-Media may belong to:
-
-- User
-- Project
-- Team
-- Hackathon
-- Blog
-- Portfolio
-
-A media item belongs to exactly one parent entity.
-
----
-
-# Gallery
-
-Entities may contain multiple gallery images.
-
-Gallery ordering is determined using the `order` field.
-
-Example:
-
-1. Home Screen
-2. Dashboard
-3. Settings
-4. Analytics
-
----
-
-# Banner
-
-Most public entities support a single banner image.
-
-Examples include:
-
-- User Profile
-- Project
-- Team
-- Hackathon
-- Blog
-
-The banner is typically displayed at the top of the page.
-
----
-
-# Logo
-
-Some entities support a logo.
-
-Examples include:
-
-- Team
-- Project
-- Hackathon
-
-A logo represents the identity of the entity rather than its content.
-
----
-
-# Avatar
-
-Avatars are currently used only by Users.
-
-Future entities may also support avatars if appropriate.
-
----
-
-# Accessibility
-
-Images should support optional alternative text.
-
-Alternative text improves accessibility for screen readers and also improves SEO.
-
----
-
-# Validation
-
-Uploaded images should satisfy platform constraints.
-
-Examples include:
-
-- Supported image formats
-- Maximum dimensions
-- Maximum file size
-
-The exact limits should remain configurable.
-
----
-
-# Design Decisions
-
-## Why Separate Media?
-
-Without a reusable Media model, every entity would require dedicated image fields and duplicate image management logic.
-
-A shared Media entity keeps the platform consistent while remaining simple.
-
----
-
-## Why Only Images?
-
-Images are relatively inexpensive to store.
-
-Videos are significantly larger and are already well supported by external platforms.
-
-Instead of hosting videos directly, Kizunia encourages linking to:
-
-- YouTube
-- Google Drive
-- Vimeo (future)
-- Loom (future)
-
-using the reusable Link model.
-
----
-
-## Why Store URLs?
-
-Cloudinary already provides reliable image hosting.
-
-Duplicating image storage inside the database would increase complexity without providing meaningful benefits.
-
-The database stores references rather than image files.
-
----
-
-## Why Ordering?
-
-Entities often contain multiple gallery images.
-
-The display order should always be controlled by the owner rather than automatically determined.
-
----
-
-# Future Expansion
-
-Potential future capabilities include:
-
-- Automatic image optimization
-- Blur placeholders
-- Responsive image variants
-- Image moderation
-- AI-generated alt text
-- Image cropping
-
-These features should extend the Media model without changing its core philosophy.
-
----
-
-# Guiding Principle
-
-The Media model should answer one question:
-
-> **Which visual assets belong to this entity?**
-
-It should remain focused on lightweight image management while leaving video hosting and other large media formats to specialized external platforms.
+The related architecture decision records [`docs/architecture/decisions/media.md`](../decisions/media.md) and [`docs/architecture/decisions/storage.md`](../decisions/storage.md) are similarly superseded in the parts that conflict with this direction — see the notices at the top of each.

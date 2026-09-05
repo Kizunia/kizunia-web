@@ -25,6 +25,9 @@ import { UpdateProjectProfileDto, UpdateProjectContentDto } from "./dto/input";
 import { ProjectDetailsDto } from "./dto/output";
 import { UpdateProjectProfileSchema } from "../schemas/update-project-profile.schema";
 import { UpdateProjectContentSchema } from "./dto/input/update-project-content.schema";
+import { SetAssetSchema } from "@/modules/assets/schemas/set-asset";
+import { ValidationError } from "@/lib/errors";
+import { isProjectAssetSlot } from "../types/asset-slot";
 
 export class ProjectController {
   // ===========================================================================
@@ -196,6 +199,35 @@ export class ProjectController {
           banned: actor.banned,
         },
         dto: data,
+      });
+
+      return ApiResponse.ok(project);
+    });
+  }
+
+  static async setAsset(request: NextRequest, projectId: string, slot: string) {
+    return Route.execute(async () => {
+      // Validation (slot)
+      if (!isProjectAssetSlot(slot)) {
+        throw new ValidationError({
+          code: "INVALID_ASSET_SLOT",
+          status: 400,
+          message: `"${slot}" is not a valid project asset slot.`,
+        });
+      }
+
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Validation (body)
+      const { assetId } = SetAssetSchema.parse(await request.json());
+
+      // Business Logic
+      const project = await projectService.setAsset({
+        id: projectId,
+        actor,
+        slot,
+        assetId,
       });
 
       return ApiResponse.ok(project);

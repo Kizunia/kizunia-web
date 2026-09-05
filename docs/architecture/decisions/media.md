@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted
+Accepted, **partially superseded** — see notice below.
+
+> **Superseded in part by:** the target Asset architecture in [`docs/architecture/domain/assets/`](../domain/assets/overview.md).
+>
+> This record's "identity vs. content media" split and its Cloudinary-as-identity-storage decision still hold. Its claim that "videos are not uploaded directly to Kizunia" no longer reflects the target direction — the Asset system defines an explicit `VIDEO` category (policy-gated, not unrestricted) alongside `IMAGE` and `DOCUMENT`. Treat this record as historical context for *why* identity/content separation exists, not as a current constraint on supported asset categories.
 
 ---
 

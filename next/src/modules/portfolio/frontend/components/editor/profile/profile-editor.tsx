@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { usePortfolioStore } from "../../../store/portfolio.store";
+import { DocumentUploader } from "@/modules/assets/frontend/components/document-uploader";
 
 interface ProfileFormState {
   displayName: string;
@@ -278,19 +279,28 @@ export function ProfileEditor() {
 
         <CardContent>
           <div className="space-y-2">
-            <Label htmlFor="resume-asset-id">Resume asset</Label>
+            {form.resumeAssetId && (
+              <p className="text-sm text-muted-foreground">
+                A resume is currently attached.{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => updateField("resumeAssetId", "")}
+                >
+                  Remove
+                </button>
+              </p>
+            )}
 
-            <Input
-              id="resume-asset-id"
-              value={form.resumeAssetId}
-              onChange={(event) =>
-                updateField("resumeAssetId", event.target.value)
-              }
-              placeholder="Resume asset ID"
+            <DocumentUploader
+              purpose="PORTFOLIO_RESUME"
+              accept="application/pdf"
+              onUploaded={(asset) => updateField("resumeAssetId", asset.id)}
             />
 
             <p className="text-xs text-muted-foreground">
-              Resume upload and asset selection can be connected here later.
+              PDF only. Uploading a new resume replaces the current one once
+              you save.
             </p>
           </div>
         </CardContent>

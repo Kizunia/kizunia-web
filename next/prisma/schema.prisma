@@ -235,6 +235,54 @@ enum AssetProvider {
   CLOUDINARY
 }
 
+// Asset lifecycle — exactly four states. There is deliberately no "uploading"
+// state: an Asset row is only ever created once upload + finalization have
+// already succeeded (see docs/architecture/domain/assets/lifecycle.md).
+enum AssetStatus {
+  ACTIVE
+  DETACHED
+  DELETING
+  DELETED
+}
+
+// What kind of thing an Asset is. Deliberately coarse — classifies the asset,
+// not what it's used for (that's AssetPurpose).
+enum AssetCategory {
+  IMAGE
+  VIDEO
+  DOCUMENT
+}
+
+// UploadIntent lifecycle. Separate from AssetStatus — an intent represents an
+// authorized upload attempt, not an Asset.
+enum UploadIntentStatus {
+  PENDING
+  CONSUMED
+  EXPIRED
+}
+
+// Named reason an upload exists. The Asset Application Layer resolves an
+// UploadPolicy from this purpose before authorizing anything — see
+// docs/architecture/domain/assets/policies.md. This list mirrors the entity
+// relations that already reference Asset in this schema.
+enum AssetPurpose {
+  USER_AVATAR
+  USER_COVER
+  PROJECT_LOGO
+  PROJECT_COVER
+  COMPETITION_LOGO
+  COMPETITION_BANNER
+  COMPETITION_COVER
+  COMPETITION_SUGGESTION_GALLERY
+  PORTFOLIO_RESUME
+  PORTFOLIO_EDUCATION_LOGO
+  PORTFOLIO_EXPERIENCE_LOGO
+  PORTFOLIO_ACHIEVEMENT_ASSET
+  PORTFOLIO_CERTIFICATION_ASSET
+  TESTIMONIAL_IMAGE
+  BADGE_ICON
+}
+
 enum LinkType {
   WEBSITE
   REGISTRATION
@@ -298,6 +346,12 @@ model User {
 
   coverAssetId String?
   coverAsset   Asset?  @relation("userCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
+
+  // Audit/history only — assets this user has uploaded. Not ownership; an
+  // uploaded Asset may be shared and attached by other authorized actors.
+  uploadedAssets Asset[] @relation("assetUploadedBy")
+
+  uploadIntents UploadIntent[] @relation("uploadIntentActor")
 
   // System
   visibility UserVisibility @default(PUBLIC)
@@ -440,6 +494,26 @@ model Asset {
   checksum         String?
   originalFilename String?
 
+  // Lifecycle — see docs/architecture/domain/assets/lifecycle.md. Backfilled
+  // to ACTIVE for every pre-existing row (they are all real, referenced
+  // images uploaded before this field existed).
+  status AssetStatus @default(ACTIVE)
+
+  // What kind of thing this Asset is. Backfilled to IMAGE for every
+  // pre-existing row — every Asset created before this field existed came
+  // through the image-only Cloudinary upload path.
+  category AssetCategory @default(IMAGE)
+
+  // Audit/history only — who uploaded this Asset. Deliberately NOT an
+  // ownership field: an Asset may be shared, and this must never be used to
+  // authorize attaching it elsewhere (see overview.md / security.md).
+  uploadedById String?
+  uploadedBy   User?   @relation("assetUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  // Set when the Asset transitions ACTIVE -> DETACHED. Lets periodic cleanup
+  // find "detached long enough ago" rows without scanning every DETACHED row.
+  detachedAt DateTime?
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -474,9 +548,55 @@ model Asset {
   certificationAssets PortfolioCertification[] @relation("certificationAsset")
 
   testimonialImages           Testimonial[]                @relation("testimonialImage")
-  
 
+
+  @@index([status])
+  @@index([status, detachedAt])
+  @@index([uploadedById])
   @@map("asset")
+}
+
+// A short-lived, single-use record of one authorized upload attempt.
+//
+// UploadIntent is deliberately NOT part of Asset lifecycle (there is no
+// "UPLOADING" Asset state) — see docs/architecture/domain/assets/lifecycle.md
+// and upload.md. Its authorization parameters (actor, purpose, category,
+// target entity, provider correlation, policy snapshot) are fixed at
+// creation and never mutated; only `status` and `resultAssetId` change, as
+// part of finalization or expiry.
+model UploadIntent {
+  id String @id @default(cuid())
+
+  actorId String
+  actor   User   @relation("uploadIntentActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  purpose  AssetPurpose
+  category AssetCategory
+
+  // What this upload is for, when known at intent-creation time. Nullable
+  // because some purposes (e.g. a brand-new project's logo) may not have a
+  // target entity yet.
+  targetEntityType String?
+  targetEntityId   String?
+
+  // The value handed to the storage provider so its result can be matched
+  // back to exactly this intent. Server-generated — never client-supplied.
+  providerCorrelationId String @unique
+
+  declaredMimeType String
+  declaredSize     Int
+
+  status UploadIntentStatus @default(PENDING)
+
+  // Set only once finalization succeeds. Audit trail from intent to result.
+  resultAssetId String?
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([actorId, status])
+  @@index([expiresAt])
+  @@map("upload_intent")
 }
 
 // Global pool of technologies/skills. Shared across Users, Projects, Competitions.
