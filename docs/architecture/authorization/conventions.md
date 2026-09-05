@@ -167,10 +167,9 @@ Controllers should remain extremely small.
 
 Controllers may:
 
+- Authenticate the request
 - Validate requests
 - Map DTOs
-- Resolve Context
-- Invoke Authorizers
 - Invoke Services
 - Return responses
 
@@ -179,6 +178,11 @@ Controllers must never:
 - Query the database
 - Execute business logic
 - Perform inline role checks
+- Resolve Context
+- Invoke Authorizers
+
+Context Resolution and Authorization happen inside the Service, not the
+Controller — see "Service Rules" below.
 
 Bad:
 
@@ -186,7 +190,7 @@ Bad:
 if(member.role==="OWNER")
 ```
 
-Good:
+Good (inside the Service, not the Controller):
 
 ```ts
 authorize.project.edit(context)
@@ -239,10 +243,13 @@ The same Context must always produce the same Authorization Decision.
 
 # Service Rules
 
-Services execute business logic.
+Services execute business logic — and are also responsible for resolving
+Context and invoking the Authorizer before that logic runs.
 
 Services may:
 
+- Resolve Context (via a Context Resolver)
+- Invoke Authorizers
 - Update resources
 - Publish blogs
 - Create projects
@@ -250,11 +257,24 @@ Services may:
 
 Services must never:
 
-- Perform authorization
-- Check roles
-- Generate abilities
+- Check roles inline (`member.role === "OWNER"`)
+- Generate Abilities themselves (that's the Authorizer's/Permission
+  Resolver's job — Services only call them)
+- Run business logic before authorization has been asserted
 
-Services assume authorization has already succeeded.
+Every mutating Service method follows the same shape:
+
+```ts
+async updateSomething({ id, actor, dto }) {
+  const resource = await this.getResourceOrThrow({ id });
+
+  const context = ResourceContextResolver.fromData({ actor, resource, ... });
+
+  ResourceAuthorizer.edit(context); // throws if denied
+
+  // business logic only below this line
+}
+```
 
 ---
 
@@ -392,8 +412,9 @@ Before merging an authorization-related Pull Request, verify the following.
 
 - [ ] Architecture still respected
 - [ ] No inline role checks
-- [ ] No authorization inside Services
+- [ ] No authorization inside Controllers
 - [ ] No authorization inside Repositories
+- [ ] Service resolves Context and authorizes before business logic runs
 - [ ] Authorizer remains pure
 - [ ] Context Resolver added if required
 - [ ] AuthorizationDecision returned

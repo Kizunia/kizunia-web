@@ -4,6 +4,7 @@ import {
   ProjectStatus,
   ProjectVisibility,
 } from "@/generated/prisma";
+import type { ProjectPermissionsDTO } from "../../authorization/dto";
 
 interface ProjectAssetDto {
   id: string;
@@ -191,4 +192,15 @@ export interface ProjectDetailsDto {
 
     competitionCount: number;
   };
+
+  // ===========================================================================
+  // Permissions
+  // ===========================================================================
+
+  /**
+   * The current actor's abilities on this project. Frontend components
+   * should render read-only vs. editable state from this object rather
+   * than inspecting roles/membership themselves.
+   */
+  permissions: ProjectPermissionsDTO;
 }

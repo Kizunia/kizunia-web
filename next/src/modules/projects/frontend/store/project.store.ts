@@ -15,6 +15,15 @@ interface ProjectStore {
     id: string;
   }) => Promise<void>;
 
+  /**
+   * Replaces the snapshot in place with a resource already returned by a
+   * mutation (e.g. updateProfile/updateContent), without a network round
+   * trip. Section editor stores should call this after a successful save
+   * so shared chrome (header, nav, other sections' read-only data) reflects
+   * the change immediately.
+   */
+  setProject: (project: ProjectDetailsDto) => void;
+
   clear: () => void;
 }
 
@@ -52,6 +61,13 @@ export const useProjectStore = create<ProjectStore>(
                 : "Failed to load project.",
         });
       }
+    },
+
+    setProject: (project) => {
+      set({
+        project,
+        error: null,
+      });
     },
 
     clear: () => {

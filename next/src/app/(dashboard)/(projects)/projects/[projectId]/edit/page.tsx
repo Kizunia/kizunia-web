@@ -1,4 +1,3 @@
-import PageWrapper from "@/components/page-wrapper";
 import { ProjectProfileEditor } from "@/modules/projects/frontend/components/editor/profile/project-profile-editor";
 
 interface ProjectEditPageProps {
@@ -12,9 +11,5 @@ export default async function ProjectEditPage({
 }: ProjectEditPageProps) {
   const { projectId } = await params;
 
-  return (
-    // <PageWrapper>
-    <ProjectProfileEditor projectId={projectId} />
-    // </PageWrapper>
-  );
+  return <ProjectProfileEditor projectId={projectId} />;
 }

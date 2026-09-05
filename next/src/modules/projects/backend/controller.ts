@@ -237,7 +237,7 @@ export class ProjectController {
 
       const actor = await SessionService.getActor(request);
 
-      if (!actor || !actor.id || !actor.role || actor.banned === undefined) {
+      if (!actor || !actor.id || !actor.role || typeof actor.banned !== "boolean") {
         throw new UnauthorizedError({
           code: "unauthorized",
           message: "Failed to authenticate the actor.",

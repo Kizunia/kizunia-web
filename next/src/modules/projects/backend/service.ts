@@ -16,11 +16,9 @@ import {
 } from "@/authorization";
 import { AuthorizationError } from "@/lib/errors";
 import {
-  ProjectAction,
   ProjectAuthorizer,
-  ProjectContext,
   ProjectContextResolver,
-  ProjectPolicy,
+  ProjectPermissionResolver,
 } from "./authorization";
 import {
   ProjectNotFoundError,
@@ -77,26 +75,24 @@ export class ProjectService {
       membership,
     });
 
-    // const decision = ProjectPolicy.can(context, ProjectAction.VIEW);
     ProjectAuthorizer.read(context);
 
-    // if (!decision.allowed) {
-    //   throw new AuthorizationError({
-    //     status: 403,
-    //     message: decision.message ?? "Unauthorized.",
-    //     code: "UNAUTHORIZED",
-    //   });
-    // }
+    const permissions = ProjectPermissionResolver.resolve(context);
 
-    return ProjectMapper.toDetailsDto(project);
+    return ProjectMapper.toDetailsDto(project, permissions);
   }
 
-  async findById({ // not for public, for members admin , for the once who has access to the project edit
+  /**
+   * Loads a project for the editor. Requires VIEW access (any project
+   * member), not EDIT — the returned `permissions` field tells the caller
+   * what the actor is actually allowed to change.
+   */
+  async findById({
     id,
     actor,
   }: {
     id: string;
-    actor: AuthorizationActor;
+    actor: StrictAuthorizationActor;
   }): Promise<ProjectDetailsDto> {
     const project = await this.repository.findById({
       id,
@@ -106,12 +102,10 @@ export class ProjectService {
       throw new ProjectNotFoundError();
     }
 
-    const membership = actor.id
-      ? await this.repository.findMembership({
-          projectId: project.id,
-          userId: actor.id,
-        })
-      : null;
+    const membership = await this.repository.findMembership({
+      projectId: project.id,
+      userId: actor.id,
+    });
 
     const context = ProjectContextResolver.fromData({
       actor,
@@ -119,9 +113,11 @@ export class ProjectService {
       membership,
     });
 
-    ProjectAuthorizer.edit(context);
+    ProjectAuthorizer.read(context);
 
-    return ProjectMapper.toDetailsDto(project);
+    const permissions = ProjectPermissionResolver.resolve(context);
+
+    return ProjectMapper.toDetailsDto(project, permissions);
   }
 
   async findMany({
@@ -203,13 +199,27 @@ export class ProjectService {
       return project;
     });
 
-    return ProjectMapper.toDetailsDto(project);
+    const context = ProjectContextResolver.fromData({
+      actor,
+      project,
+      membership: {
+        role: ProjectRole.OWNER,
+      },
+    });
+
+    const permissions = ProjectPermissionResolver.resolve(context);
+
+    return ProjectMapper.toDetailsDto(project, permissions);
   }
 
   // ===========================================================================
   // Update
   // ===========================================================================
 
+  /**
+   * @deprecated Use `updateProfile()` for title/slug/shortDescription/status/
+   * visibility, or `updateContent()` for the project's Markdown content.
+   */
   async update() {
     throw new Error("Not implemented.");
   }
@@ -227,12 +237,10 @@ export class ProjectService {
       id,
     });
 
-    const membership = actor.id
-      ? await this.repository.findMembership({
-          projectId: project.id,
-          userId: actor.id,
-        })
-      : null;
+    const membership = await this.repository.findMembership({
+      projectId: project.id,
+      userId: actor.id,
+    });
 
     const context = ProjectContextResolver.fromData({
       actor,
@@ -246,14 +254,6 @@ export class ProjectService {
       await this.ensureSlugAvailableForUpdate({
         slug: dto.slug,
         projectId: project.id,
-      });
-    }
-
-    if (!actor.id) {
-      throw new AuthorizationError({
-        code: AuthorizationCode.UNAUTHORIZED,
-        message: "Authentication is required.",
-        status: 401,
       });
     }
 
@@ -274,7 +274,9 @@ export class ProjectService {
       });
     });
 
-    return ProjectMapper.toDetailsDto(updatedProject);
+    const permissions = ProjectPermissionResolver.resolve(context);
+
+    return ProjectMapper.toDetailsDto(updatedProject, permissions);
   }
 
   async updateContent({
@@ -283,19 +285,17 @@ export class ProjectService {
     dto,
   }: {
     id: string;
-    actor: AuthorizationActor;
+    actor: StrictAuthorizationActor;
     dto: UpdateProjectContentDto;
   }): Promise<ProjectDetailsDto> {
     const project = await this.getProjectOrThrow({
       id,
     });
 
-    const membership = actor.id
-      ? await this.repository.findMembership({
-          projectId: project.id,
-          userId: actor.id,
-        })
-      : null;
+    const membership = await this.repository.findMembership({
+      projectId: project.id,
+      userId: actor.id,
+    });
 
     const context = ProjectContextResolver.fromData({
       actor,
@@ -303,7 +303,7 @@ export class ProjectService {
       membership,
     });
 
-    ProjectAuthorizer.edit(context);
+    ProjectAuthorizer.manageContent(context);
 
     const updatedProject = await prisma.$transaction(async (tx) => {
       const repository = new ProjectRepository(tx);
@@ -346,7 +346,9 @@ export class ProjectService {
       return updatedProject;
     });
 
-    return ProjectMapper.toDetailsDto(updatedProject);
+    const permissions = ProjectPermissionResolver.resolve(context);
+
+    return ProjectMapper.toDetailsDto(updatedProject, permissions);
   }
 
   // ===========================================================================
@@ -358,18 +360,16 @@ export class ProjectService {
     actor,
   }: {
     id: string;
-    actor: AuthorizationActor;
+    actor: StrictAuthorizationActor;
   }): Promise<void> {
     const project = await this.getProjectOrThrow({
       id,
     });
 
-    const membership = actor.id
-      ? await this.repository.findMembership({
-          projectId: project.id,
-          userId: actor.id,
-        })
-      : null;
+    const membership = await this.repository.findMembership({
+      projectId: project.id,
+      userId: actor.id,
+    });
 
     const context = ProjectContextResolver.fromData({
       actor,
@@ -377,20 +377,7 @@ export class ProjectService {
       membership,
     });
 
-    // const decision = ProjectPolicy.can(
-    //   context,
-    //   ProjectAction.DELETE,
-    // );
-
     ProjectAuthorizer.delete(context);
-
-    // if (!decision.allowed) {
-    //   throw new AuthorizationError({
-    //       status: 403,
-    //       message: decision.message ?? "Unauthorized.",
-    //       code: "UNAUTHORIZED",
-    //   });
-    // }
 
     await this.repository.softDelete({
       id,

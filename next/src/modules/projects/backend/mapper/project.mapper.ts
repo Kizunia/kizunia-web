@@ -4,6 +4,7 @@ import { Prisma } from "@/generated/prisma";
 import type { ProjectDetailsEntity, ProjectSummaryEntity } from "../repository";
 import { CreateProjectDto, UpdateProjectDto } from "../dto/input";
 import { ProjectSummaryDto, ProjectDetailsDto } from "../dto/output";
+import type { ProjectPermissionsDTO } from "../authorization/dto";
 
 export class ProjectMapper {
   // ===========================================================================
@@ -110,7 +111,10 @@ export class ProjectMapper {
   // Details DTO
   // ===========================================================================
 
-  static toDetailsDto(project: ProjectDetailsEntity): ProjectDetailsDto {
+  static toDetailsDto(
+    project: ProjectDetailsEntity,
+    permissions: ProjectPermissionsDTO,
+  ): ProjectDetailsDto {
     return {
       id: project.id,
 
@@ -243,6 +247,8 @@ export class ProjectMapper {
 
         competitionCount: project.competitions.length,
       },
+
+      permissions,
     };
   }
 }

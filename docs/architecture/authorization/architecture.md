@@ -516,13 +516,11 @@ The backend architecture intentionally follows a layered design.
 Controller
       │
       ▼
-Context Resolver
-      │
-      ▼
-Authorizer
-      │
-      ▼
 Service
+      │
+      ├──▶ Context Resolver
+      │
+      ├──▶ Authorizer
       │
       ▼
 Repository
@@ -538,6 +536,13 @@ Responsibilities never overlap.
 
 This makes the codebase easier to understand, test, and evolve.
 
+> **Note:** an earlier revision of this document placed Context Resolution
+> and Authorization in the Controller, ahead of the Service. Kizunia has
+> since moved both into the Service (see "Why Services Resolve Context And
+> Authorize" below) so the Controller can stay a pure HTTP boundary
+> (Authenticate → Validate → delegate) and Services can assemble a context
+> from data they already need to load, without a second round trip.
+
 ---
 
 # Layer Responsibilities
@@ -546,9 +551,10 @@ This makes the codebase easier to understand, test, and evolve.
 
 Responsible for:
 
+- Authentication
 - Request validation
 - DTO mapping
-- Invoking application flow
+- Invoking the Service
 - Returning HTTP responses
 
 Controllers should never:
@@ -556,6 +562,7 @@ Controllers should never:
 - Query the database directly
 - Execute business rules
 - Perform authorization
+- Resolve authorization context
 
 ---
 
@@ -573,6 +580,11 @@ Context Resolvers may:
 
 Context Resolvers should not execute business logic.
 
+Context Resolvers are invoked by the Service, at the start of each Service
+method, before any business logic runs. A Service should prefer the
+Resolver's `fromData(...)` variant whenever it has already loaded the
+resource/membership for another reason, to avoid duplicate queries.
+
 ---
 
 ## Authorizer
@@ -587,22 +599,32 @@ Authorizers:
 
 They never communicate with external systems.
 
+Authorizers are invoked by the Service, immediately after Context
+Resolution and before any business logic executes.
+
 ---
 
 ## Service
 
-Responsible for business logic.
+Responsible for business logic — and, in Kizunia, for authorization as well.
 
-Services assume authorization has already completed successfully.
+Each Service method:
 
-Examples include:
+1. Resolves the authorization Context (via a Context Resolver).
+2. Authorizes the action (via the resource's Authorizer).
+3. Executes business logic only once step 2 has succeeded.
+
+Examples of business logic include:
 
 - Updating project metadata
 - Publishing a blog
 - Creating a hackathon
 - Transferring ownership
 
-Authorization should never appear inside Services.
+Services must still never contain authorization *rules* — those live in
+the Policy/PermissionSet, evaluated by the Authorizer. The Service only
+decides *when* to resolve context and call the Authorizer, not *how* a
+decision is made.
 
 ---
 
@@ -2997,7 +3019,13 @@ PATCH /projects/:id
 
         ▼
 
-ProjectController
+ProjectController  (Authenticate → Validate)
+
+        │
+
+        ▼
+
+ProjectService
 
         │
 
@@ -3039,7 +3067,7 @@ No            Yes
 
 403           ▼
 
-         ProjectService
+     (Service business logic continues)
 
                │
 
@@ -3060,24 +3088,36 @@ Consistency is preferred over resource-specific optimizations.
 
 ---
 
-# Why Controllers Invoke Context Resolvers
+# Why Services Resolve Context And Authorize
 
 A natural question is:
 
-> Why doesn't the Service build the Context?
+> Why doesn't the Controller build the Context and call the Authorizer?
 
-The answer is separation of responsibilities.
-
-The Service should focus exclusively on business logic.
-
-Authorization should complete before the Service executes.
+Kizunia deliberately keeps the Controller as thin as possible — it only
+authenticates the request and validates its shape. Context Resolution and
+Authorization happen inside the Service instead, as the first two steps of
+every mutating Service method, strictly before any business logic runs.
 
 This provides several advantages.
 
-- Business logic becomes easier to test.
-- Unauthorized requests never reach Services.
-- Services remain independent of authorization.
-- Authorization becomes reusable by multiple entry points.
+- Controllers stay uniform across every module: Authenticate → Validate →
+  call the Service. There is no per-endpoint decision about how much
+  context-building belongs in the Controller.
+- The Service frequently needs to load the same resource for both
+  authorization and business logic (e.g. it must load the Project anyway
+  to update it). Resolving context in the Service lets it reuse that
+  already-loaded entity via the Context Resolver's `fromData(...)` variant,
+  instead of the Controller and Service each querying independently.
+- Authorization still fully completes — and the Decision is still asserted
+  — before a single line of business logic executes. The *sequencing*
+  guarantee ("unauthorized requests never reach business logic") is
+  preserved; only the *layer* that performs the resolution and the check
+  has moved.
+
+The one invariant that does **not** change: Services must still never
+invent their own authorization *rules*. They resolve a Context and defer
+entirely to the Authorizer/Policy/PermissionSet for the actual decision.
 
 ---
 
@@ -3112,9 +3152,11 @@ This ensures every database interaction follows the same abstraction.
 
 ---
 
-# Why Services Never Invoke Authorizers
+# Why Authorizers Are Still Never Invoked From Business Logic
 
-A common architecture looks like:
+Even though the Service is the layer that *calls* the Context Resolver and
+Authorizer, it must do so only as a distinct first phase, before any
+business logic runs:
 
 ```
 Controller
@@ -3122,41 +3164,26 @@ Controller
 ↓
 
 Service
-
-↓
-
-Authorizer
-
-↓
-
-Repository
+   1. Context Resolver
+   2. Authorizer   ← Authorization.assert(...) — throws if denied
+   3. Business logic
+   4. Repository
 ```
 
-Kizunia intentionally rejects this design.
+Kizunia rejects interleaving authorization checks *inside* business logic
+(e.g. an `if (canEdit) { ... }` branch midway through a method, or a
+Repository call gated by an ad-hoc role check). A Service method authorizes
+once, up front, and everything after that point assumes the decision has
+already been made.
 
-Services should not determine whether an operation is permitted.
+This preserves the original guarantee this section used to describe under
+a different layer split:
 
-Instead:
-
-```
-Controller
-
-↓
-
-Resolver
-
-↓
-
-Authorizer
-
-↓
-
-Service
-```
-
-By the time execution reaches the Service, authorization has already completed.
-
-Services become dramatically easier to reason about.
+- Business logic becomes easier to test (it never has to be exercised
+  through an authorization-failure path).
+- Unauthorized requests never reach the persistence layer.
+- The rule for "how" a decision is made stays entirely inside the
+  Authorizer/Policy — Services only decide "when" to ask.
 
 ---
 
