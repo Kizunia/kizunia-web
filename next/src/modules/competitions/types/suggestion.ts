@@ -1,3 +1,5 @@
+import type { AssetDTO } from "@/modules/assets/frontend/types";
+
 export type CompetitionSuggestionStatus =
   | "DRAFT"
   | "UNDER_REVIEW"
@@ -10,6 +12,13 @@ export interface CompetitionSuggestionContent {
   id: string;
   content: string;
   version?: number;
+}
+
+export interface CompetitionSuggestionAssetDTO {
+  assetId: string;
+  order: number;
+  createdAt: string | Date;
+  asset: AssetDTO;
 }
 
 export interface CompetitionSuggestionDTO {
@@ -28,8 +37,10 @@ export interface CompetitionSuggestionDTO {
 
   competitionId: string | null;
 
+  assets: CompetitionSuggestionAssetDTO[];
+
   createdAt: string | Date;
-  updatedAt: string;
+  updatedAt: string | Date;
 
   deletedAt?: string | Date | null;
 }

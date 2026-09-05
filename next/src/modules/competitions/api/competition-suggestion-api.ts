@@ -67,4 +67,31 @@ export class CompetitionSuggestionApi {
 
     return response.data;
   }
+
+  // ===========================================================================
+  // Assets
+  // ===========================================================================
+
+  static async attachAsset(
+    id: string,
+    assetId: string,
+  ): Promise<CompetitionSuggestionDTO> {
+    const response = await HttpClient.post<
+      CompetitionSuggestionDTO,
+      { assetId: string }
+    >(`/api/v1/competition-suggestions/${id}/assets`, { assetId });
+
+    return response.data;
+  }
+
+  static async detachAsset(
+    id: string,
+    assetId: string,
+  ): Promise<CompetitionSuggestionDTO> {
+    const response = await HttpClient.delete<CompetitionSuggestionDTO>(
+      `/api/v1/competition-suggestions/${id}/assets/${assetId}`,
+    );
+
+    return response.data;
+  }
 }

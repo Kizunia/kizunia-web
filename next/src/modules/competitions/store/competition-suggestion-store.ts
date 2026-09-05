@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { ApiError } from "@/lib/http";
 
 import type { CreateCompetitionSuggestionInput } from "../schemas/create-competition-suggestion";
+import type { UpdateCompetitionSuggestionInput } from "../schemas/update-competition-suggestion";
 import type { CompetitionSuggestionDTO } from "../types/suggestion";
 
 import { CompetitionSuggestionApi } from "../api/competition-suggestion-api";
@@ -19,8 +20,23 @@ interface CompetitionSuggestionStore {
     id: string,
   ): Promise<CompetitionSuggestionDTO>;
 
+  update(
+    id: string,
+    data: UpdateCompetitionSuggestionInput,
+  ): Promise<CompetitionSuggestionDTO>;
+
   submit(
     id: string,
+  ): Promise<CompetitionSuggestionDTO>;
+
+  attachAsset(
+    id: string,
+    assetId: string,
+  ): Promise<CompetitionSuggestionDTO>;
+
+  detachAsset(
+    id: string,
+    assetId: string,
   ): Promise<CompetitionSuggestionDTO>;
 }
 
@@ -77,6 +93,30 @@ export const useCompetitionSuggestionStore =
     },
 
     // =========================================================================
+    // Update
+    // =========================================================================
+    //
+    // Deliberately does not toggle `loading` — this backs autosave-on-blur
+    // for the title/description fields, and flipping the shared loading flag
+    // would disable inputs mid-edit for an unrelated save-in-flight.
+
+    async update(id, data) {
+      try {
+        return await CompetitionSuggestionApi.update(id, data);
+      } catch (error: unknown) {
+        if (error instanceof ApiError) {
+          toast.error(error.message);
+        } else {
+          toast.error(
+            "Failed to save competition suggestion.",
+          );
+        }
+
+        throw error;
+      }
+    },
+
+    // =========================================================================
     // Submit
     // =========================================================================
 
@@ -97,6 +137,38 @@ export const useCompetitionSuggestionStore =
         throw error;
       } finally {
         set({ loading: false });
+      }
+    },
+
+    // =========================================================================
+    // Assets
+    // =========================================================================
+
+    async attachAsset(id, assetId) {
+      try {
+        return await CompetitionSuggestionApi.attachAsset(id, assetId);
+      } catch (error: unknown) {
+        if (error instanceof ApiError) {
+          toast.error(error.message);
+        } else {
+          toast.error("Failed to attach asset.");
+        }
+
+        throw error;
+      }
+    },
+
+    async detachAsset(id, assetId) {
+      try {
+        return await CompetitionSuggestionApi.detachAsset(id, assetId);
+      } catch (error: unknown) {
+        if (error instanceof ApiError) {
+          toast.error(error.message);
+        } else {
+          toast.error("Failed to remove asset.");
+        }
+
+        throw error;
       }
     },
   }));

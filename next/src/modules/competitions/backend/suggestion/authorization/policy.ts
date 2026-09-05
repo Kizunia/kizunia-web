@@ -98,12 +98,11 @@ export class CompetitionSuggestionPolicy {
         "Competition suggestion has been deleted.",
       )
 
-      // V1:
-      // suggestions may still be edited while UNDER_REVIEW.
+      // A suggestion is editable only while still a DRAFT. Once submitted
+      // (UNDER_REVIEW) it is read-only for the contributor — this also
+      // gates asset attach/detach, which reuses this same UPDATE action.
       .require(
-        (ctx) =>
-          ctx.suggestion.status === "DRAFT" ||
-          ctx.suggestion.status === "UNDER_REVIEW",
+        (ctx) => ctx.suggestion.status === "DRAFT",
         AuthorizationCode.ROLE_PERMISSION_DENIED,
         "This competition suggestion cannot be edited.",
       )
