@@ -24,7 +24,6 @@ import {
 } from "./authorization";
 import {
   ProjectNotFoundError,
-  ProjectSlugAlreadyExistsError,
 } from "./errors/index";
 import { ProjectMapper } from "./mapper/project.mapper";
 import { ProjectRepository, ProjectDetailsEntity } from "./repository";
@@ -36,7 +35,7 @@ import {
   UpdateProjectContentDto,
   UpdateProjectProfileDto,
 } from "./dto/input";
-import { ProjectRole } from "@/generated/prisma";
+import { ProjectRole, ProjectStatus, ProjectVisibility } from "@/generated/prisma";
 import { PlatformAction } from "@/authorization/platform/actions";
 import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
 import { ProjectDuplicateSlugError } from "@/modules/projects/backend/errors/index";
@@ -175,11 +174,9 @@ export class ProjectService {
         data: {
           ...ProjectMapper.toCreateInput(dto),
 
-          content: {
-            create: {
-              content: dto.content,
-            },
-          },
+          status: ProjectStatus.DRAFT,
+
+          visibility: ProjectVisibility.PRIVATE,
 
           createdBy: {
             connect: {
@@ -192,22 +189,6 @@ export class ProjectService {
               id: actorId,
             },
           },
-
-          ...(dto.logoAssetId && {
-            logoAsset: {
-              connect: {
-                id: dto.logoAssetId,
-              },
-            },
-          }),
-
-          ...(dto.coverAssetId && {
-            coverAsset: {
-              connect: {
-                id: dto.coverAssetId,
-              },
-            },
-          }),
         },
       });
 
@@ -442,7 +423,7 @@ export class ProjectService {
     });
 
     if (exists) {
-      throw new ProjectSlugAlreadyExistsError();
+      throw new ProjectDuplicateSlugError(slug);
     }
   }
 
