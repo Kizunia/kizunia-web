@@ -34,7 +34,7 @@ export interface GalleryImage {
   tags: string[];
 }
 
-interface ReusableImageUploaderProps {
+export interface ReusableImageUploaderProps {
   /** Which upload purpose this image is for — resolves the server-side policy. */
   purpose: AssetPurpose;
   targetEntityType?: string;

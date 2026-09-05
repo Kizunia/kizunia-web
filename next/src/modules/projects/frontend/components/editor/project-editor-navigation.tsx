@@ -19,10 +19,6 @@ const tabs = [
     segment: "content",
   },
   {
-    label: "Media",
-    segment: "media",
-  },
-  {
     label: "Links",
     segment: "links",
   },
