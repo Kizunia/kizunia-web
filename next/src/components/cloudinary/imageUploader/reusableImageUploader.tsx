@@ -4,7 +4,8 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { useDropzone, Accept } from "react-dropzone";
 import { toast } from "sonner";
-import { useCloudinaryUpload } from "./useCloudinaryUpload";
+import { useAssetUpload } from "@/modules/assets/frontend/hooks/use-asset-upload";
+import type { AssetDTO, AssetPurpose } from "@/modules/assets/frontend/types";
 import { getCroppedImg } from "@/lib/media-upload/cropImage";
 
 /* shadcn/ui components (assumed existing) */
@@ -33,34 +34,15 @@ export interface GalleryImage {
   tags: string[];
 }
 
-/** Cloudinary upload response (core documented fields + index signature for forward compatibility) */
-export interface CloudinaryUploadResult {
-  public_id: string;
-  version: number;
-  signature: string;
-  width: number;
-  height: number;
-  format: string;
-  resource_type: string;
-  created_at: string;
-  tags: string[];
-  bytes: number;
-  type: string;
-  etag: string;
-  url: string;
-  secure_url: string;
-  original_filename: string;
-  access_mode?: string;
-  placeholder?: boolean;
-  [key: string]: unknown;
-}
-
 interface ReusableImageUploaderProps {
-  cloudinaryFolder?: string;
+  /** Which upload purpose this image is for — resolves the server-side policy. */
+  purpose: AssetPurpose;
+  targetEntityType?: string;
+  targetEntityId?: string;
   gallery?: GalleryImage[];
   onUpload?: (
     url: string,
-    info?: CloudinaryUploadResult,
+    asset?: AssetDTO,
   ) => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
   title?: string;
@@ -331,7 +313,9 @@ type ViewState = "main" | "upload" | "gallery" | "delete";
 
 /* ---------- Main Component ---------- */
 function ReusableImageUploader({
-  cloudinaryFolder = "default_folder",
+  purpose,
+  targetEntityType,
+  targetEntityId,
   gallery = [],
   onUpload,
   onDelete,
@@ -357,8 +341,10 @@ function ReusableImageUploader({
 
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const { upload, uploading, progress } = useCloudinaryUpload({
-    folder: cloudinaryFolder,
+  const { upload, uploading, progress } = useAssetUpload({
+    purpose,
+    targetEntityType,
+    targetEntityId,
   });
 
   const filteredGallery = useMemo(
@@ -408,11 +394,8 @@ function ReusableImageUploader({
         croppedAreaPixels,
         rotation,
       );
-      const { url, info } = (await upload(blob)) as {
-        url: string;
-        info: CloudinaryUploadResult;
-      };
-      if (onUpload) await onUpload(url, info);
+      const asset = await upload(blob);
+      if (onUpload) await onUpload(asset.secureUrl, asset);
       toast.success("Image uploaded!", { id: "image-upload" });
       setShowCropper(false);
       setImageSrc(null);

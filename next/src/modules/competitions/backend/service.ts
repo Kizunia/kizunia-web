@@ -26,7 +26,6 @@ import {
   type RawSearchParams,
 } from "@/lib/search";
 import type { CompetitionDetailDTO, CompetitionCardDTO } from "../types/dto";
-import { CreateAssetInput } from "@/modules/assets/schemas/create-asset";
 import { CompetitionAssetSlot } from "../types/asset-slot";
 import { CompetitionAssetService } from "./competition-asset.service";
 import {
@@ -268,16 +267,13 @@ export class CompetitionService {
   static async setAsset({
     context,
     slot,
-    upload,
+    assetId,
   }: {
     context: CompetitionContext;
     slot: CompetitionAssetSlot;
-    upload: CreateAssetInput;
+    assetId: string;
   }) {
-    return CompetitionAssetService.setAsset(context.competition.id, {
-      slot,
-      upload,
-    });
+    return CompetitionAssetService.setAsset(context, { slot, assetId });
   }
 
   static async update(options: UpdateCompetitionOptions) {

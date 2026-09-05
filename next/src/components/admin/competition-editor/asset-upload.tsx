@@ -1,5 +1,5 @@
 "use client";
-import { CreateAssetDTO } from "@/modules/assets/dto/create-asset.dto";
+import type { SetAssetInput } from "@/modules/assets/schemas/set-asset";
 
 
 
@@ -17,7 +17,7 @@ interface AssetUploadProps {
   } | null;
 
   onUpload(
-    upload: CreateAssetDTO,
+    upload: SetAssetInput,
   ): Promise<void>;
 }
 

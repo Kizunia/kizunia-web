@@ -34,35 +34,18 @@ export function AssetsTab() {
           <ReusableImageUploader
             title="Competition Logo"
             initialImage={competition.logoAsset?.secureUrl ?? ""}
-            cloudinaryFolder={`competitions/${competition.id}/logo`}
+            purpose="COMPETITION_LOGO"
+            targetEntityId={competition.id}
             customCropShape="rect"
             accept="image/*"
-            onUpload={async (_, info) => {
-              if (!info) return;
+            onUpload={async (_, asset) => {
+              if (!asset) return;
 
               try {
                 const updated = await CompetitionApi.setAsset(
                   competition.id,
                   "logo",
-                  {
-                    publicId: info.public_id,
-
-                    secureUrl: info.secure_url,
-
-                    format: info.format,
-
-                    mimeType: `${info.resource_type}/${info.format}`,
-
-                    width: info.width,
-
-                    height: info.height,
-
-                    bytes: info.bytes,
-
-                    checksum: info.etag,
-
-                    originalFilename: info.original_filename,
-                  },
+                  { assetId: asset.id },
                 );
 
                 setCompetition(updated);
@@ -89,45 +72,28 @@ export function AssetsTab() {
           <ReusableImageUploader
             title="Competition Banner"
             initialImage={competition.bannerAsset?.secureUrl ?? ""}
-            cloudinaryFolder={`kizunia/competitions/${competition.id}/banner`}
+            purpose="COMPETITION_BANNER"
+            targetEntityId={competition.id}
             customCropShape="rect"
             aspectRatio={16 / 9}
             accept="image/*"
-            onUpload={async (_, info) => {
-              if (!info) return;
+            onUpload={async (_, asset) => {
+              if (!asset) return;
 
               try {
                 const updated = await CompetitionApi.setAsset(
                   competition.id,
                   "banner",
-                  {
-                    publicId: info.public_id,
-
-                    secureUrl: info.secure_url,
-
-                    format: info.format,
-
-                    mimeType: `${info.resource_type}/${info.format}`,
-
-                    width: info.width,
-
-                    height: info.height,
-
-                    bytes: info.bytes,
-
-                    checksum: info.etag,
-
-                    originalFilename: info.original_filename,
-                  },
+                  { assetId: asset.id },
                 );
 
                 setCompetition(updated);
 
-                toast.success("Logo updated successfully.");
+                toast.success("Banner updated successfully.");
               } catch (error) {
                 console.error(error);
 
-                toast.error("Failed to update logo.");
+                toast.error("Failed to update banner.");
               }
             }}
             onDelete={async () => {

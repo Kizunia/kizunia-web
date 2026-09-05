@@ -23,9 +23,9 @@ import {
   CompetitionPolicy,
 } from "./authorization";
 import { SlugSchema } from "@/lib/validation/index";
-import { CreateAssetSchema } from "@/modules/assets/schemas/create-asset";
-import { CompetitionAssetSlot } from "../types/asset-slot";
-import { AppError, ForbiddenError, UnauthorizedError } from "@/lib/errors";
+import { SetAssetSchema } from "@/modules/assets/schemas/set-asset";
+import { isCompetitionAssetSlot } from "../types/asset-slot";
+import { AppError, ForbiddenError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { CompetitionErrorCode } from "../errors/error-code";
 import {
   BulkCompetitionActionSchema,
@@ -439,9 +439,21 @@ export class CompetitionController {
   static async setAsset(
     request: NextRequest,
     competitionId: string,
-    slot: CompetitionAssetSlot,
+    slot: string,
   ) {
     return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Validation (slot)
+      // -----------------------------------------------------------------
+
+      if (!isCompetitionAssetSlot(slot)) {
+        throw new ValidationError({
+          code: "INVALID_ASSET_SLOT",
+          status: 400,
+          message: `"${slot}" is not a valid competition asset slot.`,
+        });
+      }
+
       // -----------------------------------------------------------------
       // Authentication
       // -----------------------------------------------------------------
@@ -449,12 +461,12 @@ export class CompetitionController {
       const actor = await SessionService.getActor(request);
 
       // -----------------------------------------------------------------
-      // Validation
+      // Validation (body)
       // -----------------------------------------------------------------
 
       const body = await request.json();
 
-      const upload = CreateAssetSchema.parse(body);
+      const { assetId } = SetAssetSchema.parse(body);
 
       // -----------------------------------------------------------------
       // Context
@@ -478,7 +490,7 @@ export class CompetitionController {
       const competition = await CompetitionService.setAsset({
         context,
         slot,
-        upload,
+        assetId,
       });
 
       // -----------------------------------------------------------------

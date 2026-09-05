@@ -5,7 +5,7 @@ import { HttpClient } from "@/lib/http/client";
 import { CompetitionDetailDTO } from "../types/dto";
 import { CompetitionEditDTOWithPermissions } from "../types/edit-dto";
 import { UpdateCompetitionRequestDTO } from "../types/update-request-dto";
-import { CreateAssetDTO } from "@/modules/assets/dto/create-asset.dto";
+import type { SetAssetInput } from "@/modules/assets/schemas/set-asset";
 import type { BulkCompetitionActionInput } from "../schemas/bulk-competition-action";
 
 export class CompetitionApi {
@@ -67,12 +67,12 @@ export class CompetitionApi {
   static async setAsset(
     id: string,
     slot: "logo" | "banner" | "cover",
-    upload: CreateAssetDTO,
+    input: SetAssetInput,
   ) {
     const response = await HttpClient.patch<
       CompetitionEditDTOWithPermissions,
-      CreateAssetDTO
-    >(`/api/v1/admin/competitions/${id}/assets/${slot}`, upload);
+      SetAssetInput
+    >(`/api/v1/admin/competitions/${id}/assets/${slot}`, input);
 
     return response.data;
   }

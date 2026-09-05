@@ -18,6 +18,10 @@ import {
 import { AuthorizationError } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 
+import { AssetPurpose } from "@/generated/prisma";
+import { assertAssetReferenceAllowed } from "@/modules/assets/backend/reference-policy";
+import { assetService } from "@/modules/assets/backend/service";
+
 import { PortfolioAuthorizer, PortfolioContextResolver } from "./authorization";
 
 import { PortfolioProfileUpdateData, PortfolioRepository } from "./repository";
@@ -181,6 +185,19 @@ export class PortfolioService {
 
     PortfolioAuthorizer.edit(context);
 
+    // Target-domain authorization (above) only establishes that this actor
+    // may edit this portfolio. It says nothing about whether the specific
+    // Asset being attached as a resume is actually usable for that purpose
+    // — a shared Asset is not automatically valid here just because the
+    // actor is allowed to edit their own portfolio. See
+    // docs/architecture/domain/assets/overview.md and reference-policy.ts.
+    if (dto.resumeAssetId) {
+      await assertAssetReferenceAllowed({
+        assetId: dto.resumeAssetId,
+        purpose: AssetPurpose.PORTFOLIO_RESUME,
+      });
+    }
+
     const updateData: PortfolioProfileUpdateData = {
       displayName: dto.displayName,
       headline: dto.headline,
@@ -191,9 +208,25 @@ export class PortfolioService {
       resumeAssetId: dto.resumeAssetId,
     };
 
-    const updatedPortfolio = await this.repository.updateProfile({
-      id: portfolio.id,
-      data: updateData,
+    const previousResumeAssetId = portfolio.resumeAssetId;
+
+    const updatedPortfolio = await prisma.$transaction(async (tx) => {
+      const repository = new PortfolioRepository(tx);
+
+      const updated = await repository.updateProfile({
+        id: portfolio.id,
+        data: updateData,
+      });
+
+      if (
+        dto.resumeAssetId !== undefined &&
+        previousResumeAssetId &&
+        previousResumeAssetId !== dto.resumeAssetId
+      ) {
+        await assetService.detachIfUnreferenced(tx, previousResumeAssetId);
+      }
+
+      return updated;
     });
 
     return PortfolioMapper.toEditorDto(updatedPortfolio);

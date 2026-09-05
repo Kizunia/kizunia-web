@@ -432,6 +432,31 @@ export class ProjectRepository {
     });
   }
 
+  async setAsset({
+    id,
+    slot,
+    assetId,
+  }: {
+    id: string;
+    slot: "logo" | "cover";
+    assetId: string;
+  }): Promise<ProjectDetailsEntity> {
+    const relationField = {
+      logo: "logoAsset",
+      cover: "coverAsset",
+    } as const;
+
+    return this.db.project.update({
+      where: { id },
+      data: {
+        [relationField[slot]]: {
+          connect: { id: assetId },
+        },
+      },
+      include: projectDetailsInclude,
+    });
+  }
+
   async updateContent({
     contentId,
     data,

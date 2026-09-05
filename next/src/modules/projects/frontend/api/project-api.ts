@@ -2,6 +2,8 @@ import { HttpClient } from "@/lib/http/client";
 import { UpdateProjectProfileDto, UpdateProjectContentDto } from "../../backend/dto/input";
 import { CreateProjectDto } from "../../schemas";
 import { ProjectDetailsDto } from "../../backend/dto/output";
+import type { SetAssetInput } from "@/modules/assets/schemas/set-asset";
+import type { ProjectAssetSlot } from "../../types/asset-slot";
 
 
 
@@ -55,6 +57,22 @@ export class ProjectApi {
     >(
       `/api/v1/projects/${id}/content`,
       dto,
+    );
+
+    return response.data;
+  }
+
+  static async setAsset(
+    id: string,
+    slot: ProjectAssetSlot,
+    input: SetAssetInput,
+  ): Promise<ProjectDetailsDto> {
+    const response = await HttpClient.patch<
+      ProjectDetailsDto,
+      SetAssetInput
+    >(
+      `/api/v1/projects/${id}/assets/${slot}`,
+      input,
     );
 
     return response.data;
