@@ -1,5 +1,4 @@
 import { CompetitionController } from "@/modules/competitions/backend/controller";
-import { CompetitionAssetSlot } from "@/modules/competitions/types/asset-slot";
 import { NextRequest } from "next/server";
 
 export async function PATCH(
@@ -15,9 +14,7 @@ export async function PATCH(
 ) {
   const { id, slot } = await params;
 
-  return CompetitionController.setAsset(
-    request,
-    id,
-    slot as CompetitionAssetSlot, //TODO: validate slot value before casting
-  );
+  // Slot is validated inside CompetitionController.setAsset — see
+  // isCompetitionAssetSlot in modules/competitions/types/asset-slot.ts.
+  return CompetitionController.setAsset(request, id, slot);
 }
