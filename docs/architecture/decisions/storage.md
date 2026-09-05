@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted
+Accepted, **partially superseded** — see notice below.
+
+> **Superseded in part by:** the target Asset architecture in [`docs/architecture/domain/assets/`](../domain/assets/overview.md), specifically [`storage.md`](../domain/assets/storage.md).
+>
+> The identity/content cost-driven split described below still holds as product rationale. What changes is the *architecture* around identity assets: Cloudinary is treated as a storage-provider implementation behind a provider contract, not as a fact baked into the Asset domain model. "Easier migration in the future" (listed as an advantage below) is exactly the property the new storage-provider abstraction is designed to make real, rather than aspirational.
 
 ---
 

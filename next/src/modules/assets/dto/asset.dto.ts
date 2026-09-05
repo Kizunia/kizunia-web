@@ -1,3 +1,5 @@
+import type { AssetCategory, AssetStatus } from "@/generated/prisma";
+
 export interface AssetDTO {
   id: string;
 
@@ -16,4 +18,8 @@ export interface AssetDTO {
   bytes: number | null;
 
   originalFilename: string | null;
+
+  status: AssetStatus;
+
+  category: AssetCategory;
 }
