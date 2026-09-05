@@ -20,13 +20,6 @@ export class ProjectDeletedError extends ResourceError {
   }
 }
 
-export class ProjectSlugAlreadyExistsError extends Error {
-  constructor() {
-    super("A project with this slug already exists.");
-    this.name = "ProjectSlugAlreadyExistsError";
-  }
-}
-
 export class ProjectDuplicateSlugError extends ConflictError {
   constructor(slug: string) {
     super({
