@@ -289,34 +289,70 @@ export interface BooleanSpec extends FilterSpecBase {
 // -----------------------------------------------------------------------------
 
 /**
- * Reserved configuration for radius search.
+ * Configuration for radius search on a place filter.
  *
- * Radius is deliberately NOT implemented. It is declared here because the
- * shape of the eventual feature constrains decisions being made now, and
- * writing it down is cheaper than rediscovering it later:
+ * Setting this field is what turns the feature on for an entity: `filterParams`
+ * below then reports the radius and device-centre parameters as owned, and
+ * clearing, chip rendering, preset capture and duplicate-parameter detection all
+ * become radius-aware with no further edits.
  *
- *   - Radius is a property of the *selected place*, not a separate filter.
- *     A radius with no centre is meaningless, so it can never be an
- *     independent registry entry.
- *   - It changes the resolution result, not the clause shape: the resolver
- *     would return a wider set of search-area ids, and `toWhere` would be
- *     untouched. That is why `PlaceResolutionResult` is expressed as ids
- *     rather than as a clause.
- *   - It requires coordinates and a spatial predicate, neither of which the
- *     current `SearchArea` matching uses. Adding it is a resolver change plus
- *     a database capability, and touches no UI contract beyond one extra
- *     parameter.
+ * =============================================================================
+ * One correction to an earlier note, because it mattered
+ * =============================================================================
  *
- * When it lands, `radiusParam` joins the owned parameters and `PlaceValue`
- * gains `radiusKm`. Nothing else in this module changes.
+ * This interface was originally reserved with a comment predicting that radius
+ * would "change the resolution result, not the clause shape: the resolver would
+ * return a wider set of search-area ids, and `toWhere` would be untouched."
+ *
+ * **That prediction was wrong, and acting on it would have produced a subtly
+ * broken feature.** A circle does not correspond to any set of stored
+ * `SearchArea` rows, and it especially does not at the top of the hierarchy:
+ * address-component areas — which is how every city, state and country acquires
+ * an identity — carry no coordinates at all, so the areas nearest to what people
+ * actually search for are the ones a distance test can say least about.
+ *
+ * What is true instead:
+ *
+ *   - Radius is a property of the selected *centre*, not a separate filter. A
+ *     radius with no centre is meaningless, so it can never be an independent
+ *     registry entry. (This half of the original note was right.)
+ *   - Radius resolves to **Location ids**, not search-area ids, and it therefore
+ *     *does* change the clause: `toWhere` builds a different predicate.
+ *   - When a radius is active it **replaces** the search-area arm rather than
+ *     widening it. "Within 25 km" is a question about distance, and answering it
+ *     partly by identity would make the answer neither one thing nor the other.
+ *   - `includeOnline` remains an OR arm on the same clause. It has to live
+ *     inside this one clause: as a separately ANDed condition it would cancel
+ *     itself, because an online competition has no location row and so can never
+ *     satisfy a geographic predicate.
  */
 export interface PlaceRadiusConfig {
+  /** Distance parameter, in kilometres. */
   readonly radiusParam: string;
 
+  /**
+   * Parameters carrying a device-supplied centre.
+   *
+   * Bare coordinates, deliberately. A device position has no provider identity
+   * and is never reverse geocoded into one — it is an ephemeral search input,
+   * not a place, and it is never persisted.
+   */
+  readonly latitudeParam: string;
+
+  readonly longitudeParam: string;
+
+  /** Seeds the control only. Never written to the URL on its own. */
   readonly defaultKm: number;
 
+  /** Hard ceiling. A larger value in a URL is clamped to this, never dropped. */
   readonly maxKm: number;
 
+  /**
+   * The values the interface offers.
+   *
+   * An affordance, not a contract: an off-step value in a hand-edited or shared
+   * URL is honoured so long as it is in range.
+   */
   readonly steps: readonly number[];
 }
 
@@ -477,13 +513,53 @@ export interface DateRangeValue {
   readonly to?: string;
 }
 
-export interface PlaceValue {
-  readonly id: string;
+/**
+ * Where a radius is measured from.
+ *
+ * A discriminated union rather than a bag of optional fields, because "a radius
+ * has exactly one centre" is a rule worth making *unrepresentable* to break
+ * rather than one to check at runtime. There is no value of this type that
+ * carries both a place and a device position, so no code path has to decide
+ * which of the two wins — the decoder settles it once, when it builds the value.
+ *
+ * The two kinds are genuinely different, not two encodings of one thing:
+ *
+ *   - `place` carries a provider identity. It resolves to search areas *and* to
+ *     an anchor, it renders as a readable chip, and it survives being shared.
+ *   - `device` carries a bare coordinate. It is ephemeral: never reverse
+ *     geocoded, never persisted as a Location, and never given an identity. It
+ *     exists only for the length of one URL.
+ */
+export type SearchCenter =
+  | {
+      readonly kind: "place";
 
-  /** Presentation only; absent on a hand-edited or truncated URL. */
-  readonly label?: string;
+      readonly id: string;
+
+      /** Presentation only; absent on a hand-edited or truncated URL. */
+      readonly label?: string;
+    }
+  | {
+      readonly kind: "device";
+
+      readonly latitude: number;
+
+      readonly longitude: number;
+    };
+
+export interface PlaceValue {
+  readonly center: SearchCenter;
 
   readonly includeOnline: boolean;
+
+  /**
+   * Distance in kilometres. Absent means today's behaviour exactly: match by
+   * stored search area, not by distance.
+   *
+   * Always already validated and clamped — the decoder is the only thing that
+   * ever constructs this, so nothing downstream re-checks it.
+   */
+  readonly radiusKm?: number;
 }
 
 /**
@@ -570,6 +646,8 @@ export function filterParams(spec: FilterSpec): readonly string[] {
             spec.labelParam,
             spec.includeOnlineParam,
             spec.radius.radiusParam,
+            spec.radius.latitudeParam,
+            spec.radius.longitudeParam,
           ]
         : [spec.idParam, spec.labelParam, spec.includeOnlineParam];
 

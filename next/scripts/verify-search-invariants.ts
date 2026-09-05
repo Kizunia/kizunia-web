@@ -1159,6 +1159,117 @@ function verifyEntryFormatCoordination(): void {
   }
 }
 
+/**
+ * A radius-free URL must build exactly the query it built before radius search
+ * existed.
+ *
+ * Asserted rather than assumed, because the change that would break it is not
+ * an obvious one: `buildLocationClause` now composes an array of arms, and the
+ * natural way to write that wraps a lone arm in a one-element `OR`. Prisma
+ * treats `{ OR: [x] }` and `x` as equivalent, so every test would still pass and
+ * every existing bookmark, shared link and preset would still work — but the
+ * generated SQL would change shape for every location search on the platform,
+ * and nothing would have flagged it.
+ *
+ * The clauses below are the literal output from before radius was added.
+ */
+async function verifyRadiusFreeQueriesAreUnchanged(): Promise<void> {
+  const areaOnly = buildLocationClause({
+    searchAreaIds: ["area-a", "area-b"],
+    includeOnline: false,
+  });
+
+  report(
+    "radius-free: a resolved place still builds the bare search-area clause",
+    JSON.stringify(areaOnly) ===
+      JSON.stringify({
+        locations: {
+          some: {
+            location: {
+              searchAreas: {
+                some: { searchAreaId: { in: ["area-a", "area-b"] } },
+              },
+            },
+          },
+        },
+      }),
+    JSON.stringify(areaOnly),
+  );
+
+  const withOnline = buildLocationClause({
+    searchAreaIds: ["area-a"],
+    includeOnline: true,
+  });
+
+  report(
+    "radius-free: includeOnline still builds the same two-armed OR",
+    JSON.stringify(withOnline) ===
+      JSON.stringify({
+        OR: [
+          {
+            locations: {
+              some: {
+                location: {
+                  searchAreas: { some: { searchAreaId: { in: ["area-a"] } } },
+                },
+              },
+            },
+          },
+          { mode: "ONLINE" },
+        ],
+      }),
+    JSON.stringify(withOnline),
+  );
+
+  const nothing = buildLocationClause({
+    searchAreaIds: [],
+    includeOnline: false,
+  });
+
+  report(
+    "radius-free: a place matching no area is still MATCHES_NOTHING",
+    JSON.stringify(nothing) === JSON.stringify({ id: { in: [] } }),
+    JSON.stringify(nothing),
+  );
+
+  const onlineOnly = buildLocationClause({
+    searchAreaIds: [],
+    includeOnline: true,
+  });
+
+  report(
+    "radius-free: no areas + includeOnline still yields online-only, not everything",
+    JSON.stringify(onlineOnly) ===
+      JSON.stringify({ OR: [{ id: { in: [] } }, { mode: "ONLINE" }] }),
+    JSON.stringify(onlineOnly),
+  );
+
+  // End to end: a URL naming no location parameters must not acquire any
+  // location restriction now that three more parameters are owned by the spec.
+  for (const params of [
+    {},
+    { search: "ai" },
+    { modes: "ONLINE", page: "2" },
+    // A radius with nothing to centre it on, and a half-set device centre:
+    // both must leave the query exactly as if they were absent.
+    { radius: "25" },
+    { lat: "18.52" },
+    { lng: "73.85", radius: "50" },
+  ] as RawSearchParams[]) {
+    const plan = await planCompetitionSearch({ scope: "public", params });
+
+    const serialized = JSON.stringify(buildCompetitionQuery(plan).where);
+
+    report(
+      `no location clause for ${JSON.stringify(params)}`,
+      !serialized.includes("searchAreas") &&
+        !serialized.includes("latitude") &&
+        !serialized.includes("locations"),
+      serialized,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   await verifyCaseInsensitivity();
   await verifyGracefulDegradation();
@@ -1175,6 +1286,7 @@ async function main(): Promise<void> {
   verifyPaginationPreservesSearch();
   await verifyTeamSizeSemantics();
   verifyEntryFormatCoordination();
+  await verifyRadiusFreeQueriesAreUnchanged();
 
   console.log(`\n${checks - failures}/${checks} checks passed.`);
 

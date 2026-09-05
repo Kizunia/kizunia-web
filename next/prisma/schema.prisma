@@ -851,6 +851,15 @@ model Location {
   @@index([city])
   @@index([state])
   @@index([provider, providerLocationId])
+  /// Serves the bounding-box half of a radius search: the latitude range is an
+  /// index range scan and longitude is filtered inside the index rather than by
+  /// fetching the row. A plain composite btree, deliberately — it is expressible
+  /// in this schema, so the file and the database cannot drift, which a
+  /// functional GiST index (cube/earthdistance) would not be.
+  ///
+  /// Unnecessary at today's row count and added anyway: it is free now and a
+  /// migration on a large table later.
+  @@index([latitude, longitude])
   @@map("location")
 }
 
@@ -1414,6 +1423,27 @@ model PlaceResolution {
 
   displayName  String?
   contextLabel String?
+
+  /// The place's own coordinates, as the provider reported them.
+  ///
+  /// This is the *anchor* a radius search measures from, and it is deliberately
+  /// stored here rather than read from SearchArea: address-component areas —
+  /// which is how every city, state and country acquires an identity — never
+  /// carry coordinates, so SearchArea is null for exactly the places people
+  /// search for most.
+  ///
+  /// Costs no new provider call. The Google identity field mask already
+  /// requests `location`, and the provider already maps it; resolution simply
+  /// discarded it before these columns existed.
+  ///
+  /// Nullable, because a row cached before this migration has none and because
+  /// a provider may omit them. A null anchor must never be silently rendered as
+  /// "nothing is here" — see RADIUS_ANCHOR_UNAVAILABLE.
+  ///
+  /// Decimal rather than Float so stored coordinates round-trip exactly,
+  /// matching Location and SearchArea.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
 
   /// Which extraction ruleset produced these keys. A mismatch is treated as a
   /// miss, so changing extraction logically invalidates every row at once

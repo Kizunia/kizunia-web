@@ -37,6 +37,9 @@ export class PlaceResolutionRepository {
     identityKeys: string[];
     displayName: string | null;
     contextLabel: string | null;
+    /** The radius anchor. Null when the provider reported no coordinates. */
+    latitude: number | null;
+    longitude: number | null;
     extractionVersion: number;
   }): Promise<PlaceResolution> {
     const data = {
@@ -44,6 +47,10 @@ export class PlaceResolutionRepository {
       identityKeys: params.identityKeys,
       displayName: params.displayName,
       contextLabel: params.contextLabel,
+      // Written as a pair or not at all. A half-set coordinate is worse than
+      // none — the same rule `LocationInputSchema` enforces on the write path.
+      latitude: params.latitude,
+      longitude: params.longitude,
       extractionVersion: params.extractionVersion,
       resolvedAt: new Date(),
     };
@@ -75,6 +82,12 @@ export class PlaceResolutionRepository {
       identityKeys: [],
       displayName: null,
       contextLabel: null,
+      // Cleared for the same reason the keys are: a NOT_FOUND row still
+      // carrying an anchor would be one stale read away from behaving like a
+      // success and answering a radius search about a place that no longer
+      // resolves.
+      latitude: null,
+      longitude: null,
       extractionVersion: params.extractionVersion,
       resolvedAt: new Date(),
     };

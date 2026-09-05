@@ -209,7 +209,28 @@ const location: PlaceSpec = {
   suggestEndpoint: "/api/v1/places/autocomplete",
   placeholder: "Search for a city or place",
   description:
-    "Matches competitions held in the selected place or anywhere inside it. Online competitions have no location, so include them explicitly if you want both.",
+    "Matches competitions held in the selected place or anywhere inside it. Add a distance to search by how far away they are instead. Online competitions have no location, so include them explicitly if you want both.",
+
+  // Setting this is what enables radius search for Competitions. Everything
+  // registry-driven — clearing, chips, presets, duplicate-parameter detection —
+  // picks the new parameters up from `filterParams` without further wiring.
+  radius: {
+    radiusParam: "radius",
+    latitudeParam: "lat",
+    longitudeParam: "lng",
+
+    // Seeds the control only; never written to the URL on its own, for the same
+    // reason `page=1` and the default sort are not written.
+    defaultKm: 25,
+
+    // A product ceiling, not a performance workaround. Past roughly this
+    // distance the question stops being "what can I travel to" and becomes
+    // "what is in my region" — which the search-area filter already answers
+    // better, and answers for places that have no coordinates at all.
+    maxKm: 200,
+
+    steps: [5, 10, 25, 50, 100, 200],
+  },
 };
 
 const registrationFeeTypes: EnumMultiSpec<RegistrationFeeTypeValue> = {

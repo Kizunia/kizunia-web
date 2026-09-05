@@ -3,6 +3,7 @@ export { SearchAreaService } from "./services/search-area.service";
 export {
   PlaceMatchService,
   isTransientResolutionFailure,
+  type PlaceAnchor,
   type PlaceResolution,
   type PlaceResolutionFailure,
 } from "./services/place-match.service";
@@ -59,3 +60,18 @@ export {
 } from "./utils/identity";
 
 export { resolvePlaceProvider } from "./providers";
+
+export {
+  MAX_RADIUS_KM,
+  MIN_RADIUS_KM,
+  RADIUS_STEPS,
+  boundingBox,
+  clampRadiusKm,
+  haversineKm,
+  isInsideBoundingBox,
+  isValidCoordinates,
+  roundDeviceCoordinate,
+  type BoundingBox,
+  type Coordinates,
+  type LongitudeRange,
+} from "./utils/radius";
