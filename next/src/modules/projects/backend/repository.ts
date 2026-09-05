@@ -439,7 +439,7 @@ export class ProjectRepository {
   }: {
     id: string;
     slot: "logo" | "cover";
-    assetId: string;
+    assetId: string | null;
   }): Promise<ProjectDetailsEntity> {
     const relationField = {
       logo: "logoAsset",
@@ -449,9 +449,10 @@ export class ProjectRepository {
     return this.db.project.update({
       where: { id },
       data: {
-        [relationField[slot]]: {
-          connect: { id: assetId },
-        },
+        [relationField[slot]]:
+          assetId === null
+            ? { disconnect: true }
+            : { connect: { id: assetId } },
       },
       include: projectDetailsInclude,
     });

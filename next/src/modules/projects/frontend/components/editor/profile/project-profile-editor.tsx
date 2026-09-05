@@ -287,6 +287,14 @@ export function ProjectProfileEditor({
                     toast.error("Failed to update logo.");
                   }
                 }}
+                onDelete={async () => {
+                  const updated = await ProjectApi.clearAsset(
+                    project.id,
+                    "logo",
+                  );
+
+                  setProject(updated);
+                }}
               />
             </div>
 
@@ -319,6 +327,14 @@ export function ProjectProfileEditor({
 
                     toast.error("Failed to update cover.");
                   }
+                }}
+                onDelete={async () => {
+                  const updated = await ProjectApi.clearAsset(
+                    project.id,
+                    "cover",
+                  );
+
+                  setProject(updated);
                 }}
               />
             </div>

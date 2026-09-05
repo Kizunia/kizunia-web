@@ -296,7 +296,7 @@ export class ProjectService {
     id: string;
     actor: StrictAuthorizationActor;
     slot: ProjectAssetSlot;
-    assetId: string;
+    assetId: string | null;
   }): Promise<ProjectDetailsDto> {
     const project = await this.getProjectOrThrow({ id });
 
@@ -318,10 +318,13 @@ export class ProjectService {
     // being attached is actually usable as a project logo/cover — a shared
     // Asset is not automatically valid just because the actor can edit this
     // project. See docs/architecture/domain/assets/overview.md.
-    await assertAssetReferenceAllowed({
-      assetId,
-      purpose: SLOT_PURPOSE[slot],
-    });
+    // A null assetId clears the slot and has nothing to validate.
+    if (assetId !== null) {
+      await assertAssetReferenceAllowed({
+        assetId,
+        purpose: SLOT_PURPOSE[slot],
+      });
+    }
 
     const previousAssetId =
       slot === "logo" ? project.logoAssetId : project.coverAssetId;

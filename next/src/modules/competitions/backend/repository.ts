@@ -549,7 +549,7 @@ export class CompetitionRepository {
     tx: Prisma.TransactionClient,
     competitionId: string,
     slot: CompetitionAssetSlot,
-    assetId: string,
+    assetId: string | null,
   ) {
     const relationField = {
       logo: "logoAsset",
@@ -562,11 +562,10 @@ export class CompetitionRepository {
         id: competitionId,
       },
       data: {
-        [relationField[slot]]: {
-          connect: {
-            id: assetId,
-          },
-        },
+        [relationField[slot]]:
+          assetId === null
+            ? { disconnect: true }
+            : { connect: { id: assetId } },
       },
     });
   }

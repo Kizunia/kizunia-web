@@ -79,4 +79,8 @@ export class CompetitionApi {
 
     return response.data;
   }
+
+  static async clearAsset(id: string, slot: "logo" | "banner" | "cover") {
+    return this.setAsset(id, slot, { assetId: null });
+  }
 }
