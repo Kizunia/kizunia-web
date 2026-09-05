@@ -36,6 +36,7 @@ import {
   roundDeviceCoordinate,
   type Coordinates,
 } from "../src/modules/locations/utils/radius";
+import { competitionFilterSpecs } from "../src/modules/competitions/search/ui";
 
 let failures = 0;
 let checks = 0;
@@ -376,6 +377,56 @@ function verifyClamp(): void {
   report("the ceiling is the product's 200 km", MAX_RADIUS_KM === 200);
 }
 
+/**
+ * The Competition spec must offer exactly what the query layer enforces.
+ *
+ * These are two ends of the same fact. Restating the ceiling or the step list
+ * in the spec would let them drift apart, and the drift would be invisible from
+ * either side: an interface offering a distance `clampRadiusKm` rejects is a
+ * control that does nothing, and a ceiling the spec sets lower than the query
+ * layer's silently narrows a search the user asked to widen.
+ *
+ * The spec now imports both constants, so this cannot fail today. It is here to
+ * fail the moment someone types a literal back into `ui.ts`.
+ */
+function verifyCompetitionSpecReusesConstants(): void {
+  heading("Competition radius config matches the canonical constants");
+
+  const radius = competitionFilterSpecs.location.radius;
+
+  if (!radius) {
+    report("the Competition location spec declares a radius", false);
+
+    return;
+  }
+
+  report(
+    `maxKm is MAX_RADIUS_KM (${MAX_RADIUS_KM})`,
+    radius.maxKm === MAX_RADIUS_KM,
+    String(radius.maxKm),
+  );
+
+  report(
+    `steps are RADIUS_STEPS (${RADIUS_STEPS.join(", ")})`,
+    radius.steps.length === RADIUS_STEPS.length &&
+      radius.steps.every((step, index) => step === RADIUS_STEPS[index]),
+    radius.steps.join(", "),
+  );
+
+  // Not one of the canonical constants — it is a product default — but it seeds
+  // the control, so a value the control cannot land on would render a slider
+  // starting off its own scale.
+  report(
+    `defaultKm (${radius.defaultKm}) is one of the offered steps`,
+    RADIUS_STEPS.includes(radius.defaultKm),
+  );
+
+  report(
+    "defaultKm does not exceed the ceiling",
+    radius.defaultKm <= MAX_RADIUS_KM,
+  );
+}
+
 function verifyCoordinateGuards(): void {
   heading("Coordinate guards");
 
@@ -437,6 +488,7 @@ function main(): void {
   verifyHaversine();
   verifyBoundingBox();
   verifyClamp();
+  verifyCompetitionSpecReusesConstants();
   verifyCoordinateGuards();
   verifyRounding();
 

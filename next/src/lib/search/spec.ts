@@ -392,7 +392,7 @@ export interface PlaceSpec extends FilterSpecBase {
 
   readonly placeholder?: string;
 
-  /** Reserved. See `PlaceRadiusConfig`. Not read by any current code path. */
+  /** Present when the filter offers a distance. See `PlaceRadiusConfig`. */
   readonly radius?: PlaceRadiusConfig;
 }
 

@@ -172,6 +172,11 @@ export async function planCompetitionSearch(
       message: anchorUnavailable
         ? "We don't have coordinates for that place, so we can't search by distance around it. Try a nearby city, or search without a distance."
         : "We could not look that location up right now. Please try again in a moment.",
+      // The machine-readable half of that same distinction. `ExternalServiceError`
+      // defaults to retryable, which is right for a lookup that failed and wrong
+      // for a place that simply has no coordinates: a client honouring the flag
+      // would retry forever against an answer that will never change.
+      retryable: !anchorUnavailable,
       details: { filter: resolution.key, reason: resolution.reason },
     });
   }

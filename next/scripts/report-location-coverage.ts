@@ -41,11 +41,12 @@
  */
 
 import { PrismaClient } from "../src/generated/prisma";
+// The widest radius the product allows, and therefore the widest question this
+// report asks. Imported rather than restated so the report can never describe a
+// ceiling the search does not actually enforce.
+import { MAX_RADIUS_KM } from "../src/modules/locations/utils/radius";
 
 const prisma = new PrismaClient();
-
-/** Widest radius the product allows, and therefore the widest question asked. */
-const MAX_RADIUS_KM = 200;
 
 function heading(title: string): void {
   console.log(`\n${title}`);

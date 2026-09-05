@@ -151,6 +151,27 @@ export class LocationRepository {
    *
    * The comparison is strict (`>`), so a location at exactly the radius is
    * **not** excluded: "within 25 km" includes 25.000 km.
+   *
+   * =========================================================================
+   * Which side of the bounding-box comparison carries the cast
+   * =========================================================================
+   *
+   * `latitude` and `longitude` are `Decimal(9,6)` — `numeric` — and
+   * `@@index([latitude, longitude])` is on those native columns. A predicate
+   * written as `"latitude"::float8 BETWEEN …` is therefore **not sargable**:
+   * the index is on the column, not on that expression, and Postgres falls
+   * back to a sequential scan over the whole table.
+   *
+   * So the bounding box compares the **bare column** against a bound cast to
+   * `numeric`. Casting the bound is not cosmetic — Prisma binds a JavaScript
+   * number as `double precision`, and `numeric_column >= $1::float8` makes
+   * Postgres promote the *column* to `float8` implicitly, which is the same
+   * defect written a different way. Both sides must be `numeric` for the
+   * index to be usable.
+   *
+   * The `::float8` casts inside the distance expression below stay: `numeric`
+   * has no `sin`/`cos`/`radians`, and that term is evaluated per surviving
+   * candidate row rather than used to find rows, so it costs no index.
    */
   static async findLocationIdsOutsideRadius(params: {
     center: Coordinates;
@@ -170,15 +191,15 @@ export class LocationRepository {
     // user near the date line.
     const longitudePredicate =
       box.longitude.kind === "wrapped"
-        ? Prisma.sql`("longitude"::float8 >= ${box.longitude.min} OR "longitude"::float8 <= ${box.longitude.max})`
-        : Prisma.sql`("longitude"::float8 BETWEEN ${box.longitude.min} AND ${box.longitude.max})`;
+        ? Prisma.sql`("longitude" >= ${box.longitude.min}::numeric OR "longitude" <= ${box.longitude.max}::numeric)`
+        : Prisma.sql`("longitude" BETWEEN ${box.longitude.min}::numeric AND ${box.longitude.max}::numeric)`;
 
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       SELECT "id"
       FROM "location"
       WHERE "latitude" IS NOT NULL
         AND "longitude" IS NOT NULL
-        AND "latitude"::float8 BETWEEN ${box.minLatitude} AND ${box.maxLatitude}
+        AND "latitude" BETWEEN ${box.minLatitude}::numeric AND ${box.maxLatitude}::numeric
         AND ${longitudePredicate}
         AND ${EARTH_RADIUS_KM} * acos(
               LEAST(1, GREATEST(-1,

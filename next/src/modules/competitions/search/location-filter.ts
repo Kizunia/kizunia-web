@@ -72,19 +72,6 @@ interface ResolvedPlace {
 }
 
 /**
- * Consults the place service.
- *
- * Never throws. A provider outage returns `FAILED` with the provider's own
- * reason, so the caller can distinguish "we could not find out" from "there is
- * nothing there" and answer each honestly. Throwing would collapse that
- * distinction into a generic error, and the most likely handling of a generic
- * error — render an empty list — is precisely the wrong answer.
- *
- * An empty `searchAreaIds` is a *success*. It means the place is real, the
- * lookup worked, and no competition has been recorded there yet. That produces
- * an unsatisfiable clause and an honest empty page.
- */
-/**
  * Turns a centre and a distance into the two pieces the clause needs.
  *
  * Never throws — the resolvable-filter contract forbids it — so a database
