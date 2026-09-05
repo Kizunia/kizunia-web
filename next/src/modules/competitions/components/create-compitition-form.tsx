@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -35,6 +36,8 @@ import { Label } from "@/components/ui/label";
 import { useCreateCompetitionStore } from "../store/create-competition-store";
 
 export default function CreateCompititionForm() {
+  const router = useRouter();
+
   const createCompetition = useCreateCompetitionStore((state) => state.create);
 
   const loading = useCreateCompetitionStore((state) => state.loading);
@@ -52,9 +55,11 @@ export default function CreateCompititionForm() {
   });
 
   async function onSubmit(data: CreateCompetitionInput) {
-    const res = await createCompetition(data);
-    console.log("res", res);
+    const competition = await createCompetition(data);
 
+    if (competition) {
+      router.push(`/admin/competitions/${competition.id}`);
+    }
   }
   return (
     <>
