@@ -111,7 +111,7 @@ export function SignInForm() {
         id: "signin",
         description: "Redirecting...",
       });
-      router.push(redirect ?? "/dashboard");
+      router.push(redirect ?? "/competitions");
     }
   }
 

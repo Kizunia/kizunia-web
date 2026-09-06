@@ -9,7 +9,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import type { CompetitionMode, RegistrationFeeType } from "@/generated/prisma";
 import { COMPETITION_MODE_OPTIONS } from "../../constants";
 import { CompetitionCardDTO } from "../../types/dto";
@@ -59,13 +59,14 @@ function CompetitionRow({ competition }: { competition: CompetitionCardDTO }) {
 
   const fee = feeLabel(registrationFeeType);
   const teamSize = formatTeamSize(minTeamSize, maxTeamSize);
-  const modeLabel = COMPETITION_MODE_OPTIONS.find((option) => option.value === mode)
-    ?.label;
+  const modeLabel = COMPETITION_MODE_OPTIONS.find(
+    (option) => option.value === mode,
+  )?.label;
   const ModeIcon = mode ? MODE_ICONS[mode] : null;
 
   const hasFacts = fee || teamSize || modeLabel;
   const hasLocation = locations.length > 0;
-  const hasFooter = startDate || registrationDeadline || status;
+  const hasFooter = true || startDate || registrationDeadline || status; // share button is always present, so this is always true
 
   return (
     <Card className="group/card relative flex-row overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
@@ -147,8 +148,8 @@ function CompetitionRow({ competition }: { competition: CompetitionCardDTO }) {
         )}
 
         {hasFooter && (
-          <CardContent className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm text-muted-foreground">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <CardFooter className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm text-muted-foreground">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               {startDate && (
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarIcon className="h-4 w-4" />
@@ -159,16 +160,20 @@ function CompetitionRow({ competition }: { competition: CompetitionCardDTO }) {
               {registrationDeadline && (
                 <span>{formatDeadline(registrationDeadline)}</span>
               )}
+
+              {status && <StatusBadge status={status} />}
             </div>
 
-            {status && <StatusBadge status={status} />}
-          </CardContent>
+            <div className="relative z-10 shrink-0">
+              <CompetitionShareButton slug={slug} title={title} />
+            </div>
+          </CardFooter>
         )}
       </div>
 
-      <div className="relative z-10 shrink-0 p-2">
+      {/* <div className="relative z-10 shrink-0 p-2">
         <CompetitionShareButton slug={slug} title={title} />
-      </div>
+      </div> */}
     </Card>
   );
 }

@@ -52,7 +52,7 @@ export type CompetitionFilterScope = "public" | "admin";
  */
 const QUICK_BAR_ORDER: readonly string[] = [
   "search",
-  "categories",
+  // "categories",
   "modes",
   "location",
   "statuses",

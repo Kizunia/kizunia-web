@@ -129,11 +129,23 @@ export const projectSortRegistry = defineSortRegistry<ProjectOrderBy>({
 // Scopes
 // =============================================================================
 
+/**
+ * The public scope requires three non-negotiable conditions:
+ *
+ * - deletedAt must be null — soft-deleted projects are never public.
+ * - visibility must be PUBLIC.
+ * - status must be PUBLISHED.
+ *
+ * All three conditions are ANDed together and cannot be overridden by
+ * caller-supplied filters.
+ */
+
 const publicScope = defineScope<ProjectWhere, ProjectSearchContext>({
   id: "public",
   allowedFilters: "all",
-  guardedKeys: ["visibility", "status"],
+  guardedKeys: ["visibility", "status", "deletedAt"],
   guard: () => [
+    { deletedAt: null },
     { visibility: "PUBLIC" },
     { status: ProjectStatus.PUBLISHED },
   ],
