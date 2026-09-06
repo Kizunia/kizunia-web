@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import '@mdxeditor/editor/style.css'
 import "./globals.css";
 import "./mdx.css";
+import NextTopLoader from "nextjs-toploader";
 // import "@mdxeditor/editor/style.css";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "sonner";
@@ -44,6 +45,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+           <NextTopLoader
+              color="var(--color-primary)"
+              showSpinner={false}
+             
+             />
           <Toaster />
         </ThemeProvider>
       </body>
