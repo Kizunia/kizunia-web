@@ -12,6 +12,7 @@ import {
   ProjectSummaryDto,
   ProjectMineSummaryDto,
   ProjectDetailsDto,
+  ProjectPublicDetailsDto,
   ProjectLinkDto,
 } from "../dto/output";
 import type { ProjectPermissionsDTO } from "../authorization/dto";
@@ -343,6 +344,116 @@ export class ProjectMapper {
 
         competitionCount: project.competitions.length,
       },
+
+      permissions,
+    };
+  }
+
+  // ===========================================================================
+  // Public Details DTO
+  // ===========================================================================
+
+  /**
+   * Maps a project to the shape returned by the public `/projects/[slug]`
+   * view page. Callers must have already passed `ProjectAuthorizer.read`
+   * for this project. `isMember` is derived from the same `membership`
+   * lookup used for authorization, not from `permissions`.
+   */
+  static toPublicDetailsDto(
+    project: ProjectDetailsEntity,
+    permissions: ProjectPermissionsDTO,
+    isMember: boolean,
+  ): ProjectPublicDetailsDto {
+    return {
+      id: project.id,
+
+      title: project.title,
+
+      slug: project.slug,
+
+      shortDescription: project.shortDescription,
+
+      content: project.content?.content ?? null,
+
+      visibility: project.visibility,
+
+      status: project.status,
+
+      startDate: project.startDate,
+
+      endDate: project.endDate,
+
+      logo: this.toAssetDto(project.logoAsset),
+
+      cover: this.toAssetDto(project.coverAsset),
+
+      members: project.members.map((member) => ({
+        role: member.role,
+
+        joinedAt: member.joinedAt,
+
+        user: {
+          id: member.user.id,
+
+          name: member.user.name,
+
+          username: member.user.username,
+
+          image: member.user.image,
+
+          avatar: this.toAssetDto(member.user.avatarAsset),
+        },
+      })),
+
+      categories: project.categories.map(({ category }) => ({
+        id: category.id,
+
+        name: category.name,
+
+        slug: category.slug,
+      })),
+
+      technologies: project.technologies.map(({ technology }) => ({
+        id: technology.id,
+
+        name: technology.name,
+
+        slug: technology.slug,
+
+        iconUrl: technology.iconUrl,
+      })),
+
+      links: project.links.map((link) => this.toLinkDto(link)),
+
+      testimonials: project.testimonials.map((testimonial) => ({
+        id: testimonial.id,
+
+        name: testimonial.name,
+
+        position: testimonial.position,
+
+        company: testimonial.company,
+
+        message: testimonial.message,
+
+        rating: testimonial.rating,
+
+        displayOrder: testimonial.displayOrder,
+
+        image: this.toAssetDto(testimonial.imageAsset),
+      })),
+
+      statistics: {
+        memberCount: project.members.length,
+
+        technologyCount: project.technologies.length,
+
+        categoryCount: project.categories.length,
+
+        testimonialCount: project.testimonials.length,
+      },
+
+      isMember,
 
       permissions,
     };

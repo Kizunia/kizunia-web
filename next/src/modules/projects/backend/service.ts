@@ -25,7 +25,7 @@ import {
 } from "./errors/index";
 import { ProjectMapper } from "./mapper/project.mapper";
 import { ProjectRepository, ProjectDetailsEntity } from "./repository";
-import { ProjectDetailsDto, ProjectSummaryDto, ProjectMineSummaryDto } from "./dto/output";
+import { ProjectDetailsDto, ProjectPublicDetailsDto, ProjectSummaryDto, ProjectMineSummaryDto } from "./dto/output";
 import { ProjectMineQueryDto } from "../search";
 import { projectSearchDefinition } from "../search/definition";
 import { buildPaginationMeta, buildSearchQuery, parsePagination } from "@/lib/search";
@@ -91,6 +91,57 @@ export class ProjectService {
     const permissions = ProjectPermissionResolver.resolve(context);
 
     return ProjectMapper.toDetailsDto(project, permissions);
+  }
+
+  /**
+   * Loads a project for the public `/projects/[slug]` view page.
+   *
+   * Enforces `ProjectPolicy.canView` exactly like `findBySlug`, then maps
+   * to the narrower `ProjectPublicDetailsDto` instead of the full
+   * editor-grade `ProjectDetailsDto`. Kept as a separate method (rather
+   * than a mode flag on `findBySlug`) so the authenticated editor/API
+   * contract behind `findBySlug` is never at risk of an accidental shape
+   * change.
+   */
+  async findPublicBySlug({
+    slug,
+    actor,
+  }: {
+    slug: string;
+    actor: AuthorizationActor;
+  }): Promise<ProjectPublicDetailsDto> {
+    const project = await this.repository.findBySlug({
+      slug,
+    });
+
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const membership = actor.id
+      ? await this.repository.findMembership({
+          projectId: project.id,
+          userId: actor.id,
+        })
+      : null;
+
+    const context = ProjectContextResolver.fromData({
+      actor,
+
+      project,
+
+      membership,
+    });
+
+    ProjectAuthorizer.read(context);
+
+    const permissions = ProjectPermissionResolver.resolve(context);
+
+    return ProjectMapper.toPublicDetailsDto(
+      project,
+      permissions,
+      context.membership !== null,
+    );
   }
 
   /**
