@@ -1,10 +1,22 @@
 import { Link, Prisma } from "@/generated/prisma";
 
+import type { StrictAuthorizationActor } from "@/authorization";
 
-import type { ProjectDetailsEntity, ProjectSummaryEntity } from "../repository";
+import type {
+  ProjectDetailsEntity,
+  ProjectSummaryEntity,
+  ProjectMineSummaryEntity,
+} from "../repository";
 import { CreateProjectDto, UpdateProjectDto } from "../dto/input";
-import { ProjectSummaryDto, ProjectDetailsDto, ProjectLinkDto } from "../dto/output";
+import {
+  ProjectSummaryDto,
+  ProjectMineSummaryDto,
+  ProjectDetailsDto,
+  ProjectLinkDto,
+} from "../dto/output";
 import type { ProjectPermissionsDTO } from "../authorization/dto";
+import { ProjectContextResolver } from "../authorization/context-resolver";
+import { ProjectPermissionResolver } from "../authorization/permission-resolver";
 
 export class ProjectMapper {
   // ===========================================================================
@@ -77,6 +89,76 @@ export class ProjectMapper {
 
   static toSummaryDtos(projects: ProjectSummaryEntity[]): ProjectSummaryDto[] {
     return projects.map((project) => this.toSummaryDto(project));
+  }
+
+  // ===========================================================================
+  // My Projects Summary DTO
+  // ===========================================================================
+
+  /**
+   * Maps one row of the membership-scoped listing, resolving `canEdit`
+   * entirely from data the query already loaded — `project` here already
+   * carries `deletedAt`/`createdById`/`members` alongside the summary
+   * fields, satisfying `ProjectContextResolver.fromData` without a second
+   * query. Never call `ProjectContextResolver.resolve()` (the DB-hitting
+   * variant) per row here.
+   */
+  static toMineSummaryDto(
+    project: ProjectMineSummaryEntity,
+    actor: StrictAuthorizationActor,
+  ): ProjectMineSummaryDto {
+    const membership = project.members[0];
+
+    if (!membership) {
+      throw new Error(
+        "Project membership was not loaded for a row returned by the membership-scoped query.",
+      );
+    }
+
+    const context = ProjectContextResolver.fromData({
+      actor,
+
+      project,
+
+      membership: {
+        role: membership.role,
+      },
+    });
+
+    const permissions = ProjectPermissionResolver.resolve(context);
+
+    return {
+      id: project.id,
+
+      title: project.title,
+
+      slug: project.slug,
+
+      shortDescription: project.shortDescription,
+
+      visibility: project.visibility,
+
+      status: project.status,
+
+      startDate: project.startDate,
+
+      endDate: project.endDate,
+
+      updatedAt: project.updatedAt,
+
+      logo: this.toAssetDto(project.logoAsset),
+
+      myRole: membership.role,
+
+      canEdit: permissions.canEdit,
+    };
+  }
+
+  static toMineSummaryDtos(
+    projects: ProjectMineSummaryEntity[],
+    actor: StrictAuthorizationActor,
+  ): ProjectMineSummaryDto[] {
+    return projects.map((project) => this.toMineSummaryDto(project, actor));
   }
 
   // ===========================================================================

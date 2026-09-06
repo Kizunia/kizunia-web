@@ -1,13 +1,35 @@
 import { HttpClient } from "@/lib/http/client";
 import { UpdateProjectProfileDto, UpdateProjectContentDto } from "../../backend/dto/input";
 import { CreateProjectDto } from "../../schemas";
-import { ProjectDetailsDto } from "../../backend/dto/output";
+import { ProjectDetailsDto, ProjectMineSummaryDto } from "../../backend/dto/output";
+import type { ProjectMineQueryInput } from "../../search/mine-schema";
+import type { SearchResult } from "@/lib/search/types";
 import type { SetAssetInput } from "@/modules/assets/schemas/set-asset";
 import type { ProjectAssetSlot } from "../../types/asset-slot";
 
 
 
 export class ProjectApi {
+  static async findMine(
+    params: Partial<ProjectMineQueryInput>,
+  ): Promise<SearchResult<ProjectMineSummaryDto>> {
+    const searchParams = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        searchParams.set(key, String(value));
+      }
+    });
+
+    const query = searchParams.toString();
+
+    const response = await HttpClient.get<SearchResult<ProjectMineSummaryDto>>(
+      `/api/v1/projects/mine${query ? `?${query}` : ""}`,
+    );
+
+    return response.data;
+  }
+
   static async create(
     dto: CreateProjectDto,
   ): Promise<ProjectDetailsDto> {
