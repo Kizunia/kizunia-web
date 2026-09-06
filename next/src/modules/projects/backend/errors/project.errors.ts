@@ -10,6 +10,15 @@ export class ProjectNotFoundError extends NotFoundError {
   }
 }
 
+export class ProjectLinkNotFoundError extends NotFoundError {
+  constructor(message = "Link not found.") {
+    super({
+      code: ProjectErrorCode.LINK_NOT_FOUND,
+      message,
+    });
+  }
+}
+
 export class ProjectDeletedError extends ResourceError {
   constructor() {
     super({

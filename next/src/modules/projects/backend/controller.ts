@@ -17,6 +17,7 @@ import { ApiResponse, Route } from "@/lib/http";
 
 import { UnauthorizedError } from "@/lib/errors";
 import { projectService } from "./service";
+import { projectLinkService } from "./project-link.service";
 import { ProjectQuerySchema } from "../search";
 import { SessionService } from "@/lib/auth/session";
 import { CreateProjectSchema, DeleteProjectSchema } from "../schemas";
@@ -25,6 +26,11 @@ import { UpdateProjectProfileDto, UpdateProjectContentDto } from "./dto/input";
 import { ProjectDetailsDto } from "./dto/output";
 import { UpdateProjectProfileSchema } from "../schemas/update-project-profile.schema";
 import { UpdateProjectContentSchema } from "./dto/input/update-project-content.schema";
+import {
+  CreateProjectLinkSchema,
+  ReorderProjectLinksSchema,
+  UpdateProjectLinkSchema,
+} from "../schemas/project-link.schema";
 import { SetAssetSchema } from "@/modules/assets/schemas/set-asset";
 import { ValidationError } from "@/lib/errors";
 import { isProjectAssetSlot } from "../types/asset-slot";
@@ -303,6 +309,111 @@ export class ProjectController {
       // -----------------------------------------------------------------------
 
       return ApiResponse.ok({});
+    });
+  }
+
+  // ===========================================================================
+  // Links
+  // ===========================================================================
+
+  static async listLinks(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Business Logic
+      const links = await projectLinkService.list({
+        projectId,
+        actor,
+      });
+
+      return ApiResponse.ok(links);
+    });
+  }
+
+  static async addLink(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Validation
+      const dto = CreateProjectLinkSchema.parse(await request.json());
+
+      // Business Logic
+      const links = await projectLinkService.add({
+        projectId,
+        actor,
+        dto,
+      });
+
+      return ApiResponse.ok(links);
+    });
+  }
+
+  static async updateLink(
+    request: NextRequest,
+    projectId: string,
+    linkId: string,
+  ) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Validation
+      const dto = UpdateProjectLinkSchema.parse(await request.json());
+
+      // Business Logic
+      const links = await projectLinkService.update({
+        projectId,
+        linkId,
+        actor,
+        dto,
+      });
+
+      return ApiResponse.ok(links);
+    });
+  }
+
+  static async removeLink(
+    request: NextRequest,
+    projectId: string,
+    linkId: string,
+  ) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Business Logic
+      const links = await projectLinkService.remove({
+        projectId,
+        linkId,
+        actor,
+      });
+
+      return ApiResponse.ok(links);
+    });
+  }
+
+  /**
+   * Reorders the project's links. Lives on the collection rather than an
+   * individual link because ordering is a property of the list.
+   */
+  static async reorderLinks(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Validation
+      const dto = ReorderProjectLinksSchema.parse(await request.json());
+
+      // Business Logic
+      const links = await projectLinkService.reorder({
+        projectId,
+        actor,
+        dto,
+      });
+
+      return ApiResponse.ok(links);
     });
   }
 }

@@ -1,10 +1,10 @@
 import {
-  LinkType,
   ProjectRole,
   ProjectStatus,
   ProjectVisibility,
 } from "@/generated/prisma";
 import type { ProjectPermissionsDTO } from "../../authorization/dto";
+import type { ProjectLinkDto } from "./project-link.dto";
 
 interface ProjectAssetDto {
   id: string;
@@ -125,17 +125,7 @@ export interface ProjectDetailsDto {
   // Links
   // ===========================================================================
 
-  links: {
-    id: string;
-
-    title: string;
-
-    url: string;
-
-    type: LinkType;
-
-    order: number;
-  }[];
+  links: ProjectLinkDto[];
 
   // ===========================================================================
   // Competitions
