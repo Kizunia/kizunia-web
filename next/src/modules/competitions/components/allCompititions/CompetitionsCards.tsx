@@ -9,7 +9,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import type { CompetitionMode, RegistrationFeeType } from "@/generated/prisma";
 import { COMPETITION_MODE_OPTIONS } from "../../constants";
 import { CompetitionCardDTO } from "../../types/dto";
@@ -148,7 +148,7 @@ function CompetitionRow({ competition }: { competition: CompetitionCardDTO }) {
         )}
 
         {hasFooter && (
-          <CardContent className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm text-muted-foreground">
+          <CardFooter className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm text-muted-foreground">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               {startDate && (
                 <span className="inline-flex items-center gap-1.5">
@@ -167,7 +167,7 @@ function CompetitionRow({ competition }: { competition: CompetitionCardDTO }) {
             <div className="relative z-10 shrink-0">
               <CompetitionShareButton slug={slug} title={title} />
             </div>
-          </CardContent>
+          </CardFooter>
         )}
       </div>
 
