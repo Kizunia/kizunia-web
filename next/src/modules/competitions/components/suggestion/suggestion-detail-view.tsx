@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,12 +28,8 @@ import { useCompetitionSuggestionStore } from "../../store/competition-suggestio
 import type { CompetitionSuggestionDTO } from "../../types/suggestion";
 import { SuggestionFieldsEditor } from "./suggestion-fields-editor";
 import { SuggestionAssetGrid } from "./suggestion-asset-grid";
-
-function formatStatus(status: string) {
-  return status
-    .toLowerCase()
-    .replaceAll("_", " ");
-}
+import { SuggestionStatusBadge } from "./suggestion-status-badge";
+import { SuggestionReviewFeedback } from "./suggestion-review-feedback";
 
 function formatDate(value: Date | string | null) {
   if (!value) return "—";
@@ -55,8 +50,13 @@ export function SuggestionDetailView({
     (state) => state.submit,
   );
 
+  const reopen = useCompetitionSuggestionStore(
+    (state) => state.reopen,
+  );
+
   const [suggestion, setSuggestion] = useState(initialSuggestion);
   const [submitting, setSubmitting] = useState(false);
+  const [reopening, setReopening] = useState(false);
 
   const isDraft = suggestion.status === "DRAFT";
 
@@ -73,8 +73,27 @@ export function SuggestionDetailView({
     }
   }
 
+  async function handleReopen() {
+    setReopening(true);
+
+    try {
+      const updated = await reopen(suggestion.id);
+
+      setSuggestion(updated);
+    } finally {
+      setReopening(false);
+    }
+  }
+
   return (
     <div className=" max-w-3xl space-y-6">
+      <SuggestionReviewFeedback
+        status={suggestion.status}
+        reviewNotes={suggestion.reviewNotes}
+        rejectionReason={suggestion.rejectionReason}
+        reviewedAt={suggestion.reviewedAt}
+      />
+
       {/* Title / Description */}
       <Card>
         <CardHeader>
@@ -98,9 +117,7 @@ export function SuggestionDetailView({
               )}
             </div>
 
-            <Badge className="shrink-0">
-              {formatStatus(suggestion.status)}
-            </Badge>
+            <SuggestionStatusBadge status={suggestion.status} className="shrink-0" />
           </div>
         </CardHeader>
 
@@ -216,6 +233,21 @@ export function SuggestionDetailView({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          </>
+        ) : suggestion.status === "CHANGES_REQUESTED" ? (
+          <>
+            <Button asChild variant="ghost">
+              <Link href="/competitions/suggestions">
+                ← Back to My Suggestions
+              </Link>
+            </Button>
+
+            {/* Reopening only moves the suggestion back to DRAFT — it does
+                not discard anything, so unlike Submit this needs no
+                confirmation dialog. */}
+            <Button onClick={handleReopen} disabled={reopening}>
+              {reopening ? "Reopening..." : "Edit Suggestion"}
+            </Button>
           </>
         ) : (
           <Button asChild variant="ghost">

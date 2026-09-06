@@ -42,4 +42,20 @@ export interface AssetDTO {
   originalFilename: string | null;
   status: AssetStatus;
   category: AssetCategory;
+
+  /**
+   * The URL a "View" link should open. Prefer this over `secureUrl`
+   * wherever it is present: for some categories (documents, today) the
+   * stored `secureUrl` is not deliverable and only this one resolves.
+   * Falls back to `secureUrl` when a producer does not compute it.
+   */
+  viewUrl?: string;
+
+  /**
+   * A URL that forces a download rather than an inline render. Only
+   * populated by endpoints that explicitly compute it (currently
+   * Competition Suggestion reads) — not every AssetDTO producer sets this,
+   * so treat its absence as "no download link available" rather than a bug.
+   */
+  downloadUrl?: string;
 }
