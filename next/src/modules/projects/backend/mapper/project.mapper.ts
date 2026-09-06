@@ -75,15 +75,25 @@ export class ProjectMapper {
 
       shortDescription: project.shortDescription,
 
-      visibility: project.visibility,
-
       status: project.status,
 
       startDate: project.startDate,
 
       endDate: project.endDate,
 
+      updatedAt: project.updatedAt,
+
       logo: this.toAssetDto(project.logoAsset),
+
+      categories: project.categories.map(({ category }) => ({
+        slug: category.slug,
+        name: category.name,
+      })),
+
+      technologies: project.technologies.map(({ technology }) => ({
+        slug: technology.slug,
+        name: technology.name,
+      })),
     };
   }
 

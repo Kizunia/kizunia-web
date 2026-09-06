@@ -26,9 +26,10 @@ import {
 import { ProjectMapper } from "./mapper/project.mapper";
 import { ProjectRepository, ProjectDetailsEntity } from "./repository";
 import { ProjectDetailsDto, ProjectSummaryDto, ProjectMineSummaryDto } from "./dto/output";
-import { ProjectQueryDto, ProjectMineQueryDto } from "../search";
-import { buildPaginationMeta } from "@/lib/search/pagination";
-import type { SearchResult } from "@/lib/search/types";
+import { ProjectMineQueryDto } from "../search";
+import { projectSearchDefinition } from "../search/definition";
+import { buildPaginationMeta, buildSearchQuery, parsePagination } from "@/lib/search";
+import type { RawSearchParams, SearchResult } from "@/lib/search/types";
 import prisma from "@/lib/prisma";
 import {
   CreateProjectDto,
@@ -130,20 +131,49 @@ export class ProjectService {
     return ProjectMapper.toDetailsDto(project, permissions);
   }
 
-  async findMany({
-    query,
-    actor,
-  }: {
-    query: ProjectQueryDto;
-    actor: AuthorizationActor;
-  }): Promise<ProjectSummaryDto[]> {
+  /**
+   * The public `/projects` discovery listing.
+   *
+   * `params` are raw, unvalidated URL search params — the same shape every
+   * other search-core-backed module's public listing takes (see
+   * `CompetitionService.search`). Validation, filter decoding and the
+   * `visibility`/`status` scope guard all happen inside
+   * `buildSearchQuery(... scope: "public")`, not here: this method never
+   * builds a `where` clause of its own, so there is no second place that
+   * rule could be weakened or forgotten.
+   *
+   * Builds exactly one query object and hands it to both `findMany` and
+   * `count`, so the reported total can never disagree with the rows —
+   * see the note on `CompetitionSearchPlan` for why that matters once a
+   * search has more than one query behind it.
+   */
+  async search(
+    params: RawSearchParams,
+    actor: AuthorizationActor,
+  ): Promise<SearchResult<ProjectSummaryDto>> {
     PlatformAuthorizer.can({ actor }, PlatformAction.VIEW_PUBLIC_PROJECTS);
 
-    const projects = await this.repository.findMany({
-      query,
+    const query = buildSearchQuery({
+      definition: projectSearchDefinition,
+      params,
+      scope: "public",
+      context: {},
     });
 
-    return ProjectMapper.toSummaryDtos(projects);
+    const [projects, total] = await Promise.all([
+      this.repository.findMany(query),
+      this.repository.countMany(query),
+    ]);
+
+    const items = ProjectMapper.toSummaryDtos(projects);
+
+    // Re-derives page and limit from the same raw parameters the query was
+    // built from, through the engine's own clamping, so the reported
+    // values always match what was actually queried.
+    return {
+      items,
+      pagination: buildPaginationMeta(parsePagination(params), total),
+    };
   }
 
   /**

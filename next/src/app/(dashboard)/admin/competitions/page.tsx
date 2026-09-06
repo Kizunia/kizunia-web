@@ -82,8 +82,8 @@ export default async function AdminCompetitionsPage({ searchParams }: Props) {
     await Promise.allSettled([
       CompetitionService.searchAdmin(strictActor, params),
       CompetitionService.getAdminSummary(),
-      TaxonomyService.listCategories({ limit: 200, includeEmpty: false }),
-      TaxonomyService.listTechnologies({ limit: 200, includeEmpty: false }),
+      TaxonomyService.listCategories({ limit: 200, includeEmpty: false, entity: "competition" }),
+      TaxonomyService.listTechnologies({ limit: 200, includeEmpty: false, entity: "competition" }),
     ]);
 
   const summaryValue =

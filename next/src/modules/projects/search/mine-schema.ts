@@ -5,11 +5,12 @@ import { ProjectStatus } from "@/generated/prisma";
 /**
  * Validates query params for GET /api/v1/projects/mine.
  *
- * A dedicated schema rather than a reuse of `ProjectQuerySchema` — that one
- * carries `category`/`technology` filters that don't apply to a membership
- * scope, and accepting-but-ignoring them would be a misleading API surface.
- * There is deliberately no `userId` field: the actor is always derived from
- * the authenticated session, never from the request.
+ * A dedicated schema rather than a reuse of the public discovery registry
+ * (`projectSearchDefinition` in `./definition.ts`) — that one carries
+ * `category`/`technology` filters that don't apply to a membership scope,
+ * and accepting-but-ignoring them would be a misleading API surface. There
+ * is deliberately no `userId` field: the actor is always derived from the
+ * authenticated session, never from the request.
  */
 export const ProjectMineQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),

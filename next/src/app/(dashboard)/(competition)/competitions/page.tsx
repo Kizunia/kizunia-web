@@ -54,8 +54,8 @@ export default async function CompetitionsPage({ searchParams }: Props) {
   // browsing. Settled rather than awaited together for exactly that reason.
   const [searchOutcome, categories, technologies] = await Promise.allSettled([
     CompetitionService.search(params),
-    TaxonomyService.listCategories({ limit: 200, includeEmpty: false }),
-    TaxonomyService.listTechnologies({ limit: 200, includeEmpty: false }),
+    TaxonomyService.listCategories({ limit: 200, includeEmpty: false, entity: "competition" }),
+    TaxonomyService.listTechnologies({ limit: 200, includeEmpty: false, entity: "competition" }),
   ]);
 
   const optionsMap = {

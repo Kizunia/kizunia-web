@@ -20,12 +20,13 @@ export interface TaxonomyOptionDTO {
   readonly label: string;
 
   /**
-   * How many *public, non-deleted* competitions carry this option.
+   * How many publicly visible rows of the requested entity
+   * (`TaxonomyQuery.entity` — competitions or projects) carry this option.
    *
    * Present so the interface can show a count beside each option and hide
-   * ones that would return nothing. Counted against the same visibility rules
-   * the public search applies, so an option that shows "12" cannot return
-   * zero results.
+   * ones that would return nothing. Counted against the same visibility
+   * rules that entity's public search applies, so an option that shows "12"
+   * cannot return zero results.
    */
   readonly count: number;
 }
