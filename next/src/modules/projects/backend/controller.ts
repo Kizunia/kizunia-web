@@ -18,7 +18,7 @@ import { ApiResponse, Route } from "@/lib/http";
 import { UnauthorizedError } from "@/lib/errors";
 import { projectService } from "./service";
 import { projectLinkService } from "./project-link.service";
-import { ProjectQuerySchema, ProjectMineQuerySchema } from "../search";
+import { ProjectMineQuerySchema } from "../search";
 import { SessionService } from "@/lib/auth/session";
 import { CreateProjectSchema, DeleteProjectSchema } from "../schemas";
 import { AuthorizationActor, PlatformRole } from "@/authorization";
@@ -40,15 +40,20 @@ export class ProjectController {
   // Read
   // ===========================================================================
 
+  /**
+   * The public `/projects` discovery listing.
+   *
+   * Unlike every other read here, there is no schema `.parse()` step: raw
+   * params are handed straight to `projectService.search`, which validates
+   * and decodes them through the search registry (`search/definition.ts`)
+   * rather than a hand-written schema. This mirrors
+   * `CompetitionController.search` — see that method for why an unparsed
+   * `RawSearchParams` bag, not a typed DTO, is the correct shape at this
+   * boundary for a search-core-backed listing.
+   */
   static async findMany({ request }: { request: NextRequest }) {
     return Route.execute(async () => {
-      // -----------------------------------------------------------------------
-      // Validation
-      // -----------------------------------------------------------------------
-
       const query = Object.fromEntries(request.nextUrl.searchParams.entries());
-
-      const filters = ProjectQuerySchema.parse(query);
 
       const actor = await SessionService.getOptionalActor(request);
       // -----------------------------------------------------------------------
@@ -61,16 +66,13 @@ export class ProjectController {
         banned: actor?.banned ?? false,
       };
 
-      const projects = await projectService.findMany({
-        query: filters,
-        actor: actorData,
-      });
+      const result = await projectService.search(query, actorData);
 
       // -----------------------------------------------------------------------
       // Response
       // -----------------------------------------------------------------------
 
-      return ApiResponse.ok(projects);
+      return ApiResponse.ok(result);
     });
   }
 

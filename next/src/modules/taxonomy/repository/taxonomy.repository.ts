@@ -12,9 +12,24 @@ import type { TaxonomyQuery } from "../schemas/taxonomy-query";
  * scope guard in `competitions/search/definition.ts`; the two must move
  * together.
  */
-const PUBLICLY_VISIBLE: Prisma.CompetitionWhereInput = {
+const COMPETITION_PUBLICLY_VISIBLE: Prisma.CompetitionWhereInput = {
   deletedAt: null,
   visibility: "PUBLIC",
+};
+
+/**
+ * Counts only projects the public `/projects` listing could actually
+ * return. Mirrors the public scope guard in
+ * `projects/search/definition.ts` exactly — both clauses, not just
+ * `visibility` — for the same reason as the competition guard above: a
+ * project that is `PUBLIC` but still `DRAFT` must not inflate a taxonomy
+ * option's count when it would never appear in the results that count
+ * describes.
+ */
+const PROJECT_PUBLICLY_VISIBLE: Prisma.ProjectWhereInput = {
+  deletedAt: null,
+  visibility: "PUBLIC",
+  status: "PUBLISHED",
 };
 
 export class TaxonomyRepository {
@@ -36,6 +51,28 @@ export class TaxonomyRepository {
    */
 
   static async findCategories(query: TaxonomyQuery) {
+    if (query.entity === "project") {
+      return prisma.category.findMany({
+        where: this.nameFilter(query),
+
+        select: {
+          name: true,
+          slug: true,
+          _count: {
+            select: {
+              projects: {
+                where: { project: PROJECT_PUBLICLY_VISIBLE },
+              },
+            },
+          },
+        },
+
+        orderBy: { name: "asc" },
+
+        take: query.limit,
+      });
+    }
+
     return prisma.category.findMany({
       where: this.nameFilter(query),
 
@@ -45,7 +82,7 @@ export class TaxonomyRepository {
         _count: {
           select: {
             competitions: {
-              where: { competition: PUBLICLY_VISIBLE },
+              where: { competition: COMPETITION_PUBLICLY_VISIBLE },
             },
           },
         },
@@ -58,6 +95,28 @@ export class TaxonomyRepository {
   }
 
   static async findTechnologies(query: TaxonomyQuery) {
+    if (query.entity === "project") {
+      return prisma.technology.findMany({
+        where: this.nameFilter(query),
+
+        select: {
+          name: true,
+          slug: true,
+          _count: {
+            select: {
+              projects: {
+                where: { project: PROJECT_PUBLICLY_VISIBLE },
+              },
+            },
+          },
+        },
+
+        orderBy: { name: "asc" },
+
+        take: query.limit,
+      });
+    }
+
     return prisma.technology.findMany({
       where: this.nameFilter(query),
 
@@ -67,7 +126,7 @@ export class TaxonomyRepository {
         _count: {
           select: {
             competitions: {
-              where: { competition: PUBLICLY_VISIBLE },
+              where: { competition: COMPETITION_PUBLICLY_VISIBLE },
             },
           },
         },

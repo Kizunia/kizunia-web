@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { toast } from "sonner";
 
 import { ApiError } from "@/lib/http";
 import { ProjectApi } from "../api/project-api";
@@ -10,6 +11,8 @@ interface ProjectStore {
   isLoading: boolean;
 
   error: string | null;
+
+  isDeleting: boolean;
 
   getProject: (params: {
     id: string;
@@ -24,16 +27,26 @@ interface ProjectStore {
    */
   setProject: (project: ProjectDetailsDto) => void;
 
+  /**
+   * Soft-deletes the project via the existing DELETE endpoint. Returns
+   * whether the deletion succeeded so the caller can decide navigation;
+   * the store itself owns the success/error toast so callers must not
+   * show their own.
+   */
+  deleteProject: (id: string) => Promise<boolean>;
+
   clear: () => void;
 }
 
 export const useProjectStore = create<ProjectStore>(
-  (set) => ({
+  (set, get) => ({
     project: null,
 
     isLoading: true,
 
     error: null,
+
+    isDeleting: false,
 
     getProject: async ({ id }) => {
       set({
@@ -70,11 +83,45 @@ export const useProjectStore = create<ProjectStore>(
       });
     },
 
+    deleteProject: async (id) => {
+      if (get().isDeleting) {
+        return false;
+      }
+
+      set({ isDeleting: true });
+
+      try {
+        await ProjectApi.delete(id);
+
+        toast.success("Project deleted.");
+
+        set({
+          project: null,
+          isLoading: false,
+          error: null,
+          isDeleting: false,
+        });
+
+        return true;
+      } catch (error) {
+        set({ isDeleting: false });
+
+        toast.error(
+          error instanceof ApiError
+            ? error.message
+            : "Failed to delete project.",
+        );
+
+        return false;
+      }
+    },
+
     clear: () => {
       set({
         project: null,
         isLoading: false,
         error: null,
+        isDeleting: false,
       });
     },
   }),

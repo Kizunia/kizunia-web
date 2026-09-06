@@ -7,8 +7,21 @@
 
 import { Prisma, PrismaClient, Project } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
-import { ProjectQueryDto, ProjectMineQueryDto } from "../search";
+import type { SearchQuery } from "@/lib/search";
+import { ProjectMineQueryDto } from "../search";
 import { ProjectNotFoundError } from "./errors";
+
+/**
+ * A fully-built public-discovery query, as produced by `buildSearchQuery`
+ * against `projectSearchDefinition` (see `search/definition.ts`). Typed
+ * here rather than imported from the search module, so this repository
+ * does not need to import the (server-only) definition just to name the
+ * shape of what it accepts.
+ */
+export type ProjectSearchQuery = SearchQuery<
+  Prisma.ProjectWhereInput,
+  Prisma.ProjectOrderByWithRelationInput
+>;
 
 const projectSummarySelect = {
   id: true,
@@ -19,13 +32,13 @@ const projectSummarySelect = {
 
   shortDescription: true,
 
-  visibility: true,
-
   status: true,
 
   startDate: true,
 
   endDate: true,
+
+  updatedAt: true,
 
   logoAsset: {
     select: {
@@ -35,6 +48,28 @@ const projectSummarySelect = {
       height: true,
       format: true,
       mimeType: true,
+    },
+  },
+
+  categories: {
+    select: {
+      category: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+    },
+  },
+
+  technologies: {
+    select: {
+      technology: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
     },
   },
 } satisfies Prisma.ProjectSelect;
@@ -323,25 +358,39 @@ export class ProjectRepository {
     });
   }
 
-  async findMany({
-    query,
-  }: {
-    query: ProjectQueryDto;
-  }): Promise<ProjectSummaryEntity[]> {
+  /**
+   * The public discovery listing. `query` is a fully-built engine query
+   * (see `search/definition.ts` + `buildSearchQuery`) rather than raw
+   * filter values — its `where` already carries the "public" scope guard
+   * (`visibility: PUBLIC`, `status: PUBLISHED`), composed alongside
+   * whatever filters the request supplied. This repository never builds a
+   * `Project` where-clause by hand; the engine is the only place that does.
+   */
+  async findMany(
+    query: ProjectSearchQuery,
+  ): Promise<ProjectSummaryEntity[]> {
     return this.db.project.findMany({
-      where: this.buildWhereClause({
-        query,
-      }),
-
-      orderBy: this.buildOrderByClause({
-        query,
-      }),
-
-      ...this.buildPagination({
-        query,
-      }),
-
+      where: query.where,
+      orderBy: query.orderBy,
+      skip: query.skip,
+      take: query.take,
       select: projectSummarySelect,
+    });
+  }
+
+  /**
+   * The total for the same `where` a `findMany` call used, so the two can
+   * never disagree — see `ProjectService.search`, which builds one query
+   * object and hands it to both.
+   *
+   * Named `countMany` rather than `count` because this class already has a
+   * no-arg `count()` (every non-deleted project, currently unused by any
+   * caller) — a distinct method rather than a rename, since that one is
+   * unrelated to this discovery listing and out of scope here.
+   */
+  async countMany(query: ProjectSearchQuery): Promise<number> {
+    return this.db.project.count({
+      where: query.where,
     });
   }
 
@@ -629,66 +678,18 @@ export class ProjectRepository {
   // Query Builders
   // =============================================================================
 
-  private buildWhereClause({
-    query,
-  }: {
-    query: ProjectQueryDto;
-  }): Prisma.ProjectWhereInput {
-    return {
-      deletedAt: null,
-
-      // Visibility is a scope, not a caller-supplied filter: findMany() is
-      // the public listing path, so it is always restricted to PUBLIC
-      // projects here rather than accepting a `visibility` query param.
-      visibility: "PUBLIC",
-
-      ...(query.search && {
-        OR: [
-          {
-            title: {
-              contains: query.search,
-              mode: "insensitive",
-            },
-          },
-          {
-            shortDescription: {
-              contains: query.search,
-              mode: "insensitive",
-            },
-          },
-        ],
-      }),
-
-      ...(query.status && {
-        status: query.status,
-      }),
-
-      ...(query.category && {
-        categories: {
-          some: {
-            category: {
-              slug: query.category,
-            },
-          },
-        },
-      }),
-
-      ...(query.technology && {
-        technologies: {
-          some: {
-            technology: {
-              slug: query.technology,
-            },
-          },
-        },
-      }),
-    };
-  }
+  // The public discovery listing's `where`/`orderBy`/pagination are no
+  // longer built here — `buildSearchQuery` against `projectSearchDefinition`
+  // (see `search/definition.ts`) is now the only place that builds a
+  // Project `where` clause for that path, so the guard it applies
+  // (`visibility: PUBLIC`, `status: PUBLISHED`) cannot be bypassed by a
+  // second, independently-maintained builder. `findMany`/`count` above
+  // accept the engine's already-built query directly.
 
   private buildOrderByClause({
     query,
   }: {
-    query: Pick<ProjectQueryDto, "sortBy" | "sortOrder">;
+    query: Pick<ProjectMineQueryDto, "sortBy" | "sortOrder">;
   }): Prisma.ProjectOrderByWithRelationInput {
     return {
       [query.sortBy]: query.sortOrder,
@@ -698,7 +699,7 @@ export class ProjectRepository {
   private buildPagination({
     query,
   }: {
-    query: Pick<ProjectQueryDto, "page" | "pageSize">;
+    query: Pick<ProjectMineQueryDto, "page" | "pageSize">;
   }) {
     return {
       skip: (query.page - 1) * query.pageSize,

@@ -4,7 +4,7 @@ import {
   AuthorizationEvaluator,
 } from "@/authorization";
 
-import { ProjectVisibility } from "@/generated/prisma";
+import { ProjectStatus, ProjectVisibility } from "@/generated/prisma";
 
 import { ProjectAction } from "./actions";
 import type { ProjectContext } from "./context";
@@ -55,7 +55,11 @@ export class ProjectPolicy {
         .evaluate();
     }
 
-    // Non-members may only view public projects.
+    // Non-members may only view published, non-private projects.
+    // PUBLIC and UNLISTED are both directly viewable when published —
+    // UNLISTED merely stays out of the public discovery listing (see
+    // the search scope guard), it is not an additional view restriction.
+    // DRAFT projects are always member-only, regardless of visibility.
     return AuthorizationEvaluator
       .start(context)
 
@@ -75,10 +79,16 @@ export class ProjectPolicy {
 
       .require(
         (ctx) =>
-          ctx.project.visibility ===
-          ProjectVisibility.PUBLIC,
+          ctx.project.visibility !==
+          ProjectVisibility.PRIVATE,
         AuthorizationCode.RESOURCE_PRIVATE,
         "Project is private.",
+      )
+
+      .require(
+        (ctx) => ctx.project.status === ProjectStatus.PUBLISHED,
+        AuthorizationCode.RESOURCE_PRIVATE,
+        "Project is not published.",
       )
 
       .grant()
