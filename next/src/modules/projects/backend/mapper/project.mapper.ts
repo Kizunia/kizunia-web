@@ -1,9 +1,9 @@
-import { Prisma } from "@/generated/prisma";
+import { Link, Prisma } from "@/generated/prisma";
 
 
 import type { ProjectDetailsEntity, ProjectSummaryEntity } from "../repository";
 import { CreateProjectDto, UpdateProjectDto } from "../dto/input";
-import { ProjectSummaryDto, ProjectDetailsDto } from "../dto/output";
+import { ProjectSummaryDto, ProjectDetailsDto, ProjectLinkDto } from "../dto/output";
 import type { ProjectPermissionsDTO } from "../authorization/dto";
 
 export class ProjectMapper {
@@ -32,6 +32,20 @@ export class ProjectMapper {
       height: asset.height,
       format: asset.format,
       mimeType: asset.mimeType,
+    };
+  }
+
+  static toLinkDto(link: Link): ProjectLinkDto {
+    return {
+      id: link.id,
+
+      title: link.title,
+
+      url: link.url,
+
+      type: link.type,
+
+      order: link.order,
     };
   }
 
@@ -192,17 +206,7 @@ export class ProjectMapper {
         },
       })),
 
-      links: project.links.map((link) => ({
-        id: link.id,
-
-        title: link.title,
-
-        url: link.url,
-
-        type: link.type,
-
-        order: link.order,
-      })),
+      links: project.links.map((link) => this.toLinkDto(link)),
 
       competitions: project.competitions.map((competitionProject) => ({
         submittedAt: competitionProject.submittedAt,
