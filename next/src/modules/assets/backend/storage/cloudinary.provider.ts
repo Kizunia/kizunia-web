@@ -282,4 +282,96 @@ export class CloudinaryStorageProvider implements StorageProvider {
       });
     }
   }
+
+  /**
+   * `raw` objects are not deliverable over the CDN on this account.
+   *
+   * Verified against the live cloud: an untransformed raw delivery URL —
+   * the exact `secure_url` Cloudinary itself reports at upload time —
+   * answers `401 Unauthorized` with `x-cld-error: deny or ACL failure`.
+   * So does the same URL with `fl_attachment`, and so does either one when
+   * signed with `sign_url`. Signing is not the missing ingredient: raw
+   * delivery is blocked at the account level (Cloudinary restricts the
+   * `raw` media type by default), and no URL served from
+   * `res.cloudinary.com` will satisfy it. Image and video deliver normally
+   * over the CDN, signed or not — the block is specific to `raw`.
+   *
+   * The provider's supported way to fetch such an object is the
+   * authenticated download endpoint (`api.cloudinary.com/.../download`),
+   * which the SDK builds and signs via `private_download_url`. That
+   * returns `200` with the real bytes and the correct `application/pdf`
+   * content type, so it serves both viewing and downloading — `attachment`
+   * is what decides the Content-Disposition.
+   *
+   * Two consequences worth knowing:
+   *   - The URL carries a timestamp Cloudinary only honours for about an
+   *     hour, so it is generated per request and must not be cached or
+   *     persisted. Pages here are server-rendered per request, so each
+   *     load hands out a fresh one.
+   *   - Cloudinary supplies the original upload filename on the
+   *     Content-Disposition itself, which is why no filename is threaded
+   *     through this path.
+   */
+  private buildRawObjectUrl(publicId: string, attachment: boolean): string {
+    // The extension is already part of a raw public id (see buildObjectId),
+    // so the `format` argument must stay empty or it would be doubled.
+    return cloudinary.utils.private_download_url(publicId, "", {
+      resource_type: "raw",
+      type: "upload",
+      attachment,
+    });
+  }
+
+  buildViewUrl(input: {
+    publicId: string;
+    category: AssetCategory;
+    secureUrl: string;
+  }): string {
+    if (resourceTypeFor(input.category) !== "raw") {
+      // Public, CDN-cached, and already correct — nothing to exchange.
+      return input.secureUrl;
+    }
+
+    return this.buildRawObjectUrl(input.publicId, false);
+  }
+
+  /**
+   * Forces a download rather than an inline render.
+   *
+   * Documents go through the authenticated endpoint for the reasons above.
+   * Image/video keep the CDN, where the `attachment` delivery flag does the
+   * job; that URL is signed so it also holds up on clouds with "Strict
+   * transformations" enabled, which would otherwise reject an unsigned
+   * transformation.
+   *
+   * Built from `publicId`, not `secureUrl` — for `image`/`video`, `format`
+   * restores the extension that `secureUrl` carries but a bare public id
+   * does not.
+   */
+  buildDownloadUrl(input: {
+    publicId: string;
+    category: AssetCategory;
+    format?: string | null;
+    filename?: string | null;
+  }): string {
+    const resourceType = resourceTypeFor(input.category);
+
+    if (resourceType === "raw") {
+      return this.buildRawObjectUrl(input.publicId, true);
+    }
+
+    const sanitizedName = input.filename
+      ?.replace(/\.[^./]+$/, "")
+      .replace(/[^A-Za-z0-9_-]+/g, "_")
+      .slice(0, 100);
+
+    return cloudinary.url(input.publicId, {
+      resource_type: resourceType,
+      type: "upload",
+      secure: true,
+      sign_url: true,
+      format: input.format ?? undefined,
+      flags: sanitizedName ? `attachment:${sanitizedName}` : "attachment",
+    });
+  }
 }

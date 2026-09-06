@@ -90,4 +90,46 @@ export interface StorageProvider {
 
   /** Physically removes the stored object. Idempotent: a missing object is not an error. */
   deleteObject(providerObjectId: string, category: AssetCategory): Promise<void>;
+
+  /**
+   * Derives a URL the browser can open to *view* the object inline.
+   *
+   * This exists because a stored `secureUrl` is not universally openable:
+   * a provider may serve some categories over a public CDN and gate others
+   * behind an access-controlled endpoint, in which case the persisted URL
+   * is correct-but-undeliverable and must be exchanged for a usable one.
+   * Which categories those are is entirely provider-specific, so callers
+   * must always render this rather than `secureUrl` directly.
+   *
+   * `secureUrl` is passed in so a provider can return it unchanged for the
+   * categories where it already works — never for string surgery.
+   */
+  buildViewUrl(input: {
+    publicId: string;
+    category: AssetCategory;
+    secureUrl: string;
+  }): string;
+
+  /**
+   * Derives a URL that causes the browser to save the file rather than
+   * render it inline. Pure (no network call), but provider-specific
+   * delivery/security settings can mean it must be cryptographically signed
+   * rather than merely string-built — that's an implementation detail of
+   * the provider, not of this contract.
+   *
+   * `publicId` is the provider's own object identifier (never derived from
+   * `secureUrl` by string surgery), and the returned URL must resolve to the
+   * exact same object.
+   *
+   * Plain `<a download>` does not force a download for a cross-origin URL
+   * (the attribute is ignored), so a real "Download" action needs the
+   * disposition encoded in the URL itself — how that's done is entirely
+   * provider-specific.
+   */
+  buildDownloadUrl(input: {
+    publicId: string;
+    category: AssetCategory;
+    format?: string | null;
+    filename?: string | null;
+  }): string;
 }
