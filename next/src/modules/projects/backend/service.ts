@@ -25,8 +25,10 @@ import {
 } from "./errors/index";
 import { ProjectMapper } from "./mapper/project.mapper";
 import { ProjectRepository, ProjectDetailsEntity } from "./repository";
-import { ProjectDetailsDto, ProjectSummaryDto } from "./dto/output";
-import { ProjectQueryDto } from "../search";
+import { ProjectDetailsDto, ProjectSummaryDto, ProjectMineSummaryDto } from "./dto/output";
+import { ProjectQueryDto, ProjectMineQueryDto } from "../search";
+import { buildPaginationMeta } from "@/lib/search/pagination";
+import type { SearchResult } from "@/lib/search/types";
 import prisma from "@/lib/prisma";
 import {
   CreateProjectDto,
@@ -142,6 +144,46 @@ export class ProjectService {
     });
 
     return ProjectMapper.toSummaryDtos(projects);
+  }
+
+  /**
+   * Projects the actor is a `ProjectMember` of — every visibility, since
+   * membership (not visibility) is the scope. No `PlatformAuthorizer` gate:
+   * listing your own memberships requires only being authenticated, not a
+   * platform-level permission.
+   */
+  async findMine({
+    actor,
+    query,
+  }: {
+    actor: StrictAuthorizationActor;
+    query: ProjectMineQueryDto;
+  }): Promise<SearchResult<ProjectMineSummaryDto>> {
+    const [projects, total] = await Promise.all([
+      this.repository.findManyForMember({
+        userId: actor.id,
+        query,
+      }),
+
+      this.repository.countForMember({
+        userId: actor.id,
+        query,
+      }),
+    ]);
+
+    const items = ProjectMapper.toMineSummaryDtos(projects, actor);
+
+    return {
+      items,
+
+      pagination: buildPaginationMeta(
+        {
+          page: query.page,
+          limit: query.pageSize,
+        },
+        total,
+      ),
+    };
   }
 
   // ===========================================================================

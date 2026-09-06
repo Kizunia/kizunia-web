@@ -7,7 +7,7 @@
 
 import { Prisma, PrismaClient, Project } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
-import { ProjectQueryDto } from "../search";
+import { ProjectQueryDto, ProjectMineQueryDto } from "../search";
 import { ProjectNotFoundError } from "./errors";
 
 const projectSummarySelect = {
@@ -219,6 +219,60 @@ export type ProjectAuthorizationEntity = Prisma.ProjectGetPayload<{
   select: typeof projectAuthorizationSelect;
 }>;
 
+// Fields for the membership-scoped "my projects" listing. Includes the same
+// authorization fields as `projectAuthorizationSelect` (`deletedAt`,
+// `createdById`, `members`) alongside the summary fields, so a row here can
+// be passed directly into `ProjectContextResolver.fromData` /
+// `ProjectPermissionResolver.resolve` to compute `canEdit` in memory — no
+// second query per row. `members` is narrowed to `{ userId }` for the
+// current actor at the call site (see `findManyForMember`), not here, since
+// the actor id isn't known until the query runs.
+const projectMineSummarySelect = {
+  id: true,
+
+  title: true,
+
+  slug: true,
+
+  shortDescription: true,
+
+  visibility: true,
+
+  status: true,
+
+  startDate: true,
+
+  endDate: true,
+
+  updatedAt: true,
+
+  deletedAt: true,
+
+  createdById: true,
+
+  logoAsset: {
+    select: {
+      id: true,
+      secureUrl: true,
+      width: true,
+      height: true,
+      format: true,
+      mimeType: true,
+    },
+  },
+
+  members: {
+    select: {
+      userId: true,
+      role: true,
+    },
+  },
+} satisfies Prisma.ProjectSelect;
+
+export type ProjectMineSummaryEntity = Prisma.ProjectGetPayload<{
+  select: typeof projectMineSummarySelect;
+}>;
+
 type ProjectProfileUpdateData = Pick<
   Prisma.ProjectUpdateInput,
   "title" | "slug" | "shortDescription" | "status" | "visibility" | "updatedBy"
@@ -288,6 +342,63 @@ export class ProjectRepository {
       }),
 
       select: projectSummarySelect,
+    });
+  }
+
+  /**
+   * Rows the actor is a member of, across every visibility — membership is
+   * the scope for this listing, never a caller-supplied filter. `members`
+   * is narrowed to just this actor so the mapper can read `myRole` and
+   * resolve `canEdit` from this same row, with no follow-up query.
+   */
+  async findManyForMember({
+    userId,
+    query,
+  }: {
+    userId: string;
+    query: ProjectMineQueryDto;
+  }): Promise<ProjectMineSummaryEntity[]> {
+    return this.db.project.findMany({
+      where: this.buildMemberWhereClause({
+        userId,
+        query,
+      }),
+
+      orderBy: this.buildOrderByClause({
+        query,
+      }),
+
+      ...this.buildPagination({
+        query,
+      }),
+
+      select: {
+        ...projectMineSummarySelect,
+        members: {
+          where: {
+            userId,
+          },
+          select: {
+            userId: true,
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  async countForMember({
+    userId,
+    query,
+  }: {
+    userId: string;
+    query: ProjectMineQueryDto;
+  }): Promise<number> {
+    return this.db.project.count({
+      where: this.buildMemberWhereClause({
+        userId,
+        query,
+      }),
     });
   }
 
@@ -577,17 +688,66 @@ export class ProjectRepository {
   private buildOrderByClause({
     query,
   }: {
-    query: ProjectQueryDto;
+    query: Pick<ProjectQueryDto, "sortBy" | "sortOrder">;
   }): Prisma.ProjectOrderByWithRelationInput {
     return {
       [query.sortBy]: query.sortOrder,
     };
   }
 
-  private buildPagination({ query }: { query: ProjectQueryDto }) {
+  private buildPagination({
+    query,
+  }: {
+    query: Pick<ProjectQueryDto, "page" | "pageSize">;
+  }) {
     return {
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
+    };
+  }
+
+  /**
+   * Scope for the membership-based listing: every non-deleted project the
+   * user belongs to, regardless of visibility. `search`/`status` are the
+   * only caller-supplied filters — `category`/`technology` aren't part of
+   * `ProjectMineQueryDto`, and visibility is never a filter here at all.
+   */
+  private buildMemberWhereClause({
+    userId,
+    query,
+  }: {
+    userId: string;
+    query: ProjectMineQueryDto;
+  }): Prisma.ProjectWhereInput {
+    return {
+      deletedAt: null,
+
+      members: {
+        some: {
+          userId,
+        },
+      },
+
+      ...(query.search && {
+        OR: [
+          {
+            title: {
+              contains: query.search,
+              mode: "insensitive",
+            },
+          },
+          {
+            shortDescription: {
+              contains: query.search,
+              mode: "insensitive",
+            },
+          },
+        ],
+      }),
+
+      ...(query.status && {
+        status: query.status,
+      }),
     };
   }
 }

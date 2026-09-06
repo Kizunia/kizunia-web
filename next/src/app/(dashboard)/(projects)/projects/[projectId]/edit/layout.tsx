@@ -15,7 +15,7 @@ export default async function ProjectEditLayout({
   const { projectId } = await params;
 
   return (
-    <PageWrapper>
+    <PageWrapper breadcrumbs={[{label: "Projects", href:"/projects"}, {label: "Edit", href: "#"}]}>
       <ProjectEditorLayout projectId={projectId}>
         {children}
       </ProjectEditorLayout>

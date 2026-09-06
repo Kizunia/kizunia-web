@@ -18,7 +18,7 @@ import { ApiResponse, Route } from "@/lib/http";
 import { UnauthorizedError } from "@/lib/errors";
 import { projectService } from "./service";
 import { projectLinkService } from "./project-link.service";
-import { ProjectQuerySchema } from "../search";
+import { ProjectQuerySchema, ProjectMineQuerySchema } from "../search";
 import { SessionService } from "@/lib/auth/session";
 import { CreateProjectSchema, DeleteProjectSchema } from "../schemas";
 import { AuthorizationActor, PlatformRole } from "@/authorization";
@@ -71,6 +71,43 @@ export class ProjectController {
       // -----------------------------------------------------------------------
 
       return ApiResponse.ok(projects);
+    });
+  }
+
+  /**
+   * Projects the authenticated actor is a member of. The actor is always
+   * derived from the session — there is no `userId` query param to accept.
+   */
+  static async findMine(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------------
+
+      const query = Object.fromEntries(request.nextUrl.searchParams.entries());
+
+      const filters = ProjectMineQuerySchema.parse(query);
+
+      // -----------------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------------
+
+      const result = await projectService.findMine({
+        actor,
+        query: filters,
+      });
+
+      // -----------------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------------
+
+      return ApiResponse.ok(result);
     });
   }
 
