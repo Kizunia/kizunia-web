@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { FileText, Loader2, Plus, X } from "lucide-react";
+import { Download, ExternalLink, FileText, Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAssetUpload } from "@/modules/assets/frontend/hooks/use-asset-upload";
@@ -201,7 +201,7 @@ export function SuggestionAssetGrid({
         {assets.map((item) => (
           <div
             key={item.assetId}
-            className="relative size-24 shrink-0 overflow-hidden rounded-lg border bg-muted"
+            className="group relative size-24 shrink-0 overflow-hidden rounded-lg border bg-muted"
           >
             {item.asset.category === "DOCUMENT" ? (
               <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
@@ -216,6 +216,30 @@ export function SuggestionAssetGrid({
                 className="h-full w-full object-cover"
               />
             )}
+
+            <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/60 py-1 opacity-0 transition-opacity group-hover:opacity-100">
+              {/* `viewUrl`, not `secureUrl` — see AssetDTO: a document's
+                  stored delivery URL is not fetchable on its own. */}
+              <a
+                href={item.asset.viewUrl ?? item.asset.secureUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-5 items-center justify-center rounded-full text-white hover:bg-white/20"
+                aria-label="View"
+              >
+                <ExternalLink className="size-3" />
+              </a>
+
+              {item.asset.downloadUrl && (
+                <a
+                  href={item.asset.downloadUrl}
+                  className="flex size-5 items-center justify-center rounded-full text-white hover:bg-white/20"
+                  aria-label="Download"
+                >
+                  <Download className="size-3" />
+                </a>
+              )}
+            </div>
 
             {!readOnly && (
               <button

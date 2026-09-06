@@ -15,6 +15,7 @@ import prisma from "@/lib/prisma";
 import { assertAssetReferenceAllowed } from "@/modules/assets/backend/reference-policy";
 import { assetService } from "@/modules/assets/backend/service";
 
+import { withAssetDownloadUrls } from "./asset-view";
 import { CompetitionSuggestionAuthorizer } from "./authorization/authorizer";
 import { CompetitionSuggestionContextResolver } from "./authorization/resolver";
 import { competitionSuggestionRepository } from "./repository";
@@ -100,7 +101,9 @@ export class CompetitionSuggestionAssetService {
 
       await competitionSuggestionRepository.addAsset(tx, suggestionId, assetId);
 
-      return competitionSuggestionRepository.findByIdOrThrow(suggestionId, tx);
+      return withAssetDownloadUrls(
+        await competitionSuggestionRepository.findByIdOrThrow(suggestionId, tx),
+      );
     });
   }
 
@@ -120,7 +123,57 @@ export class CompetitionSuggestionAssetService {
 
     CompetitionSuggestionAuthorizer.edit(context);
 
-    const attached = context.suggestion.assets.some(
+    return this.performDetach({
+      suggestion: context.suggestion,
+      suggestionId,
+      assetId,
+    });
+  }
+
+  /**
+   * Admin removal of a suggestion asset — available regardless of the
+   * suggestion's moderation status (spec requirement), unlike the
+   * contributor `detach` above, which is DRAFT-and-owner-only via
+   * `Authorizer.edit`. Shares `performDetach` rather than a copy of the
+   * transaction body: two authorized entry points, one write path, so an
+   * `isAdmin` flag never has to be threaded through from a request body.
+   *
+   * Must never touch `status`, `reviewedAt`, or `reviewedById` — removing an
+   * asset is not a moderation decision, even though an admin performed it.
+   */
+  static async adminDetach({
+    actor,
+    suggestionId,
+    assetId,
+  }: {
+    actor: StrictAuthorizationActor;
+    suggestionId: string;
+    assetId: string;
+  }) {
+    const context = await CompetitionSuggestionContextResolver.resolve({
+      actor,
+      suggestionId,
+    });
+
+    CompetitionSuggestionAuthorizer.moderateAssets(context);
+
+    return this.performDetach({
+      suggestion: context.suggestion,
+      suggestionId,
+      assetId,
+    });
+  }
+
+  private static async performDetach({
+    suggestion,
+    suggestionId,
+    assetId,
+  }: {
+    suggestion: { assets: { assetId: string }[] };
+    suggestionId: string;
+    assetId: string;
+  }) {
+    const attached = suggestion.assets.some(
       (item) => item.assetId === assetId,
     );
 
@@ -139,7 +192,9 @@ export class CompetitionSuggestionAssetService {
       // (see AssetService.detachIfUnreferenced / reconciliation.service.ts).
       await assetService.detachIfUnreferenced(tx, assetId);
 
-      return competitionSuggestionRepository.findByIdOrThrow(suggestionId, tx);
+      return withAssetDownloadUrls(
+        await competitionSuggestionRepository.findByIdOrThrow(suggestionId, tx),
+      );
     });
   }
 }

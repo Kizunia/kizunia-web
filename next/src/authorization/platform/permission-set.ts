@@ -23,7 +23,11 @@ export const PlatformPermissionSet = {
     // TODO: MODERATOR's real capabilities are undecided. It is present here
     // only with the baseline, because every PlatformRole must have an entry
     // — a missing one makes `permissionSet[role]` undefined and every
-    // permission check for that role throw.
+    // permission check for that role throw. Granting suggestion review to
+    // moderators later is a one-line addition here (VIEW_COMPETITION_SUGGESTIONS
+    // + REVIEW_COMPETITION_SUGGESTIONS) — the suggestion review policy checks
+    // this permission set directly rather than a role-identity bypass, so no
+    // other code needs to change to enable it.
     [PlatformRole.MODERATOR]: new Set<PlatformAction>([
         ...BASELINE,
     ]),
@@ -33,6 +37,8 @@ export const PlatformPermissionSet = {
         PlatformAction.CREATE_COMPETITION,
         PlatformAction.VIEW_ALL_COMPETITIONS,
         PlatformAction.ACCESS_ADMIN_DASHBOARD,
+        PlatformAction.VIEW_COMPETITION_SUGGESTIONS,
+        PlatformAction.REVIEW_COMPETITION_SUGGESTIONS,
     ]),
 
     [PlatformRole.SUPER_ADMIN]: new Set<PlatformAction>([
@@ -41,5 +47,7 @@ export const PlatformPermissionSet = {
         PlatformAction.VIEW_ALL_COMPETITIONS,
         PlatformAction.ACCESS_ADMIN_DASHBOARD,
         PlatformAction.MANAGE_USERS,
+        PlatformAction.VIEW_COMPETITION_SUGGESTIONS,
+        PlatformAction.REVIEW_COMPETITION_SUGGESTIONS,
     ]),
 } as const;

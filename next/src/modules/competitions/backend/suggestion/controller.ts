@@ -9,6 +9,16 @@ import { CompetitionSuggestionAssetService } from "./asset-service";
 import { CreateCompetitionSuggestionSchema } from "../../schemas/create-competition-suggestion";
 import { UpdateCompetitionSuggestionSchema } from "../../schemas/update-competition-suggestion";
 import { AttachCompetitionSuggestionAssetSchema } from "../../schemas/attach-competition-suggestion-asset";
+import {
+  RejectCompetitionSuggestionSchema,
+  RequestChangesCompetitionSuggestionSchema,
+} from "../../schemas/review-competition-suggestion";
+
+/** Reason fields are genuinely optional, so a caller may send no body (or an
+ * unparseable one) at all — treat that as `{}` rather than a 400. */
+async function readOptionalJsonBody(request: NextRequest): Promise<unknown> {
+  return request.json().catch(() => ({}));
+}
 
 export class CompetitionSuggestionController {
   // ===========================================================================
@@ -188,6 +198,30 @@ static async findMine(request: NextRequest) {
   }
 
   // ===========================================================================
+  // Reopen (CHANGES_REQUESTED -> DRAFT)
+  // ===========================================================================
+
+  static async reopen(
+    request: NextRequest,
+    suggestionId: string,
+  ) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const suggestion = await CompetitionSuggestionService.reopen({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+        id: suggestionId,
+      });
+
+      return ApiResponse.ok(suggestion);
+    });
+  }
+
+  // ===========================================================================
   // Assets
   // ===========================================================================
 
@@ -261,6 +295,153 @@ static async findMine(request: NextRequest) {
       // -----------------------------------------------------------------------
       // Response
       // -----------------------------------------------------------------------
+
+      return ApiResponse.ok(suggestion);
+    });
+  }
+
+  // ===========================================================================
+  // Admin: Review Queue
+  // ===========================================================================
+
+  static async searchForReview(request: NextRequest) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const result = await CompetitionSuggestionService.searchForReview({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+        params: Object.fromEntries(request.nextUrl.searchParams),
+      });
+
+      return ApiResponse.ok(result);
+    });
+  }
+
+  static async findByIdForReview(
+    request: NextRequest,
+    suggestionId: string,
+  ) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const suggestion = await CompetitionSuggestionService.findByIdForReview({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+        id: suggestionId,
+      });
+
+      return ApiResponse.ok(suggestion);
+    });
+  }
+
+  // ===========================================================================
+  // Admin: Moderation Decisions
+  //
+  // Authorization for every method below lives in the service (via
+  // `CompetitionSuggestionAuthorizer.review`/`.moderateAssets`), consistent
+  // with how every other suggestion method in this module works — the
+  // service is what's authoritative here, not this route layer or the
+  // admin page's own guard.
+  // ===========================================================================
+
+  static async approve(
+    request: NextRequest,
+    suggestionId: string,
+  ) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const suggestion = await CompetitionSuggestionService.approve({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+        id: suggestionId,
+      });
+
+      return ApiResponse.ok(suggestion);
+    });
+  }
+
+  static async reject(
+    request: NextRequest,
+    suggestionId: string,
+  ) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const data = RejectCompetitionSuggestionSchema.parse(
+        await readOptionalJsonBody(request),
+      );
+
+      const suggestion = await CompetitionSuggestionService.reject({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+        id: suggestionId,
+        reason: data.reason,
+      });
+
+      return ApiResponse.ok(suggestion);
+    });
+  }
+
+  static async requestChanges(
+    request: NextRequest,
+    suggestionId: string,
+  ) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const data = RequestChangesCompetitionSuggestionSchema.parse(
+        await readOptionalJsonBody(request),
+      );
+
+      const suggestion = await CompetitionSuggestionService.requestChanges({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+        id: suggestionId,
+        reason: data.reason,
+      });
+
+      return ApiResponse.ok(suggestion);
+    });
+  }
+
+  // ===========================================================================
+  // Admin: Asset Removal
+  // ===========================================================================
+
+  static async adminDetachAsset(
+    request: NextRequest,
+    suggestionId: string,
+    assetId: string,
+  ) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const suggestion = await CompetitionSuggestionAssetService.adminDetach({
+        actor: {
+          id: actor.id,
+          role: actor.role,
+          banned: actor.banned,
+        },
+        suggestionId,
+        assetId,
+      });
 
       return ApiResponse.ok(suggestion);
     });

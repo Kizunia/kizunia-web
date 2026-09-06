@@ -29,6 +29,10 @@ interface CompetitionSuggestionStore {
     id: string,
   ): Promise<CompetitionSuggestionDTO>;
 
+  reopen(
+    id: string,
+  ): Promise<CompetitionSuggestionDTO>;
+
   attachAsset(
     id: string,
     assetId: string,
@@ -131,6 +135,30 @@ export const useCompetitionSuggestionStore =
         } else {
           toast.error(
             "Failed to submit competition suggestion.",
+          );
+        }
+
+        throw error;
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    // =========================================================================
+    // Reopen
+    // =========================================================================
+
+    async reopen(id) {
+      try {
+        set({ loading: true });
+
+        return await CompetitionSuggestionApi.reopen(id);
+      } catch (error: unknown) {
+        if (error instanceof ApiError) {
+          toast.error(error.message);
+        } else {
+          toast.error(
+            "Failed to reopen competition suggestion.",
           );
         }
 

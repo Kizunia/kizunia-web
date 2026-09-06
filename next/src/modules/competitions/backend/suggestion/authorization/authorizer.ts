@@ -50,6 +50,42 @@ export class CompetitionSuggestionAuthorizer {
     );
   }
 
+  static readAny(context: CompetitionSuggestionContext): void {
+    Authorization.assert(
+      CompetitionSuggestionPolicy.can(
+        context,
+        CompetitionSuggestionAction.VIEW_ANY,
+      ),
+    );
+  }
+
+  static review(context: CompetitionSuggestionContext): void {
+    Authorization.assert(
+      CompetitionSuggestionPolicy.can(
+        context,
+        CompetitionSuggestionAction.REVIEW,
+      ),
+    );
+  }
+
+  static moderateAssets(context: CompetitionSuggestionContext): void {
+    Authorization.assert(
+      CompetitionSuggestionPolicy.can(
+        context,
+        CompetitionSuggestionAction.MODERATE_ASSETS,
+      ),
+    );
+  }
+
+  static reopen(context: CompetitionSuggestionContext): void {
+    Authorization.assert(
+      CompetitionSuggestionPolicy.can(
+        context,
+        CompetitionSuggestionAction.REOPEN,
+      ),
+    );
+  }
+
   static can(
     context: CompetitionSuggestionContext,
     action: CompetitionSuggestionAction,

@@ -177,6 +177,24 @@ export const DIFFICULTY_OPTIONS = [
   },
 ] as const;
 
+export const SUGGESTION_STATUS_OPTIONS: {
+  value:
+    | "DRAFT"
+    | "UNDER_REVIEW"
+    | "CHANGES_REQUESTED"
+    | "APPROVED"
+    | "REJECTED"
+    | "WITHDRAWN";
+  label: string;
+}[] = [
+  { value: "DRAFT", label: "Draft" },
+  { value: "UNDER_REVIEW", label: "Under Review" },
+  { value: "CHANGES_REQUESTED", label: "Changes Requested" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "REJECTED", label: "Rejected" },
+  { value: "WITHDRAWN", label: "Withdrawn" },
+] as const;
+
 export const CERTIFICATE_OPTIONS = [
   {
     value: CertificateType.PARTICIPATION,
