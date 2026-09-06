@@ -162,6 +162,10 @@ export const SideBarNavMain: SidebarNavSection[] = [
         title: "New Competition",
         url: "/admin/competitions/new",
       },
+      {
+        title: "Competition Suggestions",
+        url: "/admin/competition-suggestions",
+      },
     ],
   },
 

@@ -1,11 +1,46 @@
 import prisma from "@/lib/prisma";
 
-import type { Prisma, PrismaClient } from "@/generated/prisma";
+import type { Prisma, PrismaClient, SuggestionStatus } from "@/generated/prisma";
 
 
 import { NotFoundError } from "@/lib/errors";
 import { CreateCompetitionSuggestionInput } from "../../schemas/create-competition-suggestion";
 import { UpdateCompetitionSuggestionInput } from "../../schemas/update-competition-suggestion";
+
+/** Full detail include, shared by every method that returns a complete
+ * suggestion. */
+const SUGGESTION_INCLUDE = {
+  suggestionContent: true,
+
+  competition: true,
+
+  submittedBy: true,
+
+  reviewedBy: true,
+
+  links: true,
+
+  assets: {
+    include: {
+      asset: true,
+    },
+    orderBy: {
+      order: "asc" as const,
+    },
+  },
+} satisfies Prisma.CompetitionSuggestionInclude;
+
+/** Lighter include for admin queue rows — the table never renders the
+ * content body, links, or full asset records, only a count. */
+const SUGGESTION_LIST_INCLUDE = {
+  submittedBy: true,
+
+  _count: {
+    select: {
+      assets: true,
+    },
+  },
+} satisfies Prisma.CompetitionSuggestionInclude;
 
 export class CompetitionSuggestionRepository {
   // ===========================================================================
@@ -295,8 +330,11 @@ export class CompetitionSuggestionRepository {
   /**
    * Persists the transition to UNDER_REVIEW.
    *
-   * The service decides whether submittedAt should be populated.
-   * This repository only persists the values it receives.
+   * The service decides whether submittedAt should be populated. Any
+   * moderation feedback from a prior CHANGES_REQUESTED round is cleared
+   * here — once resubmitted, that feedback is no longer current, and this
+   * codebase deliberately keeps only the latest moderation decision rather
+   * than a review-history log.
    */
   static async markUnderReview({
     id,
@@ -312,6 +350,9 @@ export class CompetitionSuggestionRepository {
 
       data: {
         status: "UNDER_REVIEW",
+
+        reviewNotes: null,
+        rejectionReason: null,
 
         ...(submittedAt !== null && {
           submittedAt,
@@ -342,6 +383,26 @@ export class CompetitionSuggestionRepository {
     });
   }
 
+  /**
+   * Persists the CHANGES_REQUESTED -> DRAFT transition. Feedback fields are
+   * intentionally left untouched — the contributor needs to keep seeing the
+   * admin's note while editing; it's cleared once they resubmit (see
+   * `markUnderReview`).
+   */
+  static async markDraft(id: string) {
+    return prisma.competitionSuggestion.update({
+      where: {
+        id,
+      },
+
+      data: {
+        status: "DRAFT",
+      },
+
+      include: SUGGESTION_INCLUDE,
+    });
+  }
+
   // ===========================================================================
   // Soft Delete
   // ===========================================================================
@@ -355,6 +416,76 @@ export class CompetitionSuggestionRepository {
       data: {
         deletedAt: new Date(),
       },
+    });
+  }
+
+  // ===========================================================================
+  // Admin Review Queue
+  // ===========================================================================
+
+  static async findManyForReview({
+    where,
+    orderBy,
+    skip,
+    take,
+  }: {
+    where: Prisma.CompetitionSuggestionWhereInput;
+    orderBy: Prisma.CompetitionSuggestionOrderByWithRelationInput[];
+    skip: number;
+    take: number;
+  }) {
+    return prisma.competitionSuggestion.findMany({
+      where,
+      orderBy,
+      skip,
+      take,
+      include: SUGGESTION_LIST_INCLUDE,
+    });
+  }
+
+  static async countForReview(
+    where: Prisma.CompetitionSuggestionWhereInput,
+  ) {
+    return prisma.competitionSuggestion.count({ where });
+  }
+
+  /**
+   * Persists a single moderation decision (approve / reject / request
+   * changes). One method for all three — they differ only in which values
+   * are passed, never in shape. Both feedback fields are always written
+   * together so a decision never leaves a stale note from a previous round
+   * behind (e.g. an old change-request note surviving into an APPROVED
+   * suggestion).
+   */
+  static async applyReviewDecision({
+    id,
+    status,
+    reviewedById,
+    reviewedAt,
+    reviewNotes,
+    rejectionReason,
+  }: {
+    id: string;
+    status: SuggestionStatus;
+    reviewedById: string;
+    reviewedAt: Date;
+    reviewNotes: string | null;
+    rejectionReason: string | null;
+  }) {
+    return prisma.competitionSuggestion.update({
+      where: {
+        id,
+      },
+
+      data: {
+        status,
+        reviewedById,
+        reviewedAt,
+        reviewNotes,
+        rejectionReason,
+      },
+
+      include: SUGGESTION_INCLUDE,
     });
   }
 }

@@ -69,6 +69,18 @@ export class CompetitionSuggestionApi {
   }
 
   // ===========================================================================
+  // Reopen
+  // ===========================================================================
+
+  static async reopen(id: string): Promise<CompetitionSuggestionDTO> {
+    const response = await HttpClient.post<CompetitionSuggestionDTO>(
+      `/api/v1/competition-suggestions/${id}/reopen`,
+    );
+
+    return response.data;
+  }
+
+  // ===========================================================================
   // Assets
   // ===========================================================================
 
