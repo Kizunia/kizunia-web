@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
+import { useProjectStore } from "../../store/project.store";
 
 interface ProjectEditorNavigationProps {
   projectId: string;
@@ -38,6 +39,10 @@ const tabs = [
     label: "Testimonials",
     segment: "testimonials",
   },
+  {
+    label: "Danger Zone",
+    segment: "danger",
+  },
 ] as const;
 
 export function ProjectEditorNavigation({
@@ -45,12 +50,20 @@ export function ProjectEditorNavigation({
 }: ProjectEditorNavigationProps) {
   const pathname = usePathname();
 
+  const canDelete = useProjectStore(
+    (state) => state.project?.permissions.canDelete ?? false,
+  );
+
   const basePath = `/projects/${projectId}/edit`;
+
+  const visibleTabs = tabs.filter(
+    (tab) => tab.segment !== "danger" || canDelete,
+  );
 
   return (
     <nav className="border-b" >
       <div className="flex items-center gap-1 overflow-x-auto max-w-xs sm:max-w-sm md:max-w-fit">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const href = tab.segment
             ? `${basePath}/${tab.segment}`
             : basePath;
@@ -59,16 +72,21 @@ export function ProjectEditorNavigation({
             ? pathname === href || pathname.startsWith(`${href}/`)
             : pathname === basePath;
 
+          const isDanger = tab.segment === "danger";
+
           return (
             <Link
               key={tab.label}
               href={href}
               className={cn(
                 "relative whitespace-nowrap px-4 py-3 text-sm font-medium text-muted-foreground transition-colors",
-                "hover:text-foreground",
-                isActive && "text-foreground",
+                isDanger ? "hover:text-destructive" : "hover:text-foreground",
+                isActive && (isDanger ? "text-destructive" : "text-foreground"),
                 isActive &&
-                  "after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-foreground",
+                  cn(
+                    "after:absolute after:inset-x-2 after:bottom-0 after:h-0.5",
+                    isDanger ? "after:bg-destructive" : "after:bg-foreground",
+                  ),
               )}
             >
               {tab.label}
