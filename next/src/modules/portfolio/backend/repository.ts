@@ -13,9 +13,7 @@ import {
   ProjectVisibility,
 } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
-// import { PortfolioNotFoundError } from "../errors";
-import { username } from "better-auth/plugins";
-import { PortfolioNotFoundError } from "../errors";
+import { PortfolioAlreadyExistsError, PortfolioNotFoundError } from "../errors";
 
 const portfolioSummarySelect = {
   id: true,
@@ -502,6 +500,12 @@ export class PortfolioRepository {
 
         user: {
           username,
+
+          // Banned users must not have a publicly visible portfolio, even
+          // if the portfolio row itself is PUBLIC and not deleted.
+          banned: {
+            not: true,
+          },
         },
       },
 
@@ -673,12 +677,49 @@ export class PortfolioRepository {
     data,
   }: {
     data: Prisma.PortfolioCreateInput;
-  }): Promise<PortfolioPublicDetailsEntity> {
-    return this.db.portfolio.create({
-      data,
+  }): Promise<PortfolioEditorEntity> {
+    try {
+      return await this.db.portfolio.create({
+        data,
 
-      include: portfolioPublicDetailsInclude,
-    });
+        include: portfolioEditorInclude,
+      });
+    } catch (error) {
+      // Backstop for the concurrent-creation race: two requests can both
+      // pass the service's existence pre-check before either has written a
+      // row. Only the violation of the one-Portfolio-per-user constraint is
+      // translated — every other Prisma error propagates untouched.
+      //
+      // `data.user` is always a `connect` (the service never `create`s the
+      // User here), so with `Portfolio.userId @unique` the second concurrent
+      // insert can surface as either of two Prisma codes depending on
+      // whether the query engine's own one-to-one relation check or the
+      // database's unique index catches it first:
+      //   - P2002: the DB unique constraint on `userId` was violated.
+      //   - P2014: the query engine rejected the `user` connect because
+      //     that User already has a Portfolio (a required 1:1 relation
+      //     violation) — confirmed to be what Prisma actually raises here
+      //     against this schema/engine, so it must be handled, not just
+      //     the more "obvious" P2002.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002" &&
+        Array.isArray(error.meta?.target) &&
+        (error.meta.target as string[]).includes("userId")
+      ) {
+        throw new PortfolioAlreadyExistsError();
+      }
+
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2014" &&
+        error.meta?.modelName === "Portfolio"
+      ) {
+        throw new PortfolioAlreadyExistsError();
+      }
+
+      throw error;
+    }
   }
 
   async findUserForCreation({
