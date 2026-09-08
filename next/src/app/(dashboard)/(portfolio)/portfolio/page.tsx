@@ -1,55 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import Link from "next/link";
 
-import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
 import { PortfolioEmptyState } from "@/modules/portfolio/frontend/components/portfolio-empty-state";
 import { PortfolioEditorLoading } from "@/modules/portfolio/frontend/components/editor/portfolio-editor-loading";
 import { usePortfolioStore } from "@/modules/portfolio/frontend/store/portfolio.store";
-import { PortfolioEditor } from "@/modules/portfolio/frontend/components/editor/portfolio-editor";
 import { UsernameDialog } from "@/modules/portfolio/frontend/components/username-dialog";
-
+import { usePortfolioCreationFlow } from "@/modules/portfolio/frontend/hooks/use-portfolio-creation-flow";
 
 export default function PortfolioPage() {
-  const session = authClient.useSession();
+  const portfolio = usePortfolioStore((state) => state.portfolio);
+  const isLoading = usePortfolioStore((state) => state.isLoading);
+  const getMine = usePortfolioStore((state) => state.getMine);
 
-  const [usernameDialogOpen, setUsernameDialogOpen] = useState(false);
-
-  const portfolio = usePortfolioStore(
-    (state) => state.portfolio,
-  );
-
-  const isLoading = usePortfolioStore(
-    (state) => state.isLoading,
-  );
-
-  const isCreating = usePortfolioStore(
-    (state) => state.isCreating,
-  );
-
-  const getMine = usePortfolioStore(
-    (state) => state.getMine,
-  );
-
-  const createPortfolio = usePortfolioStore(
-    (state) => state.createPortfolio,
-  );
+  const {
+    usernameDialogOpen,
+    setUsernameDialogOpen,
+    requestCreate,
+    onUsernameSet,
+    isCreating,
+  } = usePortfolioCreationFlow();
 
   useEffect(() => {
     void getMine();
   }, [getMine]);
-
-  const handleCreate = () => {
-    // Portfolio URLs are keyed by username. If the actor already has one,
-    // create normally; otherwise collect it first via a minimal popup and
-    // continue creation once it's set, instead of redirecting elsewhere.
-    if (session.data?.user.username) {
-      void createPortfolio();
-      return;
-    }
-
-    setUsernameDialogOpen(true);
-  };
 
   if (isLoading) {
     return <PortfolioEditorLoading />;
@@ -58,9 +34,27 @@ export default function PortfolioPage() {
   return (
     <>
       {!portfolio ? (
-        <PortfolioEmptyState isCreating={isCreating} onCreate={handleCreate} />
+        <PortfolioEmptyState isCreating={isCreating} onCreate={requestCreate} />
       ) : (
-        <PortfolioEditor portfolio={portfolio} />
+        <div className="flex min-h-[60vh] items-center justify-center px-6">
+          <div className="w-full max-w-xl rounded-2xl border bg-card p-10 text-center shadow-sm">
+            <p className="text-sm text-muted-foreground">Portfolio</p>
+
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+              {portfolio.displayName}
+            </h1>
+
+            <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">
+              {portfolio.user.username
+                ? `kizunia.com/u/${portfolio.user.username}`
+                : "Not publicly reachable yet — set a username in the editor."}
+            </p>
+
+            <Button asChild className="mt-7">
+              <Link href="/portfolio/edit">Open Editor</Link>
+            </Button>
+          </div>
+        </div>
       )}
 
       <UsernameDialog
@@ -69,9 +63,7 @@ export default function PortfolioPage() {
         title="Set your username"
         description="Your portfolio's public URL is based on your username. Choose one to continue creating your portfolio."
         submitLabel="Continue"
-        onSuccess={() => {
-          void createPortfolio();
-        }}
+        onSuccess={onUsernameSet}
       />
     </>
   );

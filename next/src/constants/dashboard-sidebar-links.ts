@@ -176,11 +176,11 @@ export const SideBarNavMain: SidebarNavSection[] = [
     items: [
       {
         title: "Profile",
-        url: "/portfolio/profile",
+        url: "/portfolio/edit/profile",
       },
       {
         title: "Projects",
-        url: "/portfolio/projects",
+        url: "/portfolio/edit/projects",
       },
     ],
   },

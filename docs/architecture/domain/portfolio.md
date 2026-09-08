@@ -334,6 +334,39 @@ a claim that the capability exists yet.
 
 ---
 
+# Frontend Editor
+
+The authenticated editor lives at `/portfolio/edit`, with route-driven
+sections under it (`/portfolio/edit/profile`, `/portfolio/edit/links`,
+etc.) — the active tab is derived from the URL, matching the Project
+Editor's convention (`src/modules/projects/frontend/components/editor/`).
+`/portfolio` itself only handles the empty/create state and, once a
+Portfolio exists, links into the editor — it no longer renders the editor
+inline.
+
+Only **Profile** (including the resume upload, which is a field on the
+same profile-update contract rather than its own section) is a working
+editor today. The remaining tabs (Links, Technologies, Education,
+Experience, Achievements, Certifications, Projects, Testimonials,
+Settings) are real routes with a placeholder component, establishing the
+route/component boundary for each without a backend contract to back
+them yet.
+
+State follows the Project Editor's split: a shared `portfolio.store.ts`
+(current Portfolio, loading/error, create, `setPortfolio` for mutation
+write-back) plus a per-section `portfolio-profile.store.ts` (dirty
+tracking, field errors, save) — future sections get their own store only
+once they have real state to hold.
+
+Any feature that requires a Portfolio to exist should wrap itself in
+`<PortfolioRequired>` (`src/modules/portfolio/frontend/components/
+portfolio-required.tsx`), which centralizes the existence check, the
+Create Portfolio prompt, and the missing-username sub-flow (via the
+existing `UsernameDialog`, using Better Auth's `updateUser`) behind one
+reusable component instead of duplicating the sequence per feature.
+
+---
+
 # Design Decisions
 
 ## Why a Separate Portfolio Model?
