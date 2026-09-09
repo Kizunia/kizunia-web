@@ -3,7 +3,6 @@ import { create } from "zustand";
 import { ApiError } from "@/lib/http";
 import { PortfolioApi } from "../api/portfolio-api";
 import { PortfolioEditorDto } from "../../dtos";
-import { UpdatePortfolioProfileDto } from "../../dtos/input/update.dto";
 
 interface PortfolioStore {
   portfolio: PortfolioEditorDto | null;
@@ -16,7 +15,16 @@ interface PortfolioStore {
   getMine: () => Promise<void>;
   createPortfolio: () => Promise<PortfolioEditorDto | null>;
 
-  updateProfile: (dto: UpdatePortfolioProfileDto) => Promise<void>;
+  /**
+   * Replaces the snapshot in place with a resource already returned by a
+   * mutation (e.g. a section's updateProfile), without a network round
+   * trip. Section editor stores should call this after a successful save
+   * so shared chrome (header, nav, other sections' read-only data) reflects
+   * the change immediately.
+   */
+  setPortfolio: (portfolio: PortfolioEditorDto) => void;
+
+  clear: () => void;
 }
 
 export const usePortfolioStore = create<PortfolioStore>((set) => ({
@@ -87,27 +95,19 @@ export const usePortfolioStore = create<PortfolioStore>((set) => ({
     }
   },
 
-  updateProfile: async (dto) => {
+  setPortfolio: (portfolio) => {
     set({
+      portfolio,
       error: null,
     });
+  },
 
-    try {
-      const portfolio = await PortfolioApi.updateProfile(dto);
-
-      set({
-        portfolio,
-        error: null,
-      });
-    } catch (error) {
-      set({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to update portfolio profile.",
-      });
-
-      throw error;
-    }
+  clear: () => {
+    set({
+      portfolio: null,
+      isLoading: false,
+      isCreating: false,
+      error: null,
+    });
   },
 }));

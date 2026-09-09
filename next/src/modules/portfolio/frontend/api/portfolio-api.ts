@@ -1,5 +1,5 @@
 import { HttpClient } from "@/lib/http/client";
-import { PortfolioEditorDto, PortfolioPublicDetailsDto } from "../../dtos";
+import { PortfolioEditorDto, PortfolioPublicDto } from "../../dtos";
 import { UpdatePortfolioProfileDto } from "../../dtos/input/update.dto";
 
 export class PortfolioApi {
@@ -33,8 +33,8 @@ export class PortfolioApi {
 
   static async getPublic(
     username: string,
-  ): Promise<PortfolioPublicDetailsDto> {
-    const response = await HttpClient.get<PortfolioPublicDetailsDto>(
+  ): Promise<PortfolioPublicDto> {
+    const response = await HttpClient.get<PortfolioPublicDto>(
       `/api/v1/portfolio/${username}`,
     );
 

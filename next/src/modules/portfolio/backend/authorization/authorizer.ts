@@ -49,6 +49,17 @@ export class PortfolioAuthorizer {
     );
   }
 
+  static manageProjects(
+    context: PortfolioContext,
+  ): void {
+    Authorization.assert(
+      PortfolioPolicy.can(
+        context,
+        PortfolioAction.MANAGE_PROJECTS,
+      ),
+    );
+  }
+
   static can(
     context: PortfolioContext,
     action: PortfolioAction,

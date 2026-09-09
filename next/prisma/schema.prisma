@@ -306,7 +306,6 @@ enum LinkType {
 //portfolio
 enum PortfolioVisibility {
   PUBLIC
-  UNLISTED
   PRIVATE
 }
 
@@ -1212,6 +1211,11 @@ model PortfolioProject {
 
   featured Boolean @default(false)
 
+  /// @deprecated Unused. No DTO exposes it, no API writes it, and no product
+  /// behaviour depends on it. The only remaining reader is the public
+  /// portfolio query's `hidden: false` filter, kept solely to preserve
+  /// pre-existing behaviour. Planned for removal in a future schema cleanup —
+  /// do not assign it new semantics.
   hidden Boolean @default(false)
 
   displayOrder Int @default(100)

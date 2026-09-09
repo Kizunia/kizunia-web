@@ -26,6 +26,11 @@ export class PortfolioPermissionResolver {
         context,
         PortfolioAction.DELETE,
       ),
+
+      canManageProjects: this.can(
+        context,
+        PortfolioAction.MANAGE_PROJECTS,
+      ),
     };
   }
 

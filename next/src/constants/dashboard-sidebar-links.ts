@@ -91,7 +91,7 @@ export const SideBarNavMain: SidebarNavSection[] = [
       {
         id: "portfolio-profile",
         title: "Profile",
-        url: "/portfolio/profile",
+        url: "/portfolio/edit/profile",
       },
     ],
   },

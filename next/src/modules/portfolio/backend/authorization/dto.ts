@@ -4,4 +4,6 @@ export interface PortfolioPermissionsDto {
   canEdit: boolean;
 
   canDelete: boolean;
+
+  canManageProjects: boolean;
 }

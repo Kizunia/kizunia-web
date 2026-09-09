@@ -15,6 +15,8 @@ import {
   AuthorizationCode,
   StrictAuthorizationActor,
 } from "@/authorization";
+import { PlatformAction } from "@/authorization/platform/actions";
+import { PlatformAuthorizer } from "@/authorization/platform/authorizer";
 import { AuthorizationError } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 
@@ -25,7 +27,7 @@ import { assetService } from "@/modules/assets/backend/service";
 import { PortfolioAuthorizer, PortfolioContextResolver } from "./authorization";
 
 import { PortfolioProfileUpdateData, PortfolioRepository } from "./repository";
-import { PortfolioEditorDto, PortfolioPublicDetailsDto } from "../dtos";
+import { PortfolioEditorDto, PortfolioPublicDto } from "../dtos";
 import { PortfolioAlreadyExistsError } from "../errors";
 import { PortfolioMapper } from "./mapper/mapper";
 import { UpdatePortfolioProfileDto } from "../dtos/input/update.dto";
@@ -41,12 +43,12 @@ export class PortfolioService {
     username,
   }: {
     username: string;
-  }): Promise<PortfolioPublicDetailsDto> {
+  }): Promise<PortfolioPublicDto> {
     const portfolio = await this.repository.findPublicByUsernameOrThrow({
       username,
     });
 
-    return PortfolioMapper.toPublicDetailsDto(portfolio);
+    return PortfolioMapper.toPublicDto(portfolio);
   }
 
   async findMine({
@@ -89,7 +91,7 @@ export class PortfolioService {
   }: {
     actor: StrictAuthorizationActor;
     // dto: CreatePortfolioDto;
-  }): Promise<PortfolioPublicDetailsDto> {
+  }): Promise<PortfolioEditorDto> {
     if (!actor.id) {
       throw new AuthorizationError({
         code: AuthorizationCode.UNAUTHORIZED,
@@ -97,6 +99,13 @@ export class PortfolioService {
         message: "Authentication is required.",
       });
     }
+
+    // Platform-level entitlement seam. Every authenticated role is granted
+    // this today (no subscription/plan system exists yet), but routing
+    // creation through PlatformAuthorizer means a future plan/entitlement
+    // system can restrict it by changing PlatformPermissionSet alone,
+    // without touching this service. See permission-set.ts.
+    PlatformAuthorizer.can({ actor }, PlatformAction.CREATE_PORTFOLIO);
 
     const context = PortfolioContextResolver.forCreate({
       actor,
@@ -148,7 +157,7 @@ export class PortfolioService {
       });
     });
 
-    return PortfolioMapper.toPublicDetailsDto(portfolio);
+    return PortfolioMapper.toEditorDto(portfolio);
   }
   // ===========================================================================
   // Profile

@@ -13,6 +13,15 @@ const BASELINE: readonly PlatformAction[] = [
     PlatformAction.VIEW_PUBLIC_PROJECTS,
     PlatformAction.CREATE_PROJECT,
     PlatformAction.CREATE_COMPETITION_SUGGESTION,
+
+    // Portfolio creation is a baseline capability for every authenticated
+    // role today — there is no subscription/plan system yet. This is the
+    // seam a future plan/entitlement system will restrict: swap this
+    // baseline entry for role- or plan-based grants when that system
+    // exists, without touching PortfolioService.create or PortfolioPolicy.
+    // See AuthorizationCode.UPGRADE_REQUIRED / FEATURE_DISABLED, already
+    // reserved for that future denial path.
+    PlatformAction.CREATE_PORTFOLIO,
 ];
 
 export const PlatformPermissionSet = {
