@@ -3,7 +3,9 @@
  * the public Portfolio response must be an explicit, hand-mapped contract —
  * never a raw Prisma entity passthrough — and must only ever include
  * Projects that are themselves eligible (PUBLIC + PUBLISHED + not hidden +
- * not deleted).
+ * not deleted) AND whose relationship is still backed by an active
+ * ProjectMember row for the portfolio owner (see Portfolio Projects'
+ * membership invariant in `verify-portfolio-projects-visibility.ts`).
  *
  * There is no test runner in this repository yet, so this is a standalone
  * script, following the convention in `verify-project-search.ts`. Run with:
@@ -109,6 +111,21 @@ async function seed() {
         ],
       },
     },
+  });
+
+  // Public visibility of a Portfolio ↔ Project relationship now also
+  // requires the portfolio owner to be an active ProjectMember of the
+  // project (see visibility.ts / portfolio-project.repository.ts). Grant
+  // membership on the two projects expected to pass that check, so this
+  // fixture continues to isolate the invariant it's actually testing
+  // (visibility/status/hidden) rather than incidentally failing on
+  // membership. `privateProject` and `draftProject` are excluded by their
+  // own state regardless, so they're left without membership.
+  await prisma.projectMember.createMany({
+    data: [
+      { projectId: eligibleProject.id, userId: user.id },
+      { projectId: hiddenProject.id, userId: user.id },
+    ],
   });
 
   await prisma.portfolioProject.createMany({

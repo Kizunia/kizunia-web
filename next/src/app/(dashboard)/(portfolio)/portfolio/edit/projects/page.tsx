@@ -1,5 +1,5 @@
-import { PortfolioSectionPlaceholder } from "@/modules/portfolio/frontend/components/editor/portfolio-section-placeholder";
+import { PortfolioProjectsSection } from "@/modules/portfolio/frontend/components/editor/projects/portfolio-projects-section";
 
 export default function PortfolioEditProjectsPage() {
-  return <PortfolioSectionPlaceholder title="Projects" />;
+  return <PortfolioProjectsSection />;
 }

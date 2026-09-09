@@ -8,11 +8,15 @@ import type { CreatePortfolioDto, PortfolioEditorDto } from "../../dtos";
 import type { PortfolioPublicDto } from "../../dtos";
 import type { PortfolioSummaryDto } from "../../dtos";
 
+import type { PortfolioProjectSummaryDto } from "../../dtos";
+
 import type {
   PortfolioEditorEntity,
   PortfolioPublicDetailsEntity,
   PortfolioSummaryEntity,
 } from "../repository";
+
+import type { PortfolioProjectSummaryEntity } from "../portfolio-project.repository";
 
 function toPublicAssetDto(
   asset: {
@@ -199,6 +203,58 @@ export class PortfolioMapper {
 
   static toEditorDto(portfolio: PortfolioEditorEntity): PortfolioEditorDto {
     return portfolio;
+  }
+
+  // ===========================================================================
+  // Portfolio Projects
+  // ===========================================================================
+
+  /**
+   * Editor-side relationship view. Explicit field-by-field, so widening the
+   * repository's select can never widen the wire contract by accident.
+   */
+  static toProjectSummaryDto(
+    entry: PortfolioProjectSummaryEntity,
+  ): PortfolioProjectSummaryDto {
+    const membership = entry.project.members[0];
+
+    if (!membership) {
+      // The query filters to rows where the portfolio owner is still a
+      // member, so a row without one means the filter was dropped.
+      throw new Error(
+        "Portfolio project membership was not loaded for a row returned by the membership-scoped query.",
+      );
+    }
+
+    return {
+      projectId: entry.projectId,
+
+      title: entry.project.title,
+
+      slug: entry.project.slug,
+
+      shortDescription: entry.project.shortDescription,
+
+      logo: toPublicAssetDto(entry.project.logoAsset),
+
+      status: entry.project.status,
+
+      visibility: entry.project.visibility,
+
+      myRole: membership.role,
+
+      featured: entry.featured,
+
+      displayOrder: entry.displayOrder,
+
+      createdAt: entry.createdAt,
+    };
+  }
+
+  static toProjectSummaryDtos(
+    entries: PortfolioProjectSummaryEntity[],
+  ): PortfolioProjectSummaryDto[] {
+    return entries.map((entry) => this.toProjectSummaryDto(entry));
   }
 
   static toSummaryDto(portfolio: PortfolioSummaryEntity): PortfolioSummaryDto {

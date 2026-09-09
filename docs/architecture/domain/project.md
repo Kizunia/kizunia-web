@@ -240,6 +240,21 @@ Possible roles include:
 
 This ensures a single source of truth for project membership.
 
+Membership is currently binary — a `ProjectMember` row exists or it
+doesn't; there is no status field, and no add/remove/leave/role-change
+workflow exists yet in this codebase. The only membership write today is
+the Owner row created alongside the Project itself.
+
+**Seam for a future membership-removal workflow:** any Project that has
+been added to a Portfolio (see
+[Portfolio Projects](portfolio.md#portfolio-projects)) is only shown there
+while the owner remains an active member — enforced today at query time,
+since there is nothing to hook a transactional cleanup into. When a
+membership removal/leave workflow is built, it should call
+`PortfolioProjectService.removeForMembershipEnd({ tx, projectId, userId })`
+inside its own transaction, to clean up the now-stale `PortfolioProject`
+row rather than leaving it to be filtered out on every read indefinitely.
+
 ---
 
 # Owner

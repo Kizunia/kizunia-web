@@ -166,17 +166,108 @@ The introduction complements the User bio rather than replacing it.
 
 ---
 
-# Featured Projects
+# Portfolio Projects
 
-Builders may choose projects to highlight.
+Builders may attach Projects they actively participate in to their
+Portfolio, mark some as featured, and control their display order. This is
+**relationship management only** — the Portfolio never becomes a Project
+editor. It never modifies a Project's title, description, visibility,
+status, members, content, technologies, categories, badges, testimonials,
+media, competitions, or ownership. It controls exactly two things: whether a
+Project is associated with the Portfolio, and whether that association is
+featured.
 
-Featured projects appear before the complete project list.
+## Data model
 
-Feature ordering should be manually controlled.
+The relationship is the `PortfolioProject` model — a composite-key join
+table (`@@id([portfolioId, projectId])`), not a synthetic `id`. That
+composite key doubles as the authorization boundary: every mutation is
+scoped by `(portfolioId, projectId)`, and `portfolioId` is always resolved
+from the authenticated session, never accepted from a client. There is no
+opaque relationship id for a client to guess.
 
-Featured projects remain normal projects.
+- `featured` — a property of the *relationship*, not the Project. The same
+  Project can be featured on one Portfolio and not on another.
+- `displayOrder` — presentation order within the Portfolio, assigned when a
+  Project is added and rewritten wholesale on reorder. Featured and order
+  are independent: featuring a Project does not move it in the list, and
+  there is no requirement that featured Projects occupy the first
+  positions.
+- `hidden` — **deprecated and unused.** No DTO exposes it, no API writes it,
+  and no product behavior depends on it. It is retained in the schema
+  purely because the pre-existing public query already filters on it
+  (`hidden: false`); that filter is kept unchanged so existing behavior
+  doesn't shift, but no new semantics have been assigned to the field. It
+  is planned for removal in a future schema cleanup.
 
-The portfolio only changes presentation.
+## Eligibility
+
+Any **active ProjectMember** may add that Project to their own Portfolio —
+`OWNER`, `MAINTAINER`, and `CONTRIBUTOR` all qualify. This is deliberately
+*not* `ProjectAction.EDIT` or any other Project-side permission: a
+`CONTRIBUTOR` holds only `ProjectAction.VIEW` under `ProjectPermissionSet`,
+yet must still be able to showcase a Project they work on. Adding a Project
+therefore requires two independent checks, both derived from trusted
+server-side state:
+
+1. **Portfolio ownership** — the actor must own the Portfolio, resolved from
+   the session via `PortfolioAction.MANAGE_PROJECTS`.
+2. **Project membership** — the actor must hold a `ProjectMember` row for
+   the target Project. Membership is binary in this schema (the row exists
+   or it doesn't; there is no status field), so existence is the whole
+   check.
+
+Removing a relationship requires only Portfolio ownership — **not** current
+membership. A user removed from a Project must still be able to clear the
+stale relationship from their own Portfolio. Featuring a relationship
+requires both checks, like adding.
+
+## The membership invariant
+
+A `PortfolioProject` relationship is valid only while the Portfolio owner
+remains an active member of the Project. There is currently no
+`ProjectMember` removal/leave workflow anywhere in the codebase — membership
+only ever ends today via a cascading `User` deletion — so this invariant is
+enforced **at query time**, not by cleanup: every read of `PortfolioProject`
+(both the editor and the public portfolio) joins `ProjectMember` and returns
+only relationships where the owner is still a member. The instant that row
+disappears, the Project stops appearing everywhere, even though the
+`PortfolioProject` row itself is untouched and reappears automatically if
+membership is restored.
+
+A seam exists for whoever eventually builds `ProjectMember` removal:
+`PortfolioProjectService.removeForMembershipEnd({ tx, projectId, userId })`
+takes a `Prisma.TransactionClient` so relationship cleanup can be enlisted in
+that workflow's own transaction. Nothing calls it today — correctness does
+not depend on it being wired up.
+
+## Editor visibility vs. public visibility
+
+These are deliberately different queries.
+
+**Editor** — a Project appears if the relationship exists and the owner is
+still an active member. There is **no** Project visibility or status
+filter: `DRAFT`, `PRIVATE`, and `UNLISTED` Projects all appear, so the owner
+can keep managing (feature, reorder, remove) a relationship to a Project
+that isn't public yet. The editor surfaces `status` and `visibility` on each
+row so the owner can tell which Projects will and won't render publicly.
+
+**Public** — a Project appears only if, in addition to the editor's rule, it
+passes the Project module's own public-listability predicate
+(`publiclyListableProjectWhere` in `modules/projects/backend/visibility.ts`:
+not deleted, `visibility: PUBLIC`, `status: PUBLISHED`) and the pre-existing
+`hidden: false` filter. This predicate is defined once in the Projects
+module and consumed by the Portfolio's public query — never duplicated. A
+Portfolio being public never widens what a Project itself is willing to
+show; Project authorization remains authoritative.
+
+## Project deletion
+
+Projects are soft-deleted (`deletedAt`). `ProjectService.delete` performs no
+`PortfolioProject` cleanup, and none is required: both the editor and public
+queries already filter `project.deletedAt: null`, so a deleted Project is
+immediately and permanently invisible through the Portfolio without any
+side effect on the (reversible, in principle) delete operation.
 
 ---
 
@@ -325,6 +416,17 @@ not by class — consistent with the rest of the codebase):
   and owner is not banned. Returns `PortfolioPublicDto` — an explicit,
   hand-mapped contract, never a raw Prisma entity.
 
+**Portfolio Projects** is its own owner-scoped sub-resource
+(`PortfolioProjectService`/`PortfolioProjectRepository`, not folded into
+the module's general service/repository — mirroring how Project Links get
+their own dedicated files), served at `/api/v1/portfolio/projects` and
+`/api/v1/portfolio/projects/[projectId]`. No route accepts a portfolio id;
+every handler resolves the portfolio from the session, exactly like
+`updateProfile`. Its own summary DTO (`PortfolioProjectSummaryDto`) is
+deliberately narrower than `PortfolioEditorDto`'s embedded relations —
+see [Portfolio Projects](#portfolio-projects) above for the editor/public
+distinction.
+
 The public contract is intentionally "reasonably rich" beyond what the
 current frontend renders, because it is designed to also support future
 third-party consumers (e.g. an external site rendering a builder's
@@ -344,19 +446,23 @@ Editor's convention (`src/modules/projects/frontend/components/editor/`).
 Portfolio exists, links into the editor — it no longer renders the editor
 inline.
 
-Only **Profile** (including the resume upload, which is a field on the
-same profile-update contract rather than its own section) is a working
-editor today. The remaining tabs (Links, Technologies, Education,
-Experience, Achievements, Certifications, Projects, Testimonials,
-Settings) are real routes with a placeholder component, establishing the
-route/component boundary for each without a backend contract to back
-them yet.
+**Profile** and **Projects** are working editors today. The remaining
+tabs (Links, Technologies, Education, Experience, Achievements,
+Certifications, Testimonials, Settings) are real routes with a
+placeholder component, establishing the route/component boundary for each
+without a backend contract to back them yet.
 
 State follows the Project Editor's split: a shared `portfolio.store.ts`
 (current Portfolio, loading/error, create, `setPortfolio` for mutation
-write-back) plus a per-section `portfolio-profile.store.ts` (dirty
-tracking, field errors, save) — future sections get their own store only
-once they have real state to hold.
+write-back) plus a per-section store once a section has real state to
+hold — `portfolio-profile.store.ts` (dirty tracking, field errors, batched
+save) for Profile, and `portfolio-projects.store.ts` (list-immediate:
+every mutation persists right away and replaces the list wholesale with
+the server's authoritative response, mirroring Project Links'
+`project-links.store.ts`) for Projects. The Projects section does **not**
+write back into the shared `portfolio.store.ts` — the project list is a
+sibling resource with its own endpoint, not a field of the Portfolio
+entity.
 
 Any feature that requires a Portfolio to exist should wrap itself in
 `<PortfolioRequired>` (`src/modules/portfolio/frontend/components/

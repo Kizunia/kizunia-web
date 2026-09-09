@@ -21,12 +21,18 @@ import { UnauthorizedError } from "@/lib/errors";
 import { SessionService } from "@/lib/auth/session";
 
 import { portfolioService } from "./service";
+import { portfolioProjectService } from "./portfolio-project.service";
 
 
 
 import { createPortfolioSchema } from "../schemas";
 import { PortfolioNotFoundError } from "../errors";
 import { UpdatePortfolioProfileSchema } from "../schemas/update/profile-update.schema";
+import {
+  AddPortfolioProjectSchema,
+  ReorderPortfolioProjectsSchema,
+  UpdatePortfolioProjectSchema,
+} from "../schemas/portfolio-project.schema";
 
 export class PortfolioController {
   // ===========================================================================
@@ -214,4 +220,153 @@ static async updateProfile(request: NextRequest) {
     return ApiResponse.ok(portfolio);
   });
 }
+
+  // ===========================================================================
+  // Projects
+  //
+  // No handler accepts a portfolio id: the portfolio is always derived from
+  // the session, matching `updateProfile` above. Every mutation returns the
+  // resulting list so the editor never has to re-derive server ordering.
+  // ===========================================================================
+
+  static async listProjects(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------------
+
+      const projects = await portfolioProjectService.list({ actor });
+
+      // -----------------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------------
+
+      return ApiResponse.ok(projects);
+    });
+  }
+
+  static async addProject(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------------
+
+      const body = await request.json();
+
+      const dto = AddPortfolioProjectSchema.parse(body);
+
+      // -----------------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------------
+
+      const projects = await portfolioProjectService.add({ actor, dto });
+
+      // -----------------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------------
+
+      return ApiResponse.created(projects);
+    });
+  }
+
+  static async reorderProjects(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------------
+
+      const body = await request.json();
+
+      const dto = ReorderPortfolioProjectsSchema.parse(body);
+
+      // -----------------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------------
+
+      const projects = await portfolioProjectService.reorder({ actor, dto });
+
+      // -----------------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------------
+
+      return ApiResponse.ok(projects);
+    });
+  }
+
+  static async updateProject(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------------
+
+      const body = await request.json();
+
+      const dto = UpdatePortfolioProjectSchema.parse(body);
+
+      // -----------------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------------
+
+      const projects = await portfolioProjectService.setFeatured({
+        actor,
+        projectId,
+        dto,
+      });
+
+      // -----------------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------------
+
+      return ApiResponse.ok(projects);
+    });
+  }
+
+  static async removeProject(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------------
+
+      const projects = await portfolioProjectService.remove({
+        actor,
+        projectId,
+      });
+
+      // -----------------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------------
+
+      return ApiResponse.ok(projects);
+    });
+  }
 }

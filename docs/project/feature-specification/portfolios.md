@@ -94,13 +94,31 @@ Customization should affect presentation rather than ownership of the underlying
 
 ---
 
-# Featured Projects
+# Portfolio Projects
 
-Users may choose one or more projects to highlight.
+Any active member of a Project — Owner, Maintainer, or Contributor — may
+attach that Project to their own Portfolio. This is relationship
+management only: the Portfolio never edits the Project's title,
+description, visibility, status, members, content, technologies,
+categories, badges, testimonials, media, or competitions. It controls
+only whether the Project is shown on the Portfolio and whether that
+showing is featured.
 
-Featured projects appear near the top of the portfolio and represent the work the user wishes to showcase.
+Users may choose one or more attached projects to highlight as **featured**.
+Featuring is independent of ordering — a featured project does not move to
+the top of the list; it is marked with a visual indicator instead. Display
+order is otherwise fully user-controlled.
 
-Featured projects do not replace the complete project history.
+If a user is no longer a member of a Project, it immediately stops
+appearing anywhere on their Portfolio — in the editor and publicly — even
+though the underlying record isn't necessarily deleted right away.
+
+A Project's own visibility/status/deletion rules are always authoritative:
+a Portfolio being public never makes a private, draft, unlisted, or deleted
+Project publicly visible. The Portfolio owner can still manage (feature,
+reorder, remove) their relationship to such a Project in their own editor,
+since they remain an active member — only the public rendering is
+restricted.
 
 ---
 

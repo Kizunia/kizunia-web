@@ -1,6 +1,7 @@
 export * from "./input/create.dto";
 export * from "./output/details.dto";
 export * from "./output/permissions.dto";
+export * from "./output/portfolio-project-summary.dto";
 export * from "./output/portfolio-public.dto";
 export * from "./output/summary.dto";
 export * from "./output/types";

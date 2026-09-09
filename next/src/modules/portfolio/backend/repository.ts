@@ -5,14 +5,9 @@
  * Repositories should never contain business rules.
  */
 
-import {
-  PortfolioVisibility,
-  Prisma,
-  PrismaClient,
-  ProjectStatus,
-  ProjectVisibility,
-} from "@/generated/prisma";
+import { PortfolioVisibility, Prisma, PrismaClient } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
+import { publiclyListableProjectWhere } from "@/modules/projects/backend/visibility";
 import { PortfolioAlreadyExistsError, PortfolioNotFoundError } from "../errors";
 
 const portfolioSummarySelect = {
@@ -165,20 +160,29 @@ const portfolioPublicDetailsInclude = {
   },
 
   projects: {
+    // Baseline public gate. `publiclyListableProjectWhere` is the Projects
+    // module's own definition of the rule — consumed, never re-typed here, so
+    // the portfolio cannot drift from it.
+    //
+    // `hidden` is deprecated (see schema.prisma); this filter is retained
+    // solely to preserve pre-existing behaviour and carries no new meaning.
+    //
+    // The public *rendering* path layers a membership filter on top of this
+    // — see `buildPortfolioPublicDetailsInclude`.
     where: {
       hidden: false,
-      project: {
-        deletedAt: null,
 
-        visibility: ProjectVisibility.PUBLIC,
+      project: publiclyListableProjectWhere,
+    },
 
-        status: ProjectStatus.PUBLISHED,
+    orderBy: [
+      {
+        displayOrder: "asc",
       },
-    },
-
-    orderBy: {
-      displayOrder: "asc",
-    },
+      {
+        createdAt: "asc",
+      },
+    ],
 
     include: {
       project: {
@@ -446,6 +450,48 @@ const portfolioEditorInclude = {
 } satisfies Prisma.PortfolioInclude;
 
 
+/**
+ * The public include, narrowed to projects the portfolio's owner is still a
+ * member of.
+ *
+ * A relationship survives its membership in the database, so membership must
+ * be re-checked on read: being listed on a portfolio must never keep showing
+ * a project after its owner has left the team. Filtering here rather than in
+ * the mapper keeps the rule authoritative — ineligible rows never leave the
+ * database.
+ *
+ * `ownerUserId` must come from the resolved portfolio row, never from a
+ * request. Only `where` differs from the base include, so the payload type is
+ * unchanged.
+ */
+function buildPortfolioPublicDetailsInclude({
+  ownerUserId,
+}: {
+  ownerUserId: string;
+}): Prisma.PortfolioInclude {
+  return {
+    ...portfolioPublicDetailsInclude,
+
+    projects: {
+      ...portfolioPublicDetailsInclude.projects,
+
+      where: {
+        hidden: false,
+
+        project: {
+          ...publiclyListableProjectWhere,
+
+          members: {
+            some: {
+              userId: ownerUserId,
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
 export type PortfolioSummaryEntity = Prisma.PortfolioGetPayload<{
   select: typeof portfolioSummarySelect;
 }>;
@@ -492,7 +538,11 @@ export class PortfolioRepository {
   }: {
     username: string;
   }): Promise<PortfolioPublicDetailsEntity | null> {
-    return this.db.portfolio.findFirst({
+    // Resolved in two steps because the projects filter needs the owner's id
+    // to check that they are still a member of each project, and a nested
+    // filter cannot refer back to the parent row. The first query is a cheap
+    // indexed lookup.
+    const owner = await this.db.portfolio.findFirst({
       where: {
         deletedAt: null,
 
@@ -509,8 +559,26 @@ export class PortfolioRepository {
         },
       },
 
-      include: portfolioPublicDetailsInclude,
+      select: {
+        id: true,
+
+        userId: true,
+      },
     });
+
+    if (!owner) {
+      return null;
+    }
+
+    return this.db.portfolio.findUnique({
+      where: {
+        id: owner.id,
+      },
+
+      include: buildPortfolioPublicDetailsInclude({
+        ownerUserId: owner.userId,
+      }),
+    }) as Promise<PortfolioPublicDetailsEntity | null>;
   }
 
   async findPublicByUsernameOrThrow({
@@ -631,6 +699,41 @@ export class PortfolioRepository {
 
       select: portfolioAuthorizationSelect,
     });
+  }
+
+  /**
+   * The acting user's own portfolio, in the minimal shape an authorization
+   * decision needs.
+   *
+   * Keyed by `userId` rather than `id` so callers never accept a portfolio id
+   * from a client: the row is reached only through the verified session.
+   */
+  async findForAuthorizationByUserId({
+    userId,
+  }: {
+    userId: string;
+  }): Promise<PortfolioAuthorizationEntity | null> {
+    return this.db.portfolio.findUnique({
+      where: {
+        userId,
+      },
+
+      select: portfolioAuthorizationSelect,
+    });
+  }
+
+  async findForAuthorizationByUserIdOrThrow({
+    userId,
+  }: {
+    userId: string;
+  }): Promise<PortfolioAuthorizationEntity> {
+    const portfolio = await this.findForAuthorizationByUserId({ userId });
+
+    if (!portfolio) {
+      throw new PortfolioNotFoundError();
+    }
+
+    return portfolio;
   }
 
   async exists({ id }: { id: string }): Promise<boolean> {
