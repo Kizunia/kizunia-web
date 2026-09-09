@@ -1,203 +1,113 @@
 import {
-  AudioWaveform,
-  GalleryVerticalEnd,
-  Command,
-  BarChartIcon,
-  CameraIcon,
-  ClipboardListIcon,
-  DatabaseIcon,
   FileCodeIcon,
-  FileIcon,
-  FileTextIcon,
-  FolderIcon,
-  HelpCircleIcon,
-  LayoutDashboardIcon,
-  ListIcon,
-  SearchIcon,
-  SettingsIcon,
-  UsersIcon,
-  Trophy,
   FileUser,
+  Trophy,
+  UsersIcon,
+  type LucideIcon,
 } from "lucide-react";
-import type { ComponentType } from "react";
-
-type SidebarIcon = ComponentType<any>;
-
-export interface SidebarUser {
-  name: string;
-  email: string;
-  avatar: string;
-}
-
-export interface SidebarTeam {
-  name: string;
-  logo: SidebarIcon;
-  plan: string;
-}
+import { PlatformRole } from "@/authorization";
 
 export interface SidebarNavItem {
+  id: string;
   title: string;
   url: string;
+  /**
+   * Roles allowed to see this item. Omit to show it to every authenticated
+   * user regardless of role. This is a frontend visibility declaration only —
+   * it is not an authorization boundary; the backend enforces access
+   * independently.
+   */
+  roles?: PlatformRole[];
 }
 
 export interface SidebarNavSection {
+  id: string;
   title: string;
-  url?: string; // if no url, then it is a collapsible section with items
-  icon: SidebarIcon;
-  isActive?: boolean;
-  isAdminOnly?: boolean;
+  icon: LucideIcon;
+  /**
+   * When present, the section label/icon itself is a navigable link.
+   * When also combined with `items`, the label/icon navigates while a
+   * separate chevron control toggles expansion.
+   */
+  url?: string;
+  /** See SidebarNavItem.roles — same UX-only visibility semantics. */
+  roles?: PlatformRole[];
   items?: SidebarNavItem[];
 }
 
-export interface SidebarDocument {
-  name: string;
-  url: string;
-  icon: SidebarIcon;
-}
-
-export interface SidebarData {
-  user: SidebarUser;
-
-  teams?: SidebarTeam[];
-
-  navMain: SidebarNavSection[];
-
-  // Optional for sidebars that don't use them.
-  navClouds?: SidebarNavSection[];
-
-  navSecondary?: SidebarNavSection[];
-
-  documents?: SidebarDocument[];
-}
-
-export const sidebarData: SidebarData = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-
-  teams: [
-    {
-      name: "Acme Inc",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
-    },
-  ],
-
-  navMain: [
-    {
-      title: "Competitions",
-      url: "/competitions",
-      icon: Trophy,
-      isActive: true,
-    },
-
-    // {
-    //   title: "User",
-    //   // url: "/dashboard/user",
-    //   icon: Bot,
-    //   items: [
-    //     {
-    //       title: "Profile",
-    //       url: "/dashboard/user/profile",
-    //     },
-    //     {
-    //       title: "Account",
-    //       url: "/dashboard/user/account",
-    //     },
-    //     {
-    //       title: "2FA",
-    //       url: "/dashboard/user/account/2fa",
-    //     },
-    //   ],
-    // },
-  ],
-
-  // navClouds: [],
-  // navSecondary: [],
-  // documents: [],
-};
-
 export const SideBarNavMain: SidebarNavSection[] = [
-  // main navigation items for the sidebar
   {
+    id: "competitions",
     title: "Competitions",
     url: "/competitions",
     icon: Trophy,
-    isActive: true,
   },
   {
+    id: "community",
     title: "Community",
     icon: UsersIcon,
     items: [
-      { title: "Suggest Competition", url: "/competitions/suggestions/new" },
       {
+        id: "community-suggest-competition",
+        title: "Suggest Competition",
+        url: "/competitions/suggestions/new",
+      },
+      {
+        id: "community-my-suggestions",
         title: "My Suggestions",
         url: "/competitions/suggestions",
       },
     ],
   },
   {
+    id: "admin",
     title: "Admin",
-    // url: "#",
     icon: UsersIcon,
-    isAdminOnly: true,
+    roles: [PlatformRole.ADMIN, PlatformRole.SUPER_ADMIN],
     items: [
       {
+        id: "admin-all-competitions",
         title: "All Competitions",
         url: "/admin/competitions",
       },
       {
+        id: "admin-new-competition",
         title: "New Competition",
         url: "/admin/competitions/new",
       },
       {
+        id: "admin-competition-suggestions",
         title: "Competition Suggestions",
         url: "/admin/competition-suggestions",
       },
     ],
   },
-
   {
+    id: "portfolio",
     title: "Portfolio",
-    // url: "/portfolio",
+    url: "/portfolio",
     icon: FileUser,
     items: [
       {
+        id: "portfolio-profile",
         title: "Profile",
         url: "/portfolio/profile",
       },
-      {
-        title: "Projects",
-        url: "/portfolio/projects",
-      },
     ],
   },
-
   {
+    id: "projects",
     title: "Projects",
+    url: "/projects",
     icon: FileCodeIcon,
     items: [
       {
-        title: "Projects",
-        url: "/projects",
-      },
-      {
+        id: "projects-my-projects",
         title: "My Projects",
         url: "/projects/my-projects",
       },
       {
+        id: "projects-new-project",
         title: "New Project",
         url: "/projects/new",
       },
@@ -205,123 +115,8 @@ export const SideBarNavMain: SidebarNavSection[] = [
   },
 ];
 
-export const dashboardSidebarLinks: SidebarData = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: LayoutDashboardIcon,
-    },
-    {
-      title: "Login",
-      url: "/login",
-      icon: ListIcon,
-    },
-    {
-      title: "Temp",
-      url: "/temp",
-      icon: BarChartIcon,
-    },
-    {
-      title: "css-variables",
-      url: "/temp/css-variables",
-      icon: FolderIcon,
-    },
-    {
-      title: "Flashcards",
-      url: "/dashboard/temp",
-      icon: UsersIcon,
-    },
-  ],
-
-  navClouds: [
-    {
-      title: "Capture",
-      icon: CameraIcon,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: FileTextIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: FileCodeIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
-
-  navSecondary: [
-    // {
-    //   title: "Settings",
-    //   url: "/settings",
-    //   icon: SettingsIcon,
-    // },
-    // {
-    //   title: "Get Help",
-    //   url: "/help",
-    //   icon: HelpCircleIcon,
-    // },
-    // {
-    //   title: "Upgrade Plan",
-    //   url: "/dashboard/user/upgrade-plan",
-    //   icon: SearchIcon,
-    // },
-  ],
-
-  documents: [
-    {
-      name: "Data Library",
-      url: "/data-library",
-      icon: DatabaseIcon,
-    },
-    {
-      name: "Reports",
-      url: "/reports",
-      icon: ClipboardListIcon,
-    },
-    {
-      name: "Word Assistant",
-      url: "/word-assistant",
-      icon: FileIcon,
-    },
-  ],
-};
+/**
+ * Secondary nav (Settings / Get Help / etc). Reserved extension point —
+ * intentionally empty until those destinations exist.
+ */
+export const SideBarNavSecondary: SidebarNavSection[] = [];
