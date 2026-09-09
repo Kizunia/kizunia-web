@@ -22,7 +22,6 @@ export default function RootLayout({
       <SidebarProvider>
         <DashboardSidebar variant="inset" />
         <SidebarInset>
-          {/* <Header/> */}
           {children}
         </SidebarInset>
       </SidebarProvider>
