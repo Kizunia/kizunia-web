@@ -80,7 +80,7 @@ export class PortfolioMapper {
       phone: portfolio.phone,
       location: portfolio.location,
 
-      createdAt: portfolio.createdAt,
+      createdAt: portfolio.createdAt.toISOString(),
 
       user: {
         username: portfolio.user.username,
@@ -113,7 +113,7 @@ export class PortfolioMapper {
           name: entry.technology.name,
           slug: entry.technology.slug,
         },
-        startedUsingAt: entry.startedUsingAt,
+        startedUsingAt: entry.startedUsingAt?.toISOString() ?? null,
         description: entry.description,
         displayOrder: entry.displayOrder,
       })),
@@ -125,8 +125,8 @@ export class PortfolioMapper {
         fieldOfStudy: entry.fieldOfStudy,
         grade: entry.grade,
         description: entry.description,
-        startDate: entry.startDate,
-        endDate: entry.endDate,
+        startDate: entry.startDate?.toISOString() ?? null,
+        endDate: entry.endDate?.toISOString() ?? null,
         currentlyStudying: entry.currentlyStudying,
         institutionLogo: toPublicAssetDto(entry.institutionLogoAsset),
         displayOrder: entry.displayOrder,
@@ -139,8 +139,8 @@ export class PortfolioMapper {
         employmentType: entry.employmentType,
         location: entry.location,
         description: entry.description,
-        startDate: entry.startDate,
-        endDate: entry.endDate,
+        startDate: entry.startDate?.toISOString() ?? null,
+        endDate: entry.endDate?.toISOString() ?? null,
         currentlyWorking: entry.currentlyWorking,
         companyLogo: toPublicAssetDto(entry.companyLogoAsset),
         displayOrder: entry.displayOrder,
@@ -150,7 +150,7 @@ export class PortfolioMapper {
         id: entry.id,
         title: entry.title,
         description: entry.description,
-        achievedAt: entry.achievedAt,
+        achievedAt: entry.achievedAt?.toISOString() ?? null,
         asset: toPublicAssetDto(entry.asset),
         displayOrder: entry.displayOrder,
       })),
@@ -159,8 +159,8 @@ export class PortfolioMapper {
         id: entry.id,
         title: entry.title,
         issuer: entry.issuer,
-        issueDate: entry.issueDate,
-        expiryDate: entry.expiryDate,
+        issueDate: entry.issueDate?.toISOString() ?? null,
+        expiryDate: entry.expiryDate?.toISOString() ?? null,
         credentialId: entry.credentialId,
         credentialUrl: entry.credentialUrl,
         asset: toPublicAssetDto(entry.asset),
@@ -303,7 +303,7 @@ export class PortfolioMapper {
 
       icon: toPublicAssetDto(entry.technology.iconAsset),
 
-      startedUsingAt: entry.startedUsingAt,
+      startedUsingAt: entry.startedUsingAt?.toISOString() ?? null,
 
       description: entry.description,
 
