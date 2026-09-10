@@ -35,4 +35,12 @@ export enum CompetitionAction {
 
     MANAGE_LINKS = "MANAGE_LINKS",
 
+    /**
+     * Attach/detach existing Technologies to this Competition. Governs only
+     * the CompetitionTechnology relationship — it never grants authority
+     * over the global Technology catalog, which is gated separately by
+     * PlatformAction.MANAGE_TECHNOLOGIES.
+     */
+    MANAGE_TECHNOLOGIES = "MANAGE_TECHNOLOGIES",
+
 }

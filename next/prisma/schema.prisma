@@ -286,6 +286,7 @@ enum AssetPurpose {
   PROJECT_TESTIMONIAL_IMAGE
   PORTFOLIO_TESTIMONIAL_IMAGE
   BADGE_ICON
+  TECHNOLOGY_ICON
 }
 
 enum LinkType {
@@ -363,7 +364,6 @@ model User {
 
   // Relationships
   links                           Link[]
-  technologies                    UserTechnology[]
   interests                       UserCategory[]
   notificationPref                NotificationPreference?
   badges                          UserBadge[]
@@ -522,7 +522,8 @@ model Asset {
 
   updatedAt DateTime @updatedAt
 
-  badgeIcons Badge[] @relation("badgeIcon")
+  badgeIcons      Badge[]      @relation("badgeIcon")
+  technologyIcons Technology[] @relation("technologyIcon")
 
   // User
   userAvatar User[] @relation("userAvatar")
@@ -602,19 +603,49 @@ model UploadIntent {
   @@map("upload_intent")
 }
 
-// Global pool of technologies/skills. Shared across Users, Projects, Competitions.
+// Technology is a centralized, context-free taxonomy entity. What the
+// relationship to a Technology *means* is determined entirely by the
+// consumer (Project = actually used, Competition = relevant, Portfolio =
+// intentionally presented) — Technology itself carries no consumer-specific
+// concept. See docs/architecture/domain/technology.md.
+enum TechnologyType {
+  LANGUAGE
+  FRAMEWORK
+  LIBRARY
+  DATABASE
+  RUNTIME
+  TOOL
+  PLATFORM
+  SERVICE
+  OTHER
+}
+
+// Global taxonomy pool of technologies. Shared across Projects, Competitions,
+// Portfolios (and, in future, Blogs). Soft-deletable — see deletedAt below.
 model Technology {
-  id          String  @id @default(cuid())
-  name        String  @unique
-  slug        String  @unique
-  iconUrl     String?
+  id          String         @id @default(cuid())
+  name        String         @unique
+  slug        String         @unique
+  type        TechnologyType
   description String?
+  iconAssetId String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  users                 UserTechnology[]
-  competitions          CompetitionTechnology[]
-  projects              ProjectTechnology[]
-  portfolioTechnologies PortfolioTechnology[]
+  // Soft delete. A deleted Technology is excluded from all normal
+  // reads/selectors/pickers for every actor (including platform admins in
+  // normal consumer flows) — it remains visible only in the dedicated
+  // Technology admin management surface, where it can be restored. Existing
+  // ProjectTechnology/CompetitionTechnology/PortfolioTechnology rows are
+  // never cascade-deleted when this is set.
+  deletedAt DateTime?
 
+  iconAsset    Asset?                   @relation("technologyIcon", fields: [iconAssetId], references: [id], onDelete: SetNull)
+  competitions CompetitionTechnology[]
+  projects     ProjectTechnology[]
+  portfolios   PortfolioTechnology[]
+
+  @@index([deletedAt])
   @@map("technology")
 }
 
@@ -650,16 +681,6 @@ model Badge {
 // =============================================================================
 // User Domain — Join Tables
 // =============================================================================
-
-model UserTechnology {
-  userId       String
-  technologyId String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
-
-  @@id([userId, technologyId])
-  @@map("user_technology")
-}
 
 model UserCategory {
   userId     String
@@ -1190,10 +1211,12 @@ model ProjectCategory {
 model ProjectTechnology {
   projectId    String
   technologyId String
+  displayOrder Int        @default(0)
   project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
 
   @@id([projectId, technologyId])
+  @@index([projectId, displayOrder])
   @@map("project_technology")
 }
 

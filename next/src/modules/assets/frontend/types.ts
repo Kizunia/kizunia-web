@@ -22,7 +22,8 @@ export type AssetPurpose =
   | "TESTIMONIAL_IMAGE"
   | "PROJECT_TESTIMONIAL_IMAGE"
   | "PORTFOLIO_TESTIMONIAL_IMAGE"
-  | "BADGE_ICON";
+  | "BADGE_ICON"
+  | "TECHNOLOGY_ICON";
 
 export type AssetStatus = "ACTIVE" | "DETACHED" | "DELETING" | "DELETED";
 

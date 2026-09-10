@@ -118,6 +118,51 @@ export class PortfolioTestimonialReorderMismatchError extends ValidationError {
   }
 }
 
+// =============================================================================
+// Portfolio Technologies
+// =============================================================================
+
+/**
+ * Raised when the composite primary key rejects a second attempt to attach
+ * the same Technology. The database constraint is the authority here — two
+ * concurrent adds can both pass a service-level pre-check.
+ */
+export class PortfolioTechnologyAlreadyExistsError extends ConflictError {
+  constructor() {
+    super({
+      code: "PORTFOLIO_TECHNOLOGY_ALREADY_EXISTS",
+      status: HttpStatus.CONFLICT,
+      message: "This technology is already in your portfolio.",
+    });
+  }
+}
+
+/**
+ * Raised when a mutation scoped to `(portfolioId, technologyId)` matches no
+ * row. Deliberately indistinguishable from "belongs to another portfolio" —
+ * the scoping makes a foreign relationship simply invisible rather than
+ * forbidden.
+ */
+export class PortfolioTechnologyNotFoundError extends NotFoundError {
+  constructor() {
+    super({
+      code: "PORTFOLIO_TECHNOLOGY_NOT_FOUND",
+      message: "This technology is not in your portfolio.",
+    });
+  }
+}
+
+export class PortfolioTechnologyReorderMismatchError extends ValidationError {
+  constructor() {
+    super({
+      code: "PORTFOLIO_TECHNOLOGY_REORDER_MISMATCH",
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      message:
+        "Reorder must list every technology in your portfolio exactly once.",
+    });
+  }
+}
+
 
 
 

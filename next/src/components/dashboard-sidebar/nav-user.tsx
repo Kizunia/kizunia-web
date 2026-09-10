@@ -32,7 +32,6 @@ import { Skeleton } from "../ui/skeleton";
 
 import { authClient } from "@/lib/auth-client";
 import AccountSwitcher from "../auth/account-switch";
-import { Button } from "../ui/button";
 
 export function NavUser() {
   const router = useRouter();
@@ -41,10 +40,8 @@ export function NavUser() {
   const currentSessionData = authClient.useSession();
   const currentSession = currentSessionData.data;
 
-  const isUserNotLoggedIn =
-    !currentSessionData.isPending &&
-    !currentSessionData.isRefetching &&
-    !currentSession;
+  const isSessionLoading =
+    currentSessionData.isPending || currentSessionData.isRefetching;
 
   async function handleSignOut() {
     toast.loading("Signing out...", {
@@ -74,44 +71,42 @@ export function NavUser() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        {isUserNotLoggedIn ? (
+        {isSessionLoading ? (
+          <SidebarMenuButton size="lg">
+            <Skeleton className="h-9 w-full" />
+          </SidebarMenuButton>
+        ) : !currentSession ? (
           <SidebarMenuButton asChild size="lg">
-            <Button asChild variant={"outline"}>
             <Link href="/sign-in">
-            <LogIn />
+              <LogIn />
               <span>Sign in</span>
-            </Link></Button>
+            </Link>
           </SidebarMenuButton>
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="lg">
-                {currentSession ? (
-                  <>
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage
-                        src={currentSession.user.image ?? undefined}
-                        alt={currentSession.user.name}
-                      />
-                      <AvatarFallback className="rounded-lg">
-                        {currentSession.user.name?.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarImage
+                    src={currentSession.user.image ?? undefined}
+                    alt={currentSession.user.name}
+                  />
+                  <AvatarFallback className="rounded-lg">
+                    {currentSession.user.name?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
 
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-medium">
-                        {currentSession.user.name}
-                      </span>
-                      <span className="truncate text-xs">
-                        {currentSession.user.email}
-                      </span>
-                    </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">
+                    {currentSession.user.name}
+                  </span>
 
-                    <MoreVerticalIcon className="ml-auto size-4" />
-                  </>
-                ) : (
-                  <Skeleton className="h-9 w-full" />
-                )}
+                  <span className="truncate text-xs">
+                    {currentSession.user.email}
+                  </span>
+                </div>
+
+                <MoreVerticalIcon className="ml-auto size-4" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
 
@@ -122,16 +117,10 @@ export function NavUser() {
               sideOffset={4}
             >
               <DropdownMenuLabel>
-                {currentSession &&
-                !currentSessionData.isPending &&
-                !currentSessionData.isRefetching ? (
-                  <AccountSwitcher
-                    currentSessionData={currentSession}
-                    className="w-full"
-                  />
-                ) : (
-                  <Skeleton className="h-9 w-full" />
-                )}
+                <AccountSwitcher
+                  currentSessionData={currentSession}
+                  className="w-full"
+                />
               </DropdownMenuLabel>
 
               <DropdownMenuGroup>

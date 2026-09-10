@@ -43,6 +43,9 @@ export class PortfolioPolicy {
       case PortfolioAction.MANAGE_TESTIMONIALS:
         return this.canManageTestimonials(context);
 
+      case PortfolioAction.MANAGE_TECHNOLOGIES:
+        return this.canManageTechnologies(context);
+
       default:
         return {
           allowed: false,
@@ -185,6 +188,37 @@ export class PortfolioPolicy {
       code: AuthorizationCode.UNAUTHORIZED,
       message:
         "You do not have permission to manage this portfolio's testimonials.",
+    };
+  }
+
+  /**
+   * Technology relationship management is owner-only, like
+   * canManageProjects/canManageTestimonials. This authorizes attach/detach
+   * of the Portfolio's PortfolioTechnology rows only — never the global
+   * Technology entity.
+   */
+  private static canManageTechnologies(
+    context: PortfolioContext,
+  ): AuthorizationDecision {
+    if (!context.portfolio) {
+      return {
+        allowed: false,
+        code: AuthorizationCode.UNAUTHORIZED,
+        message: "Portfolio context is missing.",
+      };
+    }
+
+    if (context.isOwner) {
+      return {
+        allowed: true,
+      };
+    }
+
+    return {
+      allowed: false,
+      code: AuthorizationCode.UNAUTHORIZED,
+      message:
+        "You do not have permission to manage this portfolio's technologies.",
     };
   }
 

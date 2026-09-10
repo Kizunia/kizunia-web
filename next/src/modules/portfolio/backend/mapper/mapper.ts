@@ -10,6 +10,7 @@ import type { PortfolioSummaryDto } from "../../dtos";
 
 import type { PortfolioProjectSummaryDto } from "../../dtos";
 import type { PortfolioTestimonialSummaryDto } from "../../dtos";
+import type { PortfolioTechnologySummaryDto } from "../../dtos";
 
 import type {
   PortfolioEditorEntity,
@@ -19,6 +20,7 @@ import type {
 
 import type { PortfolioProjectSummaryEntity } from "../portfolio-project.repository";
 import type { PortfolioTestimonialEntity } from "../portfolio-testimonial.repository";
+import type { PortfolioTechnologyEntity } from "../portfolio-technology.repository";
 
 function toPublicAssetDto(
   asset: {
@@ -78,7 +80,7 @@ export class PortfolioMapper {
       phone: portfolio.phone,
       location: portfolio.location,
 
-      createdAt: portfolio.createdAt,
+      createdAt: portfolio.createdAt.toISOString(),
 
       user: {
         username: portfolio.user.username,
@@ -110,9 +112,8 @@ export class PortfolioMapper {
           id: entry.technology.id,
           name: entry.technology.name,
           slug: entry.technology.slug,
-          iconUrl: entry.technology.iconUrl,
         },
-        startedUsingAt: entry.startedUsingAt,
+        startedUsingAt: entry.startedUsingAt?.toISOString() ?? null,
         description: entry.description,
         displayOrder: entry.displayOrder,
       })),
@@ -124,8 +125,8 @@ export class PortfolioMapper {
         fieldOfStudy: entry.fieldOfStudy,
         grade: entry.grade,
         description: entry.description,
-        startDate: entry.startDate,
-        endDate: entry.endDate,
+        startDate: entry.startDate?.toISOString() ?? null,
+        endDate: entry.endDate?.toISOString() ?? null,
         currentlyStudying: entry.currentlyStudying,
         institutionLogo: toPublicAssetDto(entry.institutionLogoAsset),
         displayOrder: entry.displayOrder,
@@ -138,8 +139,8 @@ export class PortfolioMapper {
         employmentType: entry.employmentType,
         location: entry.location,
         description: entry.description,
-        startDate: entry.startDate,
-        endDate: entry.endDate,
+        startDate: entry.startDate?.toISOString() ?? null,
+        endDate: entry.endDate?.toISOString() ?? null,
         currentlyWorking: entry.currentlyWorking,
         companyLogo: toPublicAssetDto(entry.companyLogoAsset),
         displayOrder: entry.displayOrder,
@@ -149,7 +150,7 @@ export class PortfolioMapper {
         id: entry.id,
         title: entry.title,
         description: entry.description,
-        achievedAt: entry.achievedAt,
+        achievedAt: entry.achievedAt?.toISOString() ?? null,
         asset: toPublicAssetDto(entry.asset),
         displayOrder: entry.displayOrder,
       })),
@@ -158,8 +159,8 @@ export class PortfolioMapper {
         id: entry.id,
         title: entry.title,
         issuer: entry.issuer,
-        issueDate: entry.issueDate,
-        expiryDate: entry.expiryDate,
+        issueDate: entry.issueDate?.toISOString() ?? null,
+        expiryDate: entry.expiryDate?.toISOString() ?? null,
         credentialId: entry.credentialId,
         credentialUrl: entry.credentialUrl,
         asset: toPublicAssetDto(entry.asset),
@@ -191,7 +192,6 @@ export class PortfolioMapper {
             id: tech.technology.id,
             name: tech.technology.name,
             slug: tech.technology.slug,
-            iconUrl: tech.technology.iconUrl,
           })),
           categories: entry.project.categories.map((cat) => ({
             id: cat.category.id,
@@ -287,6 +287,34 @@ export class PortfolioMapper {
     entries: PortfolioTestimonialEntity[],
   ): PortfolioTestimonialSummaryDto[] {
     return entries.map((entry) => this.toTestimonialSummaryDto(entry));
+  }
+
+  static toTechnologySummaryDto(
+    entry: PortfolioTechnologyEntity,
+  ): PortfolioTechnologySummaryDto {
+    return {
+      technologyId: entry.technologyId,
+
+      name: entry.technology.name,
+
+      slug: entry.technology.slug,
+
+      type: entry.technology.type,
+
+      icon: toPublicAssetDto(entry.technology.iconAsset),
+
+      startedUsingAt: entry.startedUsingAt?.toISOString() ?? null,
+
+      description: entry.description,
+
+      displayOrder: entry.displayOrder,
+    };
+  }
+
+  static toTechnologySummaryDtos(
+    entries: PortfolioTechnologyEntity[],
+  ): PortfolioTechnologySummaryDto[] {
+    return entries.map((entry) => this.toTechnologySummaryDto(entry));
   }
 
   static toSummaryDto(portfolio: PortfolioSummaryEntity): PortfolioSummaryDto {

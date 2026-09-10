@@ -31,4 +31,16 @@ export enum PortfolioAction {
    * no separate cross-domain eligibility check.
    */
   MANAGE_TESTIMONIALS = "MANAGE_TESTIMONIALS",
+
+  /**
+   * Manage the Portfolio's relationships to Technologies (add, remove,
+   * reorder, edit relationship metadata such as startedUsingAt/description).
+   * Owner-only, like EDIT — kept as its own action so it can diverge later
+   * without touching call sites.
+   *
+   * This authorizes the *Portfolio* side only. It never grants authority
+   * over the global Technology catalog, which is gated separately by
+   * PlatformAction.MANAGE_TECHNOLOGIES.
+   */
+  MANAGE_TECHNOLOGIES = "MANAGE_TECHNOLOGIES",
 }

@@ -11,8 +11,8 @@ export async function seedTaxonomy(prisma: PrismaClient) {
   for (const t of technologies) {
     const tech = await prisma.technology.upsert({
       where: { slug: t.slug },
-      update: { name: t.name, description: t.description },
-      create: { name: t.name, slug: t.slug, description: t.description },
+      update: { name: t.name, description: t.description, type: t.type },
+      create: { name: t.name, slug: t.slug, description: t.description, type: t.type },
     });
     techMap[t.slug] = tech.id;
   }

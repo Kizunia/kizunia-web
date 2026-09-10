@@ -238,7 +238,9 @@ Categories improve discoverability.
 
 # Technologies
 
-Blogs may reference multiple Technology entities.
+**Not implemented — future work.** No `BlogTechnology` model, relation, migration, API, or UI exists yet; `Blog` itself has no Prisma model today (see the module status note above). This section records the intended design so a future implementation reuses the existing centralized Technology model rather than reinventing it — see [`technology.md`](./technology.md), the canonical Technology reference.
+
+Blogs may eventually reference multiple Technology entities, meaning technologies **materially discussed, demonstrated, or relevant to** the blog post — closer to Competition's "relevant" framing than Project's "actually used" framing.
 
 Examples include:
 
@@ -248,7 +250,9 @@ Examples include:
 - Prisma
 - Better Auth
 
-These relationships improve filtering and recommendations.
+These relationships would improve filtering and recommendations.
+
+A future `BlogTechnology` join table would mirror `ProjectTechnology`/`CompetitionTechnology`'s plain shape (`blogId`, `technologyId`, composite key) unless a concrete need for ordering or per-relationship metadata emerges. It would reference the same canonical, context-free Technology entity — Technology itself gains no Blog-specific awareness. Authorization for managing a Blog's technologies would be a future `BlogAction`-scoped permission, never the global `PlatformAction.MANAGE_TECHNOLOGIES`, following the same global-vs-consumer separation already established for Project/Competition/Portfolio.
 
 ---
 

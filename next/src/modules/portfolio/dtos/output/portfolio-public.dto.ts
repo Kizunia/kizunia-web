@@ -42,7 +42,7 @@ export interface PortfolioPublicDto {
 
   location: string | null;
 
-  createdAt: Date;
+  createdAt: string;
 
   user: {
     // Never null here — the public lookup requires a username to match.
@@ -78,9 +78,8 @@ export interface PortfolioPublicDto {
       id: string;
       name: string;
       slug: string;
-      iconUrl: string | null;
     };
-    startedUsingAt: Date | null;
+    startedUsingAt: string | null;
     description: string | null;
     displayOrder: number;
   }[];
@@ -92,8 +91,8 @@ export interface PortfolioPublicDto {
     fieldOfStudy: string | null;
     grade: string | null;
     description: string | null;
-    startDate: Date | null;
-    endDate: Date | null;
+    startDate: string | null;
+    endDate: string | null;
     currentlyStudying: boolean;
     institutionLogo: PortfolioPublicAssetDto | null;
     displayOrder: number;
@@ -106,8 +105,8 @@ export interface PortfolioPublicDto {
     employmentType: string | null;
     location: string | null;
     description: string | null;
-    startDate: Date | null;
-    endDate: Date | null;
+    startDate: string | null;
+    endDate: string | null;
     currentlyWorking: boolean;
     companyLogo: PortfolioPublicAssetDto | null;
     displayOrder: number;
@@ -117,7 +116,7 @@ export interface PortfolioPublicDto {
     id: string;
     title: string;
     description: string | null;
-    achievedAt: Date | null;
+    achievedAt: string | null;
     asset: PortfolioPublicAssetDto | null;
     displayOrder: number;
   }[];
@@ -126,8 +125,8 @@ export interface PortfolioPublicDto {
     id: string;
     title: string;
     issuer: string;
-    issueDate: Date | null;
-    expiryDate: Date | null;
+    issueDate: string | null;
+    expiryDate: string | null;
     credentialId: string | null;
     credentialUrl: string | null;
     asset: PortfolioPublicAssetDto | null;
@@ -166,7 +165,6 @@ export interface PortfolioPublicDto {
         id: string;
         name: string;
         slug: string;
-        iconUrl: string | null;
       }[];
       categories: {
         id: string;

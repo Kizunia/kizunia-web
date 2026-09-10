@@ -45,6 +45,8 @@ import { RateLimitPolicyId } from "@/lib/rate-limit/policies";
 import { rateLimitService } from "@/lib/rate-limit/service";
 import { CompetitionLifecycleService } from "./lifecycle.service";
 import { ApplyLifecycleSchema } from "../schemas/lifecycle";
+import { AttachCompetitionTechnologySchema } from "../schemas/competition-technology";
+import { CompetitionTechnologyService } from "./competition-technology.service";
 export class CompetitionController {
   static async create(request: NextRequest) {
     return Route.execute(async () => {
@@ -876,6 +878,141 @@ export class CompetitionController {
       // -----------------------------------------------------------------
 
       return ApiResponse.ok(locations);
+    });
+  }
+
+  // ==========================================================================
+  // Technologies
+  // ==========================================================================
+
+  static async listTechnologies(request: NextRequest, competitionId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+
+      // -----------------------------------------------------------------
+      // Context
+      // -----------------------------------------------------------------
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+
+      CompetitionAuthorizer.manageTechnologies(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const technologies = await CompetitionTechnologyService.list(
+        context.competition.id,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(technologies);
+    });
+  }
+
+  static async attachTechnology(request: NextRequest, competitionId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const body = await request.json();
+
+      const data = AttachCompetitionTechnologySchema.parse(body);
+
+      // -----------------------------------------------------------------
+      // Context
+      // -----------------------------------------------------------------
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+
+      CompetitionAuthorizer.manageTechnologies(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const technologies = await CompetitionTechnologyService.attach(
+        context.competition.id,
+        data.technologyId,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.created(technologies);
+    });
+  }
+
+  static async detachTechnology(
+    request: NextRequest,
+    competitionId: string,
+    technologyId: string,
+  ) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+
+      // -----------------------------------------------------------------
+      // Context
+      // -----------------------------------------------------------------
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+
+      CompetitionAuthorizer.manageTechnologies(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const technologies = await CompetitionTechnologyService.detach(
+        context.competition.id,
+        technologyId,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(technologies);
     });
   }
 }

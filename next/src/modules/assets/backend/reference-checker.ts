@@ -40,6 +40,7 @@ export class AssetReferenceChecker {
       db.portfolioCertification.count({ where: { assetId } }),
       db.testimonial.count({ where: { imageAssetId: assetId } }),
       db.badge.count({ where: { iconAssetId: assetId } }),
+      db.technology.count({ where: { iconAssetId: assetId } }),
     ]);
 
     return counts.reduce((total, count) => total + count, 0);

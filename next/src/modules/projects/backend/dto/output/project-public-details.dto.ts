@@ -109,8 +109,6 @@ export interface ProjectPublicDetailsDto {
     name: string;
 
     slug: string;
-
-    iconUrl: string | null;
   }[];
 
   // ===========================================================================

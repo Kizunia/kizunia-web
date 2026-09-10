@@ -188,5 +188,17 @@ export async function authorizeUploadForPurpose({
       PlatformAuthorizer.can({ actor }, PlatformAction.MANAGE_MEDIA);
       return;
     }
+
+    case AssetPurpose.TECHNOLOGY_ICON: {
+      // Technology is a global catalog with no per-instance ownership — the
+      // actor authorized to manage the catalog is the actor authorized to
+      // manage every Technology's icon. There is no separate
+      // MANAGE_TECHNOLOGY_ICON action; the icon is attached to a specific
+      // Technology only via TechnologyService.setIcon, which independently
+      // re-checks this same permission — a client-supplied assetId alone is
+      // never sufficient.
+      PlatformAuthorizer.can({ actor }, PlatformAction.MANAGE_TECHNOLOGIES);
+      return;
+    }
   }
 }

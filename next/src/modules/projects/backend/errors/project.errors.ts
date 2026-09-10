@@ -28,6 +28,25 @@ export class ProjectTestimonialNotFoundError extends NotFoundError {
   }
 }
 
+export class ProjectTechnologyNotFoundError extends NotFoundError {
+  constructor(message = "Technology not found.") {
+    super({
+      code: ProjectErrorCode.TECHNOLOGY_NOT_FOUND,
+      message,
+    });
+  }
+}
+
+export class ProjectTechnologyAlreadyAttachedError extends ConflictError {
+  constructor() {
+    super({
+      code: ProjectErrorCode.TECHNOLOGY_ALREADY_ATTACHED,
+      status: HttpStatus.CONFLICT,
+      message: "Technology is already attached to this project.",
+    });
+  }
+}
+
 export class ProjectDeletedError extends ResourceError {
   constructor() {
     super({

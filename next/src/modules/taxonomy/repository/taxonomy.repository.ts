@@ -95,9 +95,14 @@ export class TaxonomyRepository {
   }
 
   static async findTechnologies(query: TaxonomyQuery) {
+    // Soft-deleted Technologies are never valid taxonomy/filter options —
+    // excluded regardless of caller, matching every other Technology
+    // selector/picker in the app.
+    const activeFilter = { ...this.nameFilter(query), deletedAt: null };
+
     if (query.entity === "project") {
       return prisma.technology.findMany({
-        where: this.nameFilter(query),
+        where: activeFilter,
 
         select: {
           name: true,
@@ -118,7 +123,7 @@ export class TaxonomyRepository {
     }
 
     return prisma.technology.findMany({
-      where: this.nameFilter(query),
+      where: activeFilter,
 
       select: {
         name: true,

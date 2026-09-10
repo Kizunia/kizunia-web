@@ -71,6 +71,17 @@ export class PortfolioAuthorizer {
     );
   }
 
+  static manageTechnologies(
+    context: PortfolioContext,
+  ): void {
+    Authorization.assert(
+      PortfolioPolicy.can(
+        context,
+        PortfolioAction.MANAGE_TECHNOLOGIES,
+      ),
+    );
+  }
+
   static can(
     context: PortfolioContext,
     action: PortfolioAction,

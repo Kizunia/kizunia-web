@@ -22,6 +22,7 @@ import {
   CompetitionAdminTableDTO,
 } from "./authorization/dto";
 import { competitionLocationMapper } from "./competition-location.mapper";
+import { competitionTechnologyMapper } from "./competition-technology.mapper";
 
 /**
  * Prisma payload used when loading Competition cards.
@@ -245,13 +246,9 @@ export class CompetitionMapper {
         slug: c.category.slug,
       })),
 
-      technologies: competition.technologies.map((t) => ({
-        id: t.technology.id,
-        name: t.technology.name,
-        slug: t.technology.slug,
-      })),
+      technologies: competitionTechnologyMapper.toDTOs(competition.technologies),
 
-  
+
     };
   }
 
@@ -346,11 +343,7 @@ export class CompetitionMapper {
         slug: c.category.slug,
       })),
 
-      technologies: competition.technologies.map((t) => ({
-        id: t.technology.id,
-        name: t.technology.name,
-        slug: t.technology.slug,
-      })),
+      technologies: competitionTechnologyMapper.toDTOs(competition.technologies),
 
       role,
       permissions,

@@ -70,11 +70,14 @@ export async function seedProjects(
     }
 
     // ── 4. Technologies ──────────────────────────────────────
+    let technologyDisplayOrder = 0;
     for (const slug of p.technologySlugs) {
       const techId = techMap[slug];
       if (!techId) continue;
       await prisma.projectTechnology
-        .create({ data: { projectId: project.id, technologyId: techId } })
+        .create({
+          data: { projectId: project.id, technologyId: techId, displayOrder: technologyDisplayOrder++ },
+        })
         .catch(() => {});
     }
 

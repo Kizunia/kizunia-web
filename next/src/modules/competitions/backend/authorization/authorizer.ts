@@ -70,6 +70,17 @@ export class CompetitionAuthorizer {
     }
 
 
+    static manageTechnologies(
+        context: CompetitionContext,
+    ): void {
+        Authorization.assert(
+            CompetitionPolicy.can(
+                context,
+                CompetitionAction.MANAGE_TECHNOLOGIES,
+            ),
+        );
+    }
+
     static can(
         context: CompetitionContext,
         action: CompetitionAction,
