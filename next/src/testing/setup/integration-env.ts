@@ -10,6 +10,7 @@
  * singleton in `@/lib/prisma` both resolve DATABASE_URL implicitly and have
  * no other way to receive a connection string. See docs/testing/database.md.
  */
+import "dotenv/config";
 
 const testUrl = process.env.DATABASE_TEST_URL;
 
