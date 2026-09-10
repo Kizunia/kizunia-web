@@ -3,7 +3,7 @@ import { Vortex } from "@/components/ui/vortex";
 import Link from "next/link";
 export default function Home() {
   return (
-    <div className="w-screen mx-auto  h-screen overflow-hidden">
+    <div className="w-screen mx-auto  h-screen overflow-hidden bg-black">
       <Vortex
         backgroundColor="black"
         className="flex items-center flex-col justify-center w-full h-full"
