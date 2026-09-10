@@ -230,8 +230,15 @@ const registrationPlatforms = enumMultiFilter<
  * Both bounds are optional and at least one is always present — the range
  * filter does not produce a value otherwise — so this never yields an empty
  * comparison object.
+ *
+ * Exported so `../search/plan.ts` can reuse it for `registrationStartDate` —
+ * a date-range filter that, like `RECORD_STATE_SPEC`, must never leak beyond
+ * the `lifecycle` scope and therefore cannot be an ordinary registered filter
+ * (every scope here declares `allowedFilters: "all"`). Reusing this function
+ * keeps the boundary semantics — inclusive bounds, bare-date end-of-day — in
+ * the one place that owns them, rather than re-deriving them out-of-band.
  */
-function dateBounds(range: ResolvedDateRange): Prisma.DateTimeFilter {
+export function dateBounds(range: ResolvedDateRange): Prisma.DateTimeFilter {
   const bounds: Prisma.DateTimeFilter = {};
 
   if (range.from) bounds.gte = range.from;
@@ -340,6 +347,21 @@ const adminScope = defineScope<CompetitionWhere, CompetitionSearchContext>({
   requiresPlatformAction: "VIEW_ALL_COMPETITIONS",
 });
 
+/**
+ * The lifecycle preview/apply console (`/admin/competitions/lifecycle`).
+ * A separate scope from `admin` rather than reusing it: it needs its own
+ * out-of-band filters (`registrationStartDate`, automation state — see
+ * `search/plan.ts`'s `lifecycleClauses`) and its own mandatory eligibility
+ * clauses (non-deleted, non-CANCELLED, automation not disabled) that would
+ * be wrong to apply to the ordinary admin table.
+ */
+const lifecycleScope = defineScope<CompetitionWhere, CompetitionSearchContext>({
+  id: "lifecycle",
+  allowedFilters: "all",
+  guard: () => [],
+  requiresPlatformAction: "MANAGE_COMPETITION_LIFECYCLE",
+});
+
 // =============================================================================
 // Definition
 // =============================================================================
@@ -387,5 +409,6 @@ export const competitionSearchDefinition = defineSearch<
     public: publicScope,
     management: managementScope,
     admin: adminScope,
+    lifecycle: lifecycleScope,
   },
 });

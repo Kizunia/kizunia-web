@@ -78,6 +78,23 @@ export interface CompetitionEditDTO {
 
   endDate: string | null;
 
+  /**
+   * When registration opens. Null means there is no automatic
+   * registration-opening transition — not that registration is always open.
+   */
+  registrationStartDate: string | null;
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle automation
+  // ---------------------------------------------------------------------------
+
+  /** Opt-out from automatic lifecycle management. Manual status changes via
+   * the dropdown always remain allowed regardless of this flag. */
+  automaticStatusUpdatesDisabled: boolean;
+
+  /** When `status` last changed, by any path. Null if never observed. */
+  statusUpdatedAt: string | null;
+
   // ---------------------------------------------------------------------------
   // Team
   // ---------------------------------------------------------------------------

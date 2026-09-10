@@ -598,6 +598,65 @@ export const RECORD_STATE_SPEC: EnumMultiSpec<"ACTIVE" | "DELETED"> = {
 export const ADMIN_FILTER_SPECS: readonly FilterSpec[] =
   assertUniqueFilterParams([...COMPETITION_FILTER_SPECS, RECORD_STATE_SPEC]);
 
+// =============================================================================
+// Lifecycle-only additions
+// =============================================================================
+
+/**
+ * When registration opens — distinct from `registrationDeadline` above,
+ * which is when it closes. Lifecycle-only by construction, for the same
+ * reason `RECORD_STATE_SPEC` is admin-only: kept out of
+ * `COMPETITION_FILTER_SPECS` so it can never reach the public filter bar,
+ * and gated a second, independent time at the query layer — see
+ * `lifecycleClauses` in `plan.ts`. Not promoted to a public filter in this
+ * change; see the "registrationStartDate is admin-only for now" note in the
+ * lifecycle feature's implementation plan.
+ */
+export const REGISTRATION_START_DATE_SPEC: DateRangeSpec = {
+  kind: "date-range",
+  key: "registrationStartDate",
+  label: "Registration opens",
+  group: "quick",
+  weight: -5,
+  chipPrefix: "Opens",
+};
+
+/**
+ * Whether automatic lifecycle status management is turned on for a
+ * competition — `automaticStatusUpdatesDisabled`, inverted for the label a
+ * person filtering actually thinks in. Lifecycle-only by construction, same
+ * two independent protections as `RECORD_STATE_SPEC` and the spec above.
+ */
+export const AUTOMATION_STATE_SPEC: EnumMultiSpec<"ENABLED" | "DISABLED"> = {
+  kind: "enum-multi",
+  key: "automationState",
+  label: "Automatic updates",
+  group: "quick",
+  weight: -8,
+  display: "pills",
+  options: [
+    { value: "ENABLED", label: "Enabled" },
+    { value: "DISABLED", label: "Disabled" },
+  ],
+  description:
+    "Whether automatic lifecycle status management is turned on for a competition. Automation never proposes a change for a competition where this is off — filtering to \"Disabled\" here will always show zero actionable rows.",
+};
+
+/**
+ * The lifecycle console's filter vocabulary: every public filter, plus the
+ * two lifecycle-only additions above. Deliberately composed from the public
+ * list rather than from `ADMIN_FILTER_SPECS` — `RECORD_STATE_SPEC` has no
+ * meaning here (the lifecycle console only ever considers active rows; see
+ * `deletionClauses` in `plan.ts`), so including it would offer a control
+ * that silently does nothing.
+ */
+export const LIFECYCLE_FILTER_SPECS: readonly FilterSpec[] =
+  assertUniqueFilterParams([
+    ...COMPETITION_FILTER_SPECS,
+    AUTOMATION_STATE_SPEC,
+    REGISTRATION_START_DATE_SPEC,
+  ]);
+
 /**
  * Sort options, as plain data for the sort control.
  *

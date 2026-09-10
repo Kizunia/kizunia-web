@@ -25,4 +25,12 @@ export interface CompetitionAdminTableDTO extends CompetitionManagementTableDTO 
    * it is only ever meaningful on this scope's rows.
    */
   readonly canRestore: boolean;
+
+  /**
+   * Whether automatic lifecycle status management is turned off for this
+   * row. Admin-scope only, for the same reason `deletedAt` is: it exists to
+   * drive a small indicator on the admin table, not something a
+   * self-management listing has any use for.
+   */
+  readonly automaticStatusUpdatesDisabled: boolean;
 }

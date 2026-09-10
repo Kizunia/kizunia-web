@@ -12,6 +12,7 @@ import { GeneralTab } from "./general-tab";
 import { DocumentationTab } from "./documentation-tab";
 import { DetailsTab } from "./details-tab";
 import { LocationsTab } from "./locations-tab";
+import { ScheduleTab } from "./schedule-tab";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { DangerTab } from "./danger-tab";
 
@@ -60,6 +61,8 @@ export function CompetitionEditor({
 
               <TabsTrigger value="documentation">Documentation</TabsTrigger>
 
+              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+
               <TabsTrigger value="locations">Locations</TabsTrigger>
 
               <TabsTrigger value="details">Details</TabsTrigger>
@@ -73,6 +76,10 @@ export function CompetitionEditor({
 
             <TabsContent value="documentation">
               <DocumentationTab />
+            </TabsContent>
+
+            <TabsContent value="schedule">
+              <ScheduleTab />
             </TabsContent>
 
             <TabsContent value="locations">

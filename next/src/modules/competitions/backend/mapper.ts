@@ -12,7 +12,10 @@ import type {
   CompetitionWithRelations,
   CompetitionCardDTO,
 } from "../types/dto";
+import type { LifecyclePreviewRowDTO } from "../types/lifecycle.dto";
+import type { LifecycleEvaluation } from "../lifecycle";
 import { CompetitionRepository } from "./repository";
+import type { LifecycleRow } from "./lifecycle.repository";
 import {
   CompetitionPermissionsDTO,
   CompetitionManagementTableDTO,
@@ -148,6 +151,8 @@ export class CompetitionMapper {
       ...this.toManagementTableDTO(params),
       deletedAt: params.competition.deletedAt,
       canRestore: params.canRestore,
+      automaticStatusUpdatesDisabled:
+        params.competition.automaticStatusUpdatesDisabled,
     };
   }
 
@@ -195,6 +200,14 @@ export class CompetitionMapper {
       startDate: competition.startDate?.toISOString() ?? null,
 
       endDate: competition.endDate?.toISOString() ?? null,
+
+      registrationStartDate:
+        competition.registrationStartDate?.toISOString() ?? null,
+
+      automaticStatusUpdatesDisabled:
+        competition.automaticStatusUpdatesDisabled,
+
+      statusUpdatedAt: competition.statusUpdatedAt?.toISOString() ?? null,
 
       registrationPlatform: competition.registrationPlatform,
 
@@ -289,6 +302,14 @@ export class CompetitionMapper {
 
       endDate: competition.endDate?.toISOString() ?? null,
 
+      registrationStartDate:
+        competition.registrationStartDate?.toISOString() ?? null,
+
+      automaticStatusUpdatesDisabled:
+        competition.automaticStatusUpdatesDisabled,
+
+      statusUpdatedAt: competition.statusUpdatedAt?.toISOString() ?? null,
+
       registrationPlatform: competition.registrationPlatform,
 
       registrationFee: competition.registrationFee,
@@ -334,6 +355,34 @@ export class CompetitionMapper {
       role,
       permissions,
       updatedAt: competition.updatedAt,
+    };
+  }
+
+  /**
+   * One row of the admin lifecycle preview. Only ever called for a row
+   * `evaluateLifecycle` reported as `changed: true` — the service filters
+   * before mapping, so this has no "would this row appear at all" logic of
+   * its own.
+   */
+  toLifecyclePreviewRowDTO(params: {
+    row: LifecycleRow;
+    evaluation: LifecycleEvaluation;
+  }): LifecyclePreviewRowDTO {
+    const { row, evaluation } = params;
+
+    return {
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+
+      currentStatus: row.status,
+      proposedStatus: evaluation.status,
+
+      reason: evaluation.reason,
+      drivingDate: evaluation.drivingDate?.toISOString() ?? null,
+
+      automaticStatusUpdatesDisabled: row.automaticStatusUpdatesDisabled,
+      statusUpdatedAt: row.statusUpdatedAt?.toISOString() ?? null,
     };
   }
 

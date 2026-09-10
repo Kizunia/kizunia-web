@@ -70,6 +70,7 @@ import {
   COMPETITION_STATUS_OPTIONS,
   COMPETITION_VISIBILITY_OPTIONS,
 } from "@/modules/competitions/constants";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/modules/competitions/components/status-badge";
 import { VisibilityBadge } from "@/modules/competitions/components/visibility-badge";
 
@@ -250,32 +251,44 @@ export function AdminCompetitionsTable({
                   </TableCell>
 
                   <TableCell>
-                    {competition.permissions.canEdit ? (
-                      <Select
-                        disabled={isBusy}
-                        value={competition.status ?? undefined}
-                        onValueChange={(value) =>
-                          updateField(competition.id, {
-                            status: value as CompetitionStatus,
-                          })
-                        }
-                      >
-                        <SelectTrigger size="sm" className="h-7 w-auto border-none bg-transparent p-0 shadow-none">
-                          <SelectValue>
-                            <StatusBadge status={competition.status} />
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COMPETITION_STATUS_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <StatusBadge status={competition.status} />
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {competition.permissions.canEdit ? (
+                        <Select
+                          disabled={isBusy}
+                          value={competition.status ?? undefined}
+                          onValueChange={(value) =>
+                            updateField(competition.id, {
+                              status: value as CompetitionStatus,
+                            })
+                          }
+                        >
+                          <SelectTrigger size="sm" className="h-7 w-auto border-none bg-transparent p-0 shadow-none">
+                            <SelectValue>
+                              <StatusBadge status={competition.status} />
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COMPETITION_STATUS_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <StatusBadge status={competition.status} />
+                      )}
+
+                      {competition.automaticStatusUpdatesDisabled && (
+                        <Badge
+                          variant="outline"
+                          className="text-muted-foreground"
+                          title="Automatic status updates are turned off for this competition."
+                        >
+                          Auto off
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
 
                   <TableCell>

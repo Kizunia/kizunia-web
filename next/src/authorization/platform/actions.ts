@@ -1,7 +1,12 @@
 export enum PlatformAction {
-  CREATE_COMPETITION = "CREATE_COMPETITION", 
+  CREATE_COMPETITION = "CREATE_COMPETITION",
   EDIT_COMPETITIONS = "EDIT_COMPETITION",
   VIEW_ALL_COMPETITIONS = "VIEW_ALL_COMPETITIONS",
+  // Automatic lifecycle status management: previewing/applying reconciliation
+  // and toggling `automaticStatusUpdatesDisabled`. Distinct from
+  // EDIT_COMPETITIONS — it governs the automation surface, not ordinary field
+  // edits, which stay gated by the existing per-resource CompetitionAction.EDIT.
+  MANAGE_COMPETITION_LIFECYCLE = "MANAGE_COMPETITION_LIFECYCLE",
   MANAGE_USERS = "MANAGE_USERS",
 
   ACCESS_ADMIN_DASHBOARD = "ACCESS_ADMIN_DASHBOARD",

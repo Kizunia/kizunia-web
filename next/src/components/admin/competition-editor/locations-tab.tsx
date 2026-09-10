@@ -12,29 +12,7 @@ import { CompetitionLocationApi } from "@/modules/competitions/api/competition-l
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import type { CompetitionLocationDTO } from "@/modules/competitions/types/competition-location.dto";
 import { LocationPicker, type PickedLocation } from "./location-picker";
-
-/**
- * Trims a datetime-local value into what the API expects.
- *
- * An empty input means "clear this date", which is `null` — not `undefined`,
- * which a PATCH would read as "leave it alone".
- */
-function toIsoOrNull(value: string): string | null {
-  return value ? new Date(value).toISOString() : null;
-}
-
-/** Formats an ISO date for a `datetime-local` input, which rejects the `Z`. */
-function toDateTimeLocal(value: string | null): string {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  const offsetMs = date.getTimezoneOffset() * 60_000;
-
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
-}
+import { toDateTimeLocal, toIsoOrNull } from "./datetime-field";
 
 export function LocationsTab() {
   const competition = useCompetitionEditorStore((state) => state.competition);

@@ -28,6 +28,7 @@ import {
 import type { CompetitionDetailDTO, CompetitionCardDTO } from "../types/dto";
 import { CompetitionAssetSlot } from "../types/asset-slot";
 import { CompetitionAssetService } from "./competition-asset.service";
+import { CompetitionLifecycleService } from "./lifecycle.service";
 import {
   CompetitionManagementTableDTO,
   CompetitionAdminTableDTO,
@@ -276,12 +277,74 @@ export class CompetitionService {
     return CompetitionAssetService.setAsset(context, { slot, assetId });
   }
 
+  /**
+   * Updates a competition, then — if the edit touched a lifecycle date or
+   * the automation flag, was not itself an explicit manual status change,
+   * and the row is not (or is no longer) automation-disabled — reconciles
+   * its status against the new data immediately, in the same transaction.
+   * This is what makes a date edit move status forward or backward without
+   * waiting for the next cron sweep, and what makes re-enabling automation
+   * (`automaticStatusUpdatesDisabled: true -> false`) recalculate on the
+   * spot rather than on the next midnight run.
+   *
+   * An explicit `status` in the payload always wins over recalculation —
+   * the manual dropdown is authoritative for the request that used it, so a
+   * date edit bundled into the same save never overwrites the admin's own
+   * choice. `updatedById` is written once, for the human who made this
+   * request; the reconciliation step (if it runs) touches only `status` and
+   * `statusUpdatedAt`, so that attribution is never disturbed by it.
+   *
+   * Returns the full edit DTO (not the raw Prisma row) so the caller
+   * — `CompetitionEditorStore.save` — can adopt the response directly and
+   * show a recalculated status without a page refresh.
+   */
   static async update(options: UpdateCompetitionOptions) {
-    await this.validateSlug(options.context, options.data);
+    const { context, data } = options;
 
-    return CompetitionRepository.update({
-      id: options.context.competition.id,
-      data: options.data,
+    await this.validateSlug(context, data);
+
+    const now = new Date();
+
+    const touchesLifecycleDates =
+      data.registrationStartDate !== undefined ||
+      data.registrationDeadline !== undefined ||
+      data.startDate !== undefined ||
+      data.endDate !== undefined;
+
+    const touchesAutomationFlag =
+      data.automaticStatusUpdatesDisabled !== undefined;
+
+    const isManualStatusChange = data.status !== undefined;
+
+    await prisma.$transaction(async (tx) => {
+      const updated = await CompetitionRepository.update({
+        id: context.competition.id,
+        data,
+        updatedById: context.actor.id ?? null,
+        db: tx,
+      });
+
+      if (
+        !isManualStatusChange &&
+        (touchesLifecycleDates || touchesAutomationFlag) &&
+        !updated.automaticStatusUpdatesDisabled
+      ) {
+        await CompetitionLifecycleService.reconcileWithin(
+          tx,
+          context.competition.id,
+          now,
+        );
+      }
+    });
+
+    const competition = await CompetitionRepository.findByIdForEdit(
+      context.competition.id,
+    );
+
+    return competitionMapper.toEditDTOWithPermissions({
+      competition,
+      role: context.membership?.role ?? null,
+      permissions: CompetitionPermissionResolver.resolve(context),
     });
   }
 

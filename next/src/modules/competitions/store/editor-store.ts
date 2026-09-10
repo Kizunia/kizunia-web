@@ -110,7 +110,17 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
           saving: true,
         });
 
-        await CompetitionApi.update(state.competition.id, {
+        // `status` is sent only when it actually changed from what the
+        // server last returned. Its mere presence in the payload tells the
+        // backend "this request is an explicit manual status choice" and
+        // makes it skip automatic recalculation for the request (manual
+        // always wins — see `CompetitionService.update`). Sending it
+        // unconditionally would mean an ordinary date-only save could never
+        // trigger reconciliation from this editor.
+        const statusChanged =
+          state.competition.status !== state.original?.status;
+
+        const updated = await CompetitionApi.update(state.competition.id, {
           title: state.competition.title ?? undefined,
           shortDescription: state.competition.shortDescription,
           organizer: state.competition.organizer,
@@ -131,17 +141,32 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
           content: state.competition.content,
           mode: state.competition.mode,
           visibility: state.competition.visibility,
-          status: state.competition.status,
+          ...(statusChanged && { status: state.competition.status }),
           prizePool: state.competition.prizePool,
           minTeamSize: state.competition.minTeamSize,
           maxTeamSize: state.competition.maxTeamSize,
           registrationDeadline: state.competition.registrationDeadline,
           startDate: state.competition.startDate,
           endDate: state.competition.endDate,
+          registrationStartDate: state.competition.registrationStartDate,
+          automaticStatusUpdatesDisabled:
+            state.competition.automaticStatusUpdatesDisabled,
         });
 
+        // Adopt the server's response rather than the pre-save local
+        // snapshot: the backend may have just recalculated `status` (a
+        // lifecycle date changed, or automation was re-enabled), and this
+        // is how that result reaches the UI immediately, without a page
+        // refresh. Reading `useCompetitionEditorStore.getState()` again
+        // here (rather than reusing the `state` captured at the top of this
+        // function) also means edits made while the request was in flight
+        // are not silently discarded and marked clean.
+        const latest = useCompetitionEditorStore.getState();
         useCompetitionEditorStore.setState({
-          original: structuredClone(state.competition),
+          competition: latest.competition
+            ? { ...latest.competition, ...updated }
+            : updated,
+          original: structuredClone(updated),
           dirty: false,
           saving: false,
         });

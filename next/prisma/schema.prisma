@@ -546,8 +546,7 @@ model Asset {
 
   certificationAssets PortfolioCertification[] @relation("certificationAsset")
 
-  testimonialImages           Testimonial[]                @relation("testimonialImage")
-
+  testimonialImages Testimonial[] @relation("testimonialImage")
 
   @@index([status])
   @@index([status, detachedAt])
@@ -606,10 +605,10 @@ model Technology {
   iconUrl     String?
   description String?
 
-  users                             UserTechnology[]
-  competitions                      CompetitionTechnology[]
-  projects                          ProjectTechnology[]
-  portfolioTechnologies             PortfolioTechnology[]
+  users                 UserTechnology[]
+  competitions          CompetitionTechnology[]
+  projects              ProjectTechnology[]
+  portfolioTechnologies PortfolioTechnology[]
 
   @@map("technology")
 }
@@ -620,9 +619,9 @@ model Category {
   name String @unique
   slug String @unique
 
-  users                           UserCategory[]
-  competitions                    CompetitionCategory[]
-  projects                        ProjectCategory[]
+  users        UserCategory[]
+  competitions CompetitionCategory[]
+  projects     ProjectCategory[]
 
   @@map("category")
 }
@@ -701,18 +700,21 @@ model Competition {
   slug             String  @unique
   shortDescription String?
 
-  organizer            String?
-  mode                 CompetitionMode?
-  minTeamSize          Int?
-  maxTeamSize          Int?
-  registrationLink     String?
-  website              String?
-  startDate            DateTime?
-  endDate              DateTime?
-  registrationDeadline DateTime?
-  prizePool            String?
-  logoAssetId          String?
-  logoAsset            Asset?           @relation("competitionLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
+  organizer             String?
+  mode                  CompetitionMode?
+  minTeamSize           Int?
+  maxTeamSize           Int?
+  registrationLink      String?
+  website               String?
+  startDate             DateTime?
+  endDate               DateTime?
+  registrationDeadline  DateTime?
+  // When registration opens. Null means there is no automatic
+  // registration-opening transition — NOT that registration is always open.
+  registrationStartDate DateTime?
+  prizePool             String?
+  logoAssetId           String?
+  logoAsset             Asset?           @relation("competitionLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
 
   bannerAssetId String?
   bannerAsset   Asset?  @relation("competitionBanner", fields: [bannerAssetId], references: [id], onDelete: SetNull)
@@ -724,9 +726,18 @@ model Competition {
   contentId String?  @unique
   content   Content? @relation("CompetitionContent", fields: [contentId], references: [id], onDelete: SetNull)
 
-  visibility CompetitionVisibility @default(PRIVATE)
+  visibility                     CompetitionVisibility @default(PRIVATE)
   // Lifecycle-only. Moderation status belongs to a future Proposal model.
-  status     CompetitionStatus?
+  status                         CompetitionStatus?
+  // When `status` last changed, by any path (manual or automatic). Null
+  // means the status has never been observed to change since this column
+  // was introduced — it is not backfilled from history that doesn't exist.
+  statusUpdatedAt                DateTime?
+  // Opt-out from automatic lifecycle management (cron sweep + admin bulk
+  // reconciliation + date-edit reconciliation). Manual status changes via
+  // the admin dropdown/bulk action always remain allowed regardless of this
+  // flag — it disables automation only, never explicit admin intent.
+  automaticStatusUpdatesDisabled Boolean               @default(false)
 
   // Audit — tracks who created and last updated this competition.
   // Uses SetNull so audit history survives user deletion.
@@ -777,6 +788,7 @@ model Competition {
   @@index([deletedAt])
   @@index([startDate])
   @@index([registrationDeadline])
+  @@index([registrationStartDate])
   @@index([createdById])
   @@index([updatedById])
   @@map("competition")
@@ -829,10 +841,8 @@ model CompetitionSuggestion {
   // Relations
   // ===========================================================================
 
+  links Link[]
 
-  links       Link[]
-
- 
   assets CompetitionSuggestionAsset[]
 
   @@index([status])
