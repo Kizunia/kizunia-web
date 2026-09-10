@@ -58,7 +58,7 @@ export function PortfolioTechnologyCard({
 
           {technology.startedUsingAt && (
             <Badge variant="outline">
-              Since {DATE_FORMATTER.format(technology.startedUsingAt)}
+              Since {DATE_FORMATTER.format(new Date(technology.startedUsingAt))}
             </Badge>
           )}
         </div>

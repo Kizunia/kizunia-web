@@ -20,12 +20,24 @@ import type { PortfolioTechnologySummaryDto } from "../../../../dtos";
 import type { UpdatePortfolioTechnologyInput } from "../../../../schemas/portfolio-technology.schema";
 
 /** `Date` -> `yyyy-mm-dd` for an `<input type="date">`. */
-function toDateInputValue(date: Date | null): string {
-  if (!date) {
+// function toDateInputValue(date: Date | null): string {
+//   if (!date) {
+//     return "";
+//   }
+
+//   return date.toISOString().slice(0, 10);
+// }
+
+function toDateInputValue(date: string | null) {
+  if (!date) return "";
+
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
     return "";
   }
 
-  return date.toISOString().slice(0, 10);
+  return parsedDate.toISOString().slice(0, 10);
 }
 
 interface EditTechnologyMetadataDialogProps {

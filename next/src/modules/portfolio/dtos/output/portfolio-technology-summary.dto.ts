@@ -31,7 +31,7 @@ export interface PortfolioTechnologySummaryDto {
 
   /** When the owner started using this technology. Relationship metadata,
    * not a property of the Technology itself. */
-  startedUsingAt: Date | null;
+  startedUsingAt: string | null;
 
   /** The owner's own note about this technology. Relationship metadata,
    * not the catalog entry's `description`. */
