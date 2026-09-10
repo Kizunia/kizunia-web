@@ -43,6 +43,8 @@ import {
 import { CompetitionLocationService } from "./competition-location.service";
 import { RateLimitPolicyId } from "@/lib/rate-limit/policies";
 import { rateLimitService } from "@/lib/rate-limit/service";
+import { CompetitionLifecycleService } from "./lifecycle.service";
+import { ApplyLifecycleSchema } from "../schemas/lifecycle";
 export class CompetitionController {
   static async create(request: NextRequest) {
     return Route.execute(async () => {
