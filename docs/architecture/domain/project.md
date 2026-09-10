@@ -224,6 +224,59 @@ Links are represented using the reusable Link entity.
 
 ---
 
+# Testimonials
+
+Projects support multiple Testimonials — short quotes from people who worked
+with the project, shown on its public page.
+
+A Testimonial belongs to exactly one parent: a Project **or** a Portfolio,
+never both. This Project-owned Testimonial is a separate, independent record
+from any Portfolio-owned Testimonial that might display similar content — the
+`Testimonial` model is shared across both domains at the schema level (one
+Postgres table, two nullable parent FKs), but the read/write stacks are fully
+separate (`ProjectTestimonialRepository`/`Service` vs.
+`PortfolioTestimonialRepository`/`Service`). There is no reuse, sharing, or
+"move to the other parent" operation.
+
+The person referenced by a Testimonial (`name`, `position`, `company`) is
+**not** a Kizunia User. It is presentation data supplied by whoever manages
+the Testimonial — Kizunia does not verify the person exists or that they
+actually said what's quoted. This is a deliberate scope boundary, not an
+oversight.
+
+**Fields:** `name`, `position` (optional), `company` (optional), `message`,
+`rating` (optional, 1–5), an optional image (via the Asset system, purpose
+`PROJECT_TESTIMONIAL_IMAGE`), and `displayOrder` for manual reordering.
+
+**Authorization:** gated by `ProjectAction.MANAGE_TESTIMONIALS`, granted to
+`OWNER` and `MAINTAINER` only. `CONTRIBUTOR` has view access but cannot
+create, update, delete, or reorder testimonials, or attach/replace/remove a
+testimonial's image — image management is part of testimonial management,
+not a separate permission.
+
+**Ordering:** a `displayOrder` integer (schema default `100`, matching
+`PortfolioProject`'s "append at the end" convention), persisted via a
+dedicated reorder endpoint that validates the request is an exact cover of
+the project's testimonial ids (see
+[`isExactCover`](../../../next/src/modules/links/utils/reorder.ts)) inside a
+transaction — a partial, duplicate, or foreign-id reorder request is
+rejected and leaves ordering untouched.
+
+**Public visibility:** Testimonials carry no independent visibility of their
+own — they inherit entirely from whether the parent Project itself is
+publicly viewable (`ProjectPolicy.canView`, enforced by
+`findPublicBySlug`). A DRAFT or PRIVATE project's testimonials are never
+reachable through the public route, regardless of testimonial content.
+
+**Deletion:** hard delete, consistent with Links and Portfolio Projects
+(neither has a `deletedAt`). Deleting the parent Project cascades to delete
+its Testimonials at the database level, but this only fires on a genuine
+hard delete — ordinary "delete project" flows soft-delete the Project and
+leave Testimonial rows intact (orphaned from the user's perspective, not the
+database's).
+
+---
+
 # Ownership
 
 Ownership determines who manages the project.

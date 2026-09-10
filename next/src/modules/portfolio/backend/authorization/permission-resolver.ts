@@ -31,6 +31,11 @@ export class PortfolioPermissionResolver {
         context,
         PortfolioAction.MANAGE_PROJECTS,
       ),
+
+      canManageTestimonials: this.can(
+        context,
+        PortfolioAction.MANAGE_TESTIMONIALS,
+      ),
     };
   }
 

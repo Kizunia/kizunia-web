@@ -19,6 +19,15 @@ export class ProjectLinkNotFoundError extends NotFoundError {
   }
 }
 
+export class ProjectTestimonialNotFoundError extends NotFoundError {
+  constructor(message = "Testimonial not found.") {
+    super({
+      code: ProjectErrorCode.TESTIMONIAL_NOT_FOUND,
+      message,
+    });
+  }
+}
+
 export class ProjectDeletedError extends ResourceError {
   constructor() {
     super({

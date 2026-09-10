@@ -88,6 +88,36 @@ export class PortfolioProjectReorderMismatchError extends ValidationError {
   }
 }
 
+// =============================================================================
+// Portfolio Testimonials
+// =============================================================================
+
+/**
+ * Raised when a mutation scoped to `(portfolioId, testimonialId)` matches no
+ * row. Deliberately indistinguishable from "belongs to another portfolio" —
+ * the scoping makes a foreign testimonial simply invisible rather than
+ * forbidden.
+ */
+export class PortfolioTestimonialNotFoundError extends NotFoundError {
+  constructor() {
+    super({
+      code: "PORTFOLIO_TESTIMONIAL_NOT_FOUND",
+      message: "Testimonial not found.",
+    });
+  }
+}
+
+export class PortfolioTestimonialReorderMismatchError extends ValidationError {
+  constructor() {
+    super({
+      code: "PORTFOLIO_TESTIMONIAL_REORDER_MISMATCH",
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      message:
+        "Reorder must list every testimonial in your portfolio exactly once.",
+    });
+  }
+}
+
 
 
 

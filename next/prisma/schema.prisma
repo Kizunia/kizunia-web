@@ -279,7 +279,12 @@ enum AssetPurpose {
   PORTFOLIO_EXPERIENCE_LOGO
   PORTFOLIO_ACHIEVEMENT_ASSET
   PORTFOLIO_CERTIFICATION_ASSET
+  // @deprecated Superseded by PROJECT_TESTIMONIAL_IMAGE / PORTFOLIO_TESTIMONIAL_IMAGE.
+  // Kept only because Postgres enum values cannot be safely dropped; never
+  // issued by application code going forward.
   TESTIMONIAL_IMAGE
+  PROJECT_TESTIMONIAL_IMAGE
+  PORTFOLIO_TESTIMONIAL_IMAGE
   BADGE_ICON
 }
 
@@ -1460,6 +1465,13 @@ model PortfolioCertification {
   @@map("portfolio_certification")
 }
 
+// A Testimonial belongs to exactly one parent: either a Project or a
+// Portfolio, never both, never neither. This is currently an
+// APPLICATION-LEVEL invariant only, enforced by ProjectTestimonialService /
+// PortfolioTestimonialService (each writes only its own FK and always
+// leaves the other null) — there is intentionally no database CHECK
+// constraint yet. A DB-level XOR constraint is deferred to a future
+// migration; do not assume the database enforces this today.
 model Testimonial {
   id String @id @default(cuid())
 
@@ -1490,6 +1502,9 @@ model Testimonial {
 
   updatedAt DateTime @updatedAt
 
+  @@index([projectId])
+  @@index([portfolioId])
+  @@index([imageAssetId])
   @@map("testimonial")
 }
 

@@ -1,4 +1,4 @@
-import { Link, Prisma } from "@/generated/prisma";
+import { Link, Prisma, Testimonial } from "@/generated/prisma";
 
 import type { StrictAuthorizationActor } from "@/authorization";
 
@@ -14,6 +14,7 @@ import {
   ProjectDetailsDto,
   ProjectPublicDetailsDto,
   ProjectLinkDto,
+  ProjectTestimonialDto,
 } from "../dto/output";
 import type { ProjectPermissionsDTO } from "../authorization/dto";
 import { ProjectContextResolver } from "../authorization/context-resolver";
@@ -45,6 +46,37 @@ export class ProjectMapper {
       height: asset.height,
       format: asset.format,
       mimeType: asset.mimeType,
+    };
+  }
+
+  static toTestimonialDto(
+    testimonial: Testimonial & {
+      imageAsset: {
+        id: string;
+        secureUrl: string;
+        width: number | null;
+        height: number | null;
+        format: string | null;
+        mimeType: string | null;
+      } | null;
+    },
+  ): ProjectTestimonialDto {
+    return {
+      id: testimonial.id,
+
+      name: testimonial.name,
+
+      position: testimonial.position,
+
+      company: testimonial.company,
+
+      message: testimonial.message,
+
+      rating: testimonial.rating,
+
+      displayOrder: testimonial.displayOrder,
+
+      image: this.toAssetDto(testimonial.imageAsset),
     };
   }
 
@@ -313,23 +345,9 @@ export class ProjectMapper {
         },
       })),
 
-      testimonials: project.testimonials.map((testimonial) => ({
-        id: testimonial.id,
-
-        name: testimonial.name,
-
-        position: testimonial.position,
-
-        company: testimonial.company,
-
-        message: testimonial.message,
-
-        rating: testimonial.rating,
-
-        displayOrder: testimonial.displayOrder,
-
-        image: this.toAssetDto(testimonial.imageAsset),
-      })),
+      testimonials: project.testimonials.map((testimonial) =>
+        this.toTestimonialDto(testimonial),
+      ),
 
       statistics: {
         memberCount: project.members.length,
@@ -425,23 +443,9 @@ export class ProjectMapper {
 
       links: project.links.map((link) => this.toLinkDto(link)),
 
-      testimonials: project.testimonials.map((testimonial) => ({
-        id: testimonial.id,
-
-        name: testimonial.name,
-
-        position: testimonial.position,
-
-        company: testimonial.company,
-
-        message: testimonial.message,
-
-        rating: testimonial.rating,
-
-        displayOrder: testimonial.displayOrder,
-
-        image: this.toAssetDto(testimonial.imageAsset),
-      })),
+      testimonials: project.testimonials.map((testimonial) =>
+        this.toTestimonialDto(testimonial),
+      ),
 
       statistics: {
         memberCount: project.members.length,

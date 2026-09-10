@@ -18,6 +18,7 @@ import { ApiResponse, Route } from "@/lib/http";
 import { UnauthorizedError } from "@/lib/errors";
 import { projectService } from "./service";
 import { projectLinkService } from "./project-link.service";
+import { projectTestimonialService } from "./project-testimonial.service";
 import { ProjectMineQuerySchema } from "../search";
 import { SessionService } from "@/lib/auth/session";
 import { CreateProjectSchema, DeleteProjectSchema } from "../schemas";
@@ -31,6 +32,11 @@ import {
   ReorderProjectLinksSchema,
   UpdateProjectLinkSchema,
 } from "../schemas/project-link.schema";
+import {
+  CreateProjectTestimonialSchema,
+  ReorderProjectTestimonialsSchema,
+  UpdateProjectTestimonialSchema,
+} from "../schemas/project-testimonial.schema";
 import { SetAssetSchema } from "@/modules/assets/schemas/set-asset";
 import { ValidationError } from "@/lib/errors";
 import { isProjectAssetSlot } from "../types/asset-slot";
@@ -453,6 +459,111 @@ export class ProjectController {
       });
 
       return ApiResponse.ok(links);
+    });
+  }
+
+  // ===========================================================================
+  // Testimonials
+  // ===========================================================================
+
+  static async listTestimonials(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Business Logic
+      const testimonials = await projectTestimonialService.list({
+        projectId,
+        actor,
+      });
+
+      return ApiResponse.ok(testimonials);
+    });
+  }
+
+  static async addTestimonial(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Validation
+      const dto = CreateProjectTestimonialSchema.parse(await request.json());
+
+      // Business Logic
+      const testimonials = await projectTestimonialService.add({
+        projectId,
+        actor,
+        dto,
+      });
+
+      return ApiResponse.ok(testimonials);
+    });
+  }
+
+  static async updateTestimonial(
+    request: NextRequest,
+    projectId: string,
+    testimonialId: string,
+  ) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Validation
+      const dto = UpdateProjectTestimonialSchema.parse(await request.json());
+
+      // Business Logic
+      const testimonials = await projectTestimonialService.update({
+        projectId,
+        testimonialId,
+        actor,
+        dto,
+      });
+
+      return ApiResponse.ok(testimonials);
+    });
+  }
+
+  static async removeTestimonial(
+    request: NextRequest,
+    projectId: string,
+    testimonialId: string,
+  ) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Business Logic
+      const testimonials = await projectTestimonialService.remove({
+        projectId,
+        testimonialId,
+        actor,
+      });
+
+      return ApiResponse.ok(testimonials);
+    });
+  }
+
+  /**
+   * Reorders the project's testimonials. Lives on the collection rather than
+   * an individual testimonial because ordering is a property of the list.
+   */
+  static async reorderTestimonials(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Validation
+      const dto = ReorderProjectTestimonialsSchema.parse(await request.json());
+
+      // Business Logic
+      const testimonials = await projectTestimonialService.reorder({
+        projectId,
+        actor,
+        dto,
+      });
+
+      return ApiResponse.ok(testimonials);
     });
   }
 }

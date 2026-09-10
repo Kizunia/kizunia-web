@@ -1,5 +1,5 @@
-import { PortfolioSectionPlaceholder } from "@/modules/portfolio/frontend/components/editor/portfolio-section-placeholder";
+import { PortfolioTestimonialsTab } from "@/modules/portfolio/frontend/components/editor/testimonials/portfolio-testimonials-tab";
 
 export default function PortfolioEditTestimonialsPage() {
-  return <PortfolioSectionPlaceholder title="Testimonials" />;
+  return <PortfolioTestimonialsTab />;
 }

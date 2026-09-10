@@ -23,9 +23,12 @@ import { CompetitionContextResolver } from "@/modules/competitions/backend/autho
 import { CompetitionSuggestionAuthorizer } from "@/modules/competitions/backend/suggestion/authorization/authorizer";
 import { CompetitionSuggestionContextResolver } from "@/modules/competitions/backend/suggestion/authorization/resolver";
 
+import { PortfolioAction } from "@/modules/portfolio/backend/authorization/actions";
 import { PortfolioAuthorizer } from "@/modules/portfolio/backend/authorization/authorizer";
 import { PortfolioContextResolver } from "@/modules/portfolio/backend/authorization/context-resolver";
 import { PortfolioRepository } from "@/modules/portfolio/backend/repository";
+
+import { ProjectAction } from "@/modules/projects/backend/authorization/actions";
 
 function requireTargetEntityId(
   purpose: AssetPurpose,
@@ -134,8 +137,51 @@ export async function authorizeUploadForPurpose({
       return;
     }
 
-    case AssetPurpose.BADGE_ICON:
-    case AssetPurpose.TESTIMONIAL_IMAGE: {
+    case AssetPurpose.PROJECT_TESTIMONIAL_IMAGE: {
+      // Image management is part of testimonial management — reuse
+      // MANAGE_TESTIMONIALS rather than a separate image action.
+      const projectId = requireTargetEntityId(purpose, targetEntityId);
+
+      const context = await ProjectContextResolver.resolve({
+        actor,
+        projectId,
+      });
+
+      ProjectAuthorizer.can(context, ProjectAction.MANAGE_TESTIMONIALS);
+      return;
+    }
+
+    case AssetPurpose.PORTFOLIO_TESTIMONIAL_IMAGE: {
+      // Always the actor's own portfolio — there is exactly one per user.
+      // targetEntityId is not used to resolve authorization (unlike
+      // PROJECT_TESTIMONIAL_IMAGE); it is only present to satisfy the
+      // upload policy's requiresTargetEntity bookkeeping, matching the
+      // PORTFOLIO_RESUME-style purposes above. Image management is part of
+      // testimonial management — reuse MANAGE_TESTIMONIALS rather than a
+      // separate image action.
+      const actorId = requireActorId(actor);
+
+      const portfolioRepository = new PortfolioRepository();
+
+      const portfolio = await portfolioRepository.findByUserIdOrThrow({
+        userId: actorId,
+      });
+
+      const context = await PortfolioContextResolver.resolve({
+        actor,
+        portfolioId: portfolio.id,
+      });
+
+      PortfolioAuthorizer.can(context, PortfolioAction.MANAGE_TESTIMONIALS);
+      return;
+    }
+
+    // @deprecated Superseded by PROJECT_TESTIMONIAL_IMAGE /
+    // PORTFOLIO_TESTIMONIAL_IMAGE. Never issued by application code; kept
+    // only so the enum member (which cannot be safely dropped from
+    // Postgres) has a defined, conservative fallback.
+    case AssetPurpose.TESTIMONIAL_IMAGE:
+    case AssetPurpose.BADGE_ICON: {
       // No per-instance authorizer exists yet for these. Conservatively
       // gate behind the existing platform-level media-management action
       // rather than leaving them unauthorized.

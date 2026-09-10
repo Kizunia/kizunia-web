@@ -5,6 +5,7 @@ import {
 } from "@/generated/prisma";
 import type { ProjectPermissionsDTO } from "../../authorization/dto";
 import type { ProjectLinkDto } from "./project-link.dto";
+import type { ProjectTestimonialDto } from "./project-testimonial.dto";
 
 interface ProjectAssetDto {
   id: string;
@@ -147,23 +148,7 @@ export interface ProjectDetailsDto {
   // Testimonials
   // ===========================================================================
 
-  testimonials: {
-    id: string;
-
-    name: string;
-
-    position: string | null;
-
-    company: string | null;
-
-    message: string;
-
-    rating: number | null;
-
-    displayOrder: number;
-
-    image: ProjectAssetDto | null;
-  }[];
+  testimonials: ProjectTestimonialDto[];
 
   // ===========================================================================
   // Statistics
