@@ -1,6 +1,7 @@
 import { PlaceResolutionStatus, type Prisma } from "@/generated/prisma";
 import prisma from "@/lib/prisma";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { RateLimitPolicyId } from "@/lib/rate-limit/policies";
+import { rateLimitService } from "@/lib/rate-limit/service";
 
 import { resolvePlaceProvider } from "../providers";
 import { PlaceResolutionRepository } from "../repository/place-resolution.repository";
@@ -54,15 +55,12 @@ const PROVIDER_TIMEOUT_MS = 4_000;
  * it, so ordinary browsing is unaffected and the budget only binds when
  * something is generating novel place ids — which is precisely the abuse
  * signature it exists to stop.
+ *
+ * The number and window live in the policy registry now
+ * (RateLimitPolicyId.PLACES_RESOLVE, in lib/rate-limit/policies.ts) — this
+ * is the one place a limit number appears platform-wide — but the "global,
+ * not per-caller" design and the reasoning above are unchanged.
  */
-const RESOLUTION_BUDGET = {
-  scope: "places:resolve",
-  limit: 120,
-  windowSeconds: 60,
-} as const;
-
-/** Shared bucket key: this budget is not per-caller. See RESOLUTION_BUDGET. */
-const RESOLUTION_BUDGET_KEY = "global";
 
 export type PlaceResolutionFailure =
   /** Transport failure, or a provider-side error. Retrying may work. */
@@ -305,16 +303,17 @@ export class PlaceMatchService {
       });
     }
 
-    const budget = await checkRateLimit(
-      RESOLUTION_BUDGET_KEY,
-      RESOLUTION_BUDGET,
-    );
+    // "check", not "enforce": exhaustion degrades into the domain failure
+    // taxonomy below (PROVIDER_RATE_LIMITED → possibly a stale cache
+    // fallback) rather than throwing an HTTP-shaped RateLimitError, which
+    // would be meaningless this deep in a service with no request in scope.
+    // The rejection is still observable — see the rate_limit.rejected event
+    // RateLimitService emits internally.
+    const budget = await rateLimitService.check({
+      policyId: RateLimitPolicyId.PLACES_RESOLVE,
+    });
 
     if (!budget.allowed) {
-      console.warn(
-        "Place resolution budget exhausted; refusing a cold provider lookup.",
-      );
-
       return this.afterFailure({
         reason: "PROVIDER_RATE_LIMITED",
         cached: cached.entry,

@@ -13,7 +13,8 @@
 import { NextRequest } from "next/server";
 
 import { SessionService } from "@/lib/auth/index";
-import { ApiResponse, Route } from "@/lib/http";
+import { ApiResponse } from "@/lib/http";
+import { Route } from "@/lib/http/route";
 
 import { resolvePlaceProvider } from "../providers";
 import { PlaceAutocompleteQuerySchema } from "../schemas/location-search";

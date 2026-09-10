@@ -1,8 +1,9 @@
+import { NextRequest } from "next/server";
+
 import { PortfolioController } from "@/modules/portfolio/backend/controller";
 
-
 export async function GET(
-  _: Request,
+  request: NextRequest,
   {
     params,
   }: {
@@ -13,7 +14,5 @@ export async function GET(
 ) {
   const { username } = await params;
 
-  return PortfolioController.findPublicByUsername(
-    username,
-  );
+  return PortfolioController.findPublicByUsername(request, username);
 }

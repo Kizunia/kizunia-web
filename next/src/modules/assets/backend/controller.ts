@@ -8,8 +8,11 @@
 
 import { NextRequest } from "next/server";
 
-import { ApiResponse, Route } from "@/lib/http";
+import { ApiResponse } from "@/lib/http";
+import { Route } from "@/lib/http/route";
 import { SessionService } from "@/lib/auth/session";
+import { RateLimitPolicyId } from "@/lib/rate-limit/policies";
+import { rateLimitService } from "@/lib/rate-limit/service";
 
 import { CreateUploadIntentSchema } from "../schemas/create-upload-intent";
 import { FinalizeUploadSchema } from "../schemas/finalize-upload";
@@ -29,6 +32,20 @@ export class AssetController {
       const body = await request.json();
 
       const data = CreateUploadIntentSchema.parse(body);
+
+      // -----------------------------------------------------------------
+      // Rate Limiting
+      // -----------------------------------------------------------------
+      // Scoped per actor AND per purpose (a composite subject id) — an
+      // actor's avatar-upload budget must not be consumed by, or starve,
+      // their competition-gallery budget. Runs after parsing (purpose comes
+      // from the body) but before the service's authorization/policy
+      // checks, which is the expensive part this bounds.
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.ASSETS_UPLOAD_INTENT,
+        request,
+        actor: { id: `${actor.id}:${data.purpose}` },
+      });
 
       // -----------------------------------------------------------------
       // Business Logic
@@ -55,6 +72,15 @@ export class AssetController {
       // Authentication
       // -----------------------------------------------------------------
       const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------
+      // Rate Limiting
+      // -----------------------------------------------------------------
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.ASSETS_FINALIZE,
+        request,
+        actor,
+      });
 
       // -----------------------------------------------------------------
       // Validation

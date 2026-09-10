@@ -12,60 +12,50 @@
 
 import { NextRequest } from "next/server";
 
-import { RateLimitError } from "@/lib/errors";
-import { ApiResponse, Route } from "@/lib/http";
-import { checkRateLimit, clientIdentifier } from "@/lib/rate-limit";
+import { ApiResponse } from "@/lib/http";
+import { Route } from "@/lib/http/route";
+import { RateLimitPolicyId } from "@/lib/rate-limit/policies";
+import { rateLimitService } from "@/lib/rate-limit/service";
 
 import { TaxonomyQuerySchema } from "../schemas/taxonomy-query";
 import { TaxonomyService } from "../services/taxonomy.service";
 
-/**
- * Higher than the place limiter, because this route is cheap.
- *
- * It reads two indexed local tables and calls no external provider, so the
- * limiter here guards database load rather than a metered quota. It exists at
- * all because the route is public and unauthenticated.
- */
-const RATE_LIMIT = {
-  scope: "taxonomy:list",
-  limit: 120,
-  windowSeconds: 60,
-} as const;
-
 export class TaxonomyController {
   static async categories(request: NextRequest) {
-    return this.list(request, (query) => TaxonomyService.listCategories(query));
+    return this.list(
+      request,
+      RateLimitPolicyId.TAXONOMY_CATEGORIES,
+      (query) => TaxonomyService.listCategories(query),
+    );
   }
 
   static async technologies(request: NextRequest) {
-    return this.list(request, (query) =>
-      TaxonomyService.listTechnologies(query),
+    return this.list(
+      request,
+      RateLimitPolicyId.TAXONOMY_TECHNOLOGIES,
+      (query) => TaxonomyService.listTechnologies(query),
     );
   }
 
   /**
    * Shared handling for both lists.
    *
-   * Written once because the two differ only in which service call they make;
-   * duplicating the limiter and the parsing would create two places for the
-   * public-endpoint protections to drift apart.
+   * Written once because the two differ only in which service call (and
+   * which rate-limit policy) they use; duplicating the parsing would create
+   * two places for the public-endpoint protections to drift apart. The two
+   * still enforce separate budgets — see taxonomy:categories vs
+   * taxonomy:technologies in the policy registry — so one endpoint cannot
+   * starve the other's allowance.
    */
   private static async list(
     request: NextRequest,
+    policyId: RateLimitPolicyId,
     load: (
       query: ReturnType<typeof TaxonomyQuerySchema.parse>,
     ) => Promise<unknown>,
   ) {
     return Route.execute(async () => {
-      const limit = await checkRateLimit(clientIdentifier(request), RATE_LIMIT);
-
-      if (!limit.allowed) {
-        throw new RateLimitError({
-          code: "TAXONOMY_RATE_LIMITED",
-          message: "Too many requests. Try again in a moment.",
-          retryAfterSeconds: limit.retryAfterSeconds,
-        });
-      }
+      await rateLimitService.enforce({ policyId, request });
 
       const raw = Object.fromEntries(request.nextUrl.searchParams.entries());
 

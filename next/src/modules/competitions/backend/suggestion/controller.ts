@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
-import { ApiResponse, Route } from "@/lib/http";
+import { ApiResponse } from "@/lib/http";
+import { Route } from "@/lib/http/route";
 import { SessionService } from "@/lib/auth/session";
 
 

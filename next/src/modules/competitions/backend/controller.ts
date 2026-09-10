@@ -14,7 +14,8 @@ import { NextRequest } from "next/server";
 import { CreateCompetitionSchema } from "../schemas/create-competition";
 import { CompetitionService } from "./service";
 import { CompetitionAuthorizer } from "./authorization/authorizer";
-import { ApiResponse, Route } from "@/lib/http";
+import { ApiResponse } from "@/lib/http";
+import { Route } from "@/lib/http/route";
 import { SessionService } from "@/lib/auth/index";
 import { UpdateCompetitionSchema } from "../schemas/update-competition";
 import {
@@ -40,8 +41,8 @@ import {
   UpdateCompetitionLocationSchema,
 } from "../schemas/competition-location";
 import { CompetitionLocationService } from "./competition-location.service";
-import { CompetitionLifecycleService } from "./lifecycle.service";
-import { ApplyLifecycleSchema } from "../schemas/lifecycle";
+import { RateLimitPolicyId } from "@/lib/rate-limit/policies";
+import { rateLimitService } from "@/lib/rate-limit/service";
 export class CompetitionController {
   static async create(request: NextRequest) {
     return Route.execute(async () => {
@@ -65,6 +66,17 @@ export class CompetitionController {
 
   static async search(request: NextRequest) {
     return Route.execute(async () => {
+      // Public and unauthenticated. A placeId filter can reach the billed
+      // places:resolve budget on a cache miss (see PlaceMatchService); that
+      // budget already caps spend platform-wide, but is shared across every
+      // caller, so this per-IP limit exists for availability — one abuser
+      // minting novel placeIds should not be able to exhaust it and degrade
+      // search for everyone else.
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.COMPETITIONS_SEARCH,
+        request,
+      });
+
       const query = Object.fromEntries(request.nextUrl.searchParams.entries());
 
       const competitions = await CompetitionService.search(query);
