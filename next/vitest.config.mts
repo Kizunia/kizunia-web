@@ -2,15 +2,16 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 /**
- * Scoped to the rate-limit subsystem only (see the test files it discovers
- * below) — this repository has no test runner otherwise, and backfilling
- * one for every module is a separate, larger initiative than this feature.
- * Kept intentionally minimal so a future repository-wide test setup can
- * absorb or replace it without inheriting anything rate-limit-specific.
+ * Repo-wide unit test config. Discovers every `*.test.ts` under `src/`.
+ * `*.integration.test.ts` files are excluded here — they're allowed to hit
+ * a real Postgres database and run separately via
+ * vitest.integration.config.mts (`pnpm test:integration`), so this default
+ * config (`pnpm test`) never requires a database. See docs/testing/README.md.
  */
 export default defineConfig({
   test: {
-    include: ["src/lib/rate-limit/**/*.test.ts"],
+    include: ["src/**/*.test.ts"],
+    exclude: ["**/*.integration.test.ts", "**/node_modules/**"],
     environment: "node",
   },
   resolve: {

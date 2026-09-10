@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:all": "pnpm test && pnpm test:integration"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
