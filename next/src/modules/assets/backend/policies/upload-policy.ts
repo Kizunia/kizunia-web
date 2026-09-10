@@ -103,7 +103,13 @@ export const UPLOAD_POLICIES: Record<AssetPurpose, UploadPolicy> = {
   [AssetPurpose.PORTFOLIO_ACHIEVEMENT_ASSET]: imagePolicy(),
   [AssetPurpose.PORTFOLIO_CERTIFICATION_ASSET]: imagePolicy(),
 
+  // @deprecated Superseded by PROJECT_TESTIMONIAL_IMAGE /
+  // PORTFOLIO_TESTIMONIAL_IMAGE. Entry kept only because UPLOAD_POLICIES
+  // must cover every AssetPurpose enum member; never issued by application
+  // code going forward.
   [AssetPurpose.TESTIMONIAL_IMAGE]: imagePolicy(),
+  [AssetPurpose.PROJECT_TESTIMONIAL_IMAGE]: imagePolicy(),
+  [AssetPurpose.PORTFOLIO_TESTIMONIAL_IMAGE]: imagePolicy(),
   [AssetPurpose.BADGE_ICON]: imagePolicy({ requiresTargetEntity: false }),
 };
 

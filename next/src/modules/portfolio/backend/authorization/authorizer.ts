@@ -60,6 +60,17 @@ export class PortfolioAuthorizer {
     );
   }
 
+  static manageTestimonials(
+    context: PortfolioContext,
+  ): void {
+    Authorization.assert(
+      PortfolioPolicy.can(
+        context,
+        PortfolioAction.MANAGE_TESTIMONIALS,
+      ),
+    );
+  }
+
   static can(
     context: PortfolioContext,
     action: PortfolioAction,

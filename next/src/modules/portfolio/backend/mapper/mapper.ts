@@ -9,6 +9,7 @@ import type { PortfolioPublicDto } from "../../dtos";
 import type { PortfolioSummaryDto } from "../../dtos";
 
 import type { PortfolioProjectSummaryDto } from "../../dtos";
+import type { PortfolioTestimonialSummaryDto } from "../../dtos";
 
 import type {
   PortfolioEditorEntity,
@@ -17,6 +18,7 @@ import type {
 } from "../repository";
 
 import type { PortfolioProjectSummaryEntity } from "../portfolio-project.repository";
+import type { PortfolioTestimonialEntity } from "../portfolio-testimonial.repository";
 
 function toPublicAssetDto(
   asset: {
@@ -255,6 +257,36 @@ export class PortfolioMapper {
     entries: PortfolioProjectSummaryEntity[],
   ): PortfolioProjectSummaryDto[] {
     return entries.map((entry) => this.toProjectSummaryDto(entry));
+  }
+
+  static toTestimonialSummaryDto(
+    entry: PortfolioTestimonialEntity,
+  ): PortfolioTestimonialSummaryDto {
+    return {
+      id: entry.id,
+
+      name: entry.name,
+
+      position: entry.position,
+
+      company: entry.company,
+
+      message: entry.message,
+
+      rating: entry.rating,
+
+      displayOrder: entry.displayOrder,
+
+      image: toPublicAssetDto(entry.imageAsset),
+
+      createdAt: entry.createdAt,
+    };
+  }
+
+  static toTestimonialSummaryDtos(
+    entries: PortfolioTestimonialEntity[],
+  ): PortfolioTestimonialSummaryDto[] {
+    return entries.map((entry) => this.toTestimonialSummaryDto(entry));
   }
 
   static toSummaryDto(portfolio: PortfolioSummaryEntity): PortfolioSummaryDto {

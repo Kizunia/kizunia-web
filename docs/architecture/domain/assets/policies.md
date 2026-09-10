@@ -37,8 +37,16 @@ Derived from the entity relations already present in the Prisma schema (see [`ov
 - `PORTFOLIO_EXPERIENCE_LOGO`
 - `PORTFOLIO_ACHIEVEMENT_ASSET`
 - `PORTFOLIO_CERTIFICATION_ASSET`
-- `TESTIMONIAL_IMAGE`
+- `PROJECT_TESTIMONIAL_IMAGE`
+- `PORTFOLIO_TESTIMONIAL_IMAGE`
 - `BADGE_ICON`
+
+`TESTIMONIAL_IMAGE` (singular, shared across both domains) is
+**deprecated**: it predates per-instance authorization for testimonial
+images and is superseded by the two purposes above, split by owning domain
+like every other purpose here (`PROJECT_LOGO` vs. `PORTFOLIO_RESUME`). The
+enum value is kept — Postgres enum values cannot be safely dropped — but no
+application code issues it anymore.
 
 New relations that reference `Asset` in the future should each define their own purpose the same way, rather than being folded into an existing one just because the file type happens to match.
 

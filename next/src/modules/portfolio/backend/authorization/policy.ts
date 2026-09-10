@@ -40,6 +40,9 @@ export class PortfolioPolicy {
       case PortfolioAction.MANAGE_PROJECTS:
         return this.canManageProjects(context);
 
+      case PortfolioAction.MANAGE_TESTIMONIALS:
+        return this.canManageTestimonials(context);
+
       default:
         return {
           allowed: false,
@@ -152,6 +155,36 @@ export class PortfolioPolicy {
       code: AuthorizationCode.UNAUTHORIZED,
       message:
         "You do not have permission to manage this portfolio's projects.",
+    };
+  }
+
+  /**
+   * Testimonial management is owner-only. A Testimonial is Portfolio-owned
+   * content (not a reference to another domain), so this needs no separate
+   * cross-domain eligibility check the way canManageProjects does.
+   */
+  private static canManageTestimonials(
+    context: PortfolioContext,
+  ): AuthorizationDecision {
+    if (!context.portfolio) {
+      return {
+        allowed: false,
+        code: AuthorizationCode.UNAUTHORIZED,
+        message: "Portfolio context is missing.",
+      };
+    }
+
+    if (context.isOwner) {
+      return {
+        allowed: true,
+      };
+    }
+
+    return {
+      allowed: false,
+      code: AuthorizationCode.UNAUTHORIZED,
+      message:
+        "You do not have permission to manage this portfolio's testimonials.",
     };
   }
 

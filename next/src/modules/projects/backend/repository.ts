@@ -175,9 +175,7 @@ const projectDetailsInclude = {
   },
 
   testimonials: {
-    orderBy: {
-      createdAt: "desc",
-    },
+    orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
     include: {
       imageAsset: {
         select: {

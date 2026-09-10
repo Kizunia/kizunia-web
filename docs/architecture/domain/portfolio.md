@@ -271,6 +271,79 @@ side effect on the (reversible, in principle) delete operation.
 
 ---
 
+# Portfolio Testimonials
+
+Unlike Portfolio Projects, this is genuine ownership, not a reference:
+Testimonials are Portfolio-owned content, created, edited, and deleted
+entirely within the Portfolio's own data (see
+[Responsibilities](#responsibilities)). A Testimonial belongs to exactly
+one parent — this Portfolio, or a Project, never both — and a Project's own
+Testimonials (see [project.md](project.md#testimonials)) are entirely
+independent records, even when they describe the same person or quote.
+
+## Data model
+
+Testimonials share a single Prisma model (`Testimonial`) with Project
+Testimonials — one Postgres table, with nullable `portfolioId` and
+`projectId` foreign keys — but the read/write stacks are fully separate:
+`PortfolioTestimonialRepository`/`Service`, scoped exclusively by
+`portfolioId`, never touch a row's `projectId`. "Exactly one parent" is an
+application-level invariant only (each domain's service writes only its own
+FK and leaves the other null); there is intentionally no database-level XOR
+constraint yet — see the comment on the `Testimonial` model in
+`schema.prisma`.
+
+Fields: `name`, `position` (optional), `company` (optional), `message`,
+`rating` (optional, 1–5), an optional image (via the Asset system, purpose
+`PORTFOLIO_TESTIMONIAL_IMAGE`), and `displayOrder` (schema default `100`,
+matching `PortfolioProject`'s append-at-the-end convention).
+
+The person referenced by a Testimonial is **not** a Kizunia User — it is
+presentation data supplied by the Portfolio owner. Kizunia does not verify
+that the person exists or endorsed the quote.
+
+## Authorization
+
+Testimonial management is **owner-only** — there are no collaborators on a
+Portfolio, unlike Project membership roles. Gated by
+`PortfolioAction.MANAGE_TESTIMONIALS`, resolved from the session exactly
+like `MANAGE_PROJECTS`: the Portfolio is always the actor's own
+(`portfolioRepository.findForAuthorizationByUserIdOrThrow`), never a
+client-supplied id. Image management (attach, replace, remove a
+testimonial's photo) is part of testimonial management — there is no
+separate image-management action.
+
+## Ordering
+
+Persisted via a dedicated reorder endpoint (`PATCH
+/api/v1/portfolio/testimonials`) that validates the request is an exact
+cover of the portfolio's testimonial ids using the same
+[`isExactCover`](../../../next/src/modules/links/utils/reorder.ts) utility
+Portfolio Projects and Project Links both already use, inside a
+transaction — a partial, duplicate, or foreign-id reorder request is
+rejected and leaves ordering untouched.
+
+## Public visibility
+
+The public Portfolio DTO (`PortfolioPublicDto.testimonials`) already
+includes Testimonials, correctly ordered and mapped through a safe, flat
+shape — but there is currently **no public Portfolio page** in the frontend
+to render it (only the public `/api/v1/portfolio/[username]` API exists).
+Building that page is out of scope for the Testimonials feature; a reusable
+presentation component (`PortfolioTestimonials`, mirroring the Project
+side's `ProjectTestimonials`) exists and is ready to be wired in whenever
+that page is built.
+
+## Deletion
+
+Hard delete, consistent with Portfolio Projects and Links (neither has a
+`deletedAt`). Deleting the Portfolio cascades to delete its Testimonials at
+the database level, but this only fires on a genuine hard delete — ordinary
+"delete portfolio" flows soft-delete the Portfolio and leave Testimonial
+rows intact.
+
+---
+
 # Featured Blogs (Future)
 
 Builders may highlight important blog posts.
@@ -446,9 +519,9 @@ Editor's convention (`src/modules/projects/frontend/components/editor/`).
 Portfolio exists, links into the editor — it no longer renders the editor
 inline.
 
-**Profile** and **Projects** are working editors today. The remaining
-tabs (Links, Technologies, Education, Experience, Achievements,
-Certifications, Testimonials, Settings) are real routes with a
+**Profile**, **Projects**, and **Testimonials** are working editors today.
+The remaining tabs (Links, Technologies, Education, Experience,
+Achievements, Certifications, Settings) are real routes with a
 placeholder component, establishing the route/component boundary for each
 without a backend contract to back them yet.
 
@@ -456,12 +529,14 @@ State follows the Project Editor's split: a shared `portfolio.store.ts`
 (current Portfolio, loading/error, create, `setPortfolio` for mutation
 write-back) plus a per-section store once a section has real state to
 hold — `portfolio-profile.store.ts` (dirty tracking, field errors, batched
-save) for Profile, and `portfolio-projects.store.ts` (list-immediate:
+save) for Profile, `portfolio-projects.store.ts` (list-immediate:
 every mutation persists right away and replaces the list wholesale with
 the server's authoritative response, mirroring Project Links'
-`project-links.store.ts`) for Projects. The Projects section does **not**
-write back into the shared `portfolio.store.ts` — the project list is a
-sibling resource with its own endpoint, not a field of the Portfolio
+`project-links.store.ts`) for Projects, and
+`portfolio-testimonials.store.ts` (same list-immediate pattern) for
+Testimonials. Neither the Projects nor the Testimonials section writes
+back into the shared `portfolio.store.ts` — each is a sibling resource
+with its own endpoint, not a field of the Portfolio
 entity.
 
 Any feature that requires a Portfolio to exist should wrap itself in

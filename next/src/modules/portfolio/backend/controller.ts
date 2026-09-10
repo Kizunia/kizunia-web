@@ -25,12 +25,18 @@ import { rateLimitService } from "@/lib/rate-limit/service";
 
 import { portfolioService } from "./service";
 import { portfolioProjectService } from "./portfolio-project.service";
+import { portfolioTestimonialService } from "./portfolio-testimonial.service";
 
 
 
 import { createPortfolioSchema } from "../schemas";
 import { PortfolioNotFoundError } from "../errors";
 import { UpdatePortfolioProfileSchema } from "../schemas/update/profile-update.schema";
+import {
+  AddPortfolioTestimonialSchema,
+  ReorderPortfolioTestimonialsSchema,
+  UpdatePortfolioTestimonialSchema,
+} from "../schemas/portfolio-testimonial.schema";
 import {
   AddPortfolioProjectSchema,
   ReorderPortfolioProjectsSchema,
@@ -382,6 +388,95 @@ static async updateProfile(request: NextRequest) {
       // -----------------------------------------------------------------------
 
       return ApiResponse.ok(projects);
+    });
+  }
+
+  // ===========================================================================
+  // Testimonials
+  //
+  // No handler accepts a portfolio id: the portfolio is always derived from
+  // the session, matching Projects above. Every mutation returns the
+  // resulting list so the editor never has to re-derive server ordering.
+  // ===========================================================================
+
+  static async listTestimonials(request: NextRequest) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const testimonials = await portfolioTestimonialService.list({ actor });
+
+      return ApiResponse.ok(testimonials);
+    });
+  }
+
+  static async addTestimonial(request: NextRequest) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const body = await request.json();
+
+      const dto = AddPortfolioTestimonialSchema.parse(body);
+
+      const testimonials = await portfolioTestimonialService.add({
+        actor,
+        dto,
+      });
+
+      return ApiResponse.created(testimonials);
+    });
+  }
+
+  static async reorderTestimonials(request: NextRequest) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const body = await request.json();
+
+      const dto = ReorderPortfolioTestimonialsSchema.parse(body);
+
+      const testimonials = await portfolioTestimonialService.reorder({
+        actor,
+        dto,
+      });
+
+      return ApiResponse.ok(testimonials);
+    });
+  }
+
+  static async updateTestimonial(
+    request: NextRequest,
+    testimonialId: string,
+  ) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const body = await request.json();
+
+      const dto = UpdatePortfolioTestimonialSchema.parse(body);
+
+      const testimonials = await portfolioTestimonialService.update({
+        actor,
+        testimonialId,
+        dto,
+      });
+
+      return ApiResponse.ok(testimonials);
+    });
+  }
+
+  static async removeTestimonial(
+    request: NextRequest,
+    testimonialId: string,
+  ) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const testimonials = await portfolioTestimonialService.remove({
+        actor,
+        testimonialId,
+      });
+
+      return ApiResponse.ok(testimonials);
     });
   }
 }
