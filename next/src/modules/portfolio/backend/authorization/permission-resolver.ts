@@ -36,6 +36,11 @@ export class PortfolioPermissionResolver {
         context,
         PortfolioAction.MANAGE_TESTIMONIALS,
       ),
+
+      canManageTechnologies: this.can(
+        context,
+        PortfolioAction.MANAGE_TECHNOLOGIES,
+      ),
     };
   }
 

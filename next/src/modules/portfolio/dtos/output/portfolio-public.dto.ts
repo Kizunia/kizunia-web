@@ -78,7 +78,6 @@ export interface PortfolioPublicDto {
       id: string;
       name: string;
       slug: string;
-      iconUrl: string | null;
     };
     startedUsingAt: Date | null;
     description: string | null;
@@ -166,7 +165,6 @@ export interface PortfolioPublicDto {
         id: string;
         name: string;
         slug: string;
-        iconUrl: string | null;
       }[];
       categories: {
         id: string;

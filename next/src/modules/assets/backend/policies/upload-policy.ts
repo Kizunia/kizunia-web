@@ -111,6 +111,10 @@ export const UPLOAD_POLICIES: Record<AssetPurpose, UploadPolicy> = {
   [AssetPurpose.PROJECT_TESTIMONIAL_IMAGE]: imagePolicy(),
   [AssetPurpose.PORTFOLIO_TESTIMONIAL_IMAGE]: imagePolicy(),
   [AssetPurpose.BADGE_ICON]: imagePolicy({ requiresTargetEntity: false }),
+
+  // Global taxonomy entity, no per-instance owner at intent-creation time —
+  // same shape as BADGE_ICON.
+  [AssetPurpose.TECHNOLOGY_ICON]: imagePolicy({ requiresTargetEntity: false }),
 };
 
 export function getUploadPolicy(purpose: AssetPurpose): UploadPolicy {

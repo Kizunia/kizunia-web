@@ -206,10 +206,12 @@ Users should be discoverable through meaningful engineering information rather t
 Examples include:
 
 * Skills
-* Technologies
-* Projects
+* Projects (which surface the technologies used, via `ProjectTechnology`)
+* Portfolio (which surfaces the technologies the user intentionally presents, via `PortfolioTechnology` — see [`technology.md`](../../architecture/domain/technology.md))
 * Hackathons
 * Teams
+
+Technology is not a direct User relationship — discovery by technology goes through what a user's Projects and Portfolio present, not a User-level technology field.
 
 The platform should prioritize helping users discover collaborators rather than encouraging follower counts or engagement statistics.
 
@@ -221,12 +223,13 @@ Every user may configure notification preferences.
 
 Examples include:
 
-* Preferred technologies
 * Categories
 * Locations
 * Online or offline hackathons
 * Student eligibility
 * Reminder preferences
+
+A technology-based preference ("preferred technologies") is not implemented — no `UserTechnologyNotificationPreference` model or equivalent code exists. Technology-aware notification/recommendation preferences are explicit future work; see [`technology.md`](../../architecture/domain/technology.md).
 
 These preferences determine which notifications are delivered to the user.
 

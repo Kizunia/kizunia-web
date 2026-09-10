@@ -1,5 +1,5 @@
-import { PortfolioSectionPlaceholder } from "@/modules/portfolio/frontend/components/editor/portfolio-section-placeholder";
+import { PortfolioTechnologiesSection } from "@/modules/portfolio/frontend/components/editor/technologies/portfolio-technologies-section";
 
 export default function PortfolioEditTechnologiesPage() {
-  return <PortfolioSectionPlaceholder title="Technologies" />;
+  return <PortfolioTechnologiesSection />;
 }

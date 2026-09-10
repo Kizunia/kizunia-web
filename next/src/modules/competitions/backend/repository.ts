@@ -355,7 +355,11 @@ export class CompetitionRepository {
 
         technologies: {
           include: {
-            technology: true,
+            technology: {
+              include: {
+                iconAsset: true,
+              },
+            },
           },
         },
 

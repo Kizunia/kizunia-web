@@ -27,6 +27,7 @@ export const CompetitionPermissionSet: Readonly<
     CompetitionAction.MANAGE_MEMBERS,
     CompetitionAction.MANAGE_MEDIA,
     CompetitionAction.MANAGE_LINKS,
+    CompetitionAction.MANAGE_TECHNOLOGIES,
   ]),
   ORGANIZER: new Set([
     CompetitionAction.VIEW,
@@ -37,6 +38,7 @@ export const CompetitionPermissionSet: Readonly<
     CompetitionAction.MANAGE_MEMBERS,
     CompetitionAction.MANAGE_MEDIA,
     CompetitionAction.MANAGE_LINKS,
+    CompetitionAction.MANAGE_TECHNOLOGIES,
   ]), //todo
 
   MAINTAINER: new Set([
@@ -44,5 +46,6 @@ export const CompetitionPermissionSet: Readonly<
     CompetitionAction.EDIT,
     CompetitionAction.MANAGE_MEDIA,
     CompetitionAction.MANAGE_LINKS,
+    CompetitionAction.MANAGE_TECHNOLOGIES,
   ]),
 };

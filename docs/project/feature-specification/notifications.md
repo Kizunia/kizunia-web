@@ -62,12 +62,13 @@ Users should receive notifications only for hackathons that match their interest
 
 Matching may consider:
 
-* Technologies
 * Categories
 * Location
 * Online / Offline preference
 * Student eligibility
 * Registration status
+
+Technology-based matching is not implemented today — no technology-aware notification preference exists in the codebase. If built in the future, it would be one dimension of a broader preference system reading from `PortfolioTechnology` (see [`technology.md`](../../architecture/domain/technology.md)), not a User-level technology field; this is explicit future work, not designed here.
 
 The matching algorithm should continuously improve while remaining transparent to users.
 
@@ -125,12 +126,11 @@ Every user should be able to configure notification preferences.
 Examples include:
 
 * Categories
-* Technologies
-* Preferred programming languages
-* Preferred hackathon categories
 * Location
 * Online / Offline preference
 * Reminder frequency
+
+A technology-based preference is not implemented — no `UserTechnologyNotificationPreference` model or equivalent code exists, and none is being introduced by the current Technology architecture. See [`technology.md`](../../architecture/domain/technology.md).
 
 Users remain in full control of what they receive.
 

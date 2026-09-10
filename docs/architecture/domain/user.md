@@ -268,16 +268,7 @@ The User model stores relationships to links rather than dedicated URL fields.
 
 ## Technologies
 
-Skills are represented through relationships with the Technology entity.
-
-Examples include:
-
-- React
-- Flutter
-- Spring Boot
-- TensorFlow
-
-This enables consistent filtering, recommendations, and search throughout the platform.
+The User model has **no direct relationship to Technology.** `UserTechnology` has been removed — Technology is no longer a core User profile relationship. A user who wants to present their technology skills does so through their Portfolio (`PortfolioTechnology`, presentation-oriented and never auto-derived from Project data — see `technology.md`), not through a direct User-level attachment.
 
 ---
 
@@ -291,17 +282,11 @@ These interests power personalized hackathon recommendations and notifications.
 
 ## Notification Preferences
 
-Notification preferences are stored separately.
+Notification preferences are stored separately, via the generic `NotificationPreference` model (email/push toggles plus a freeform preferences bag). It has no typed connection to Technology today.
 
-Examples include:
+A technology-aware notification preference (e.g. "notify me about competitions using React") does not exist in this codebase and has never been implemented — no `UserTechnologyNotificationPreference` model or equivalent code exists. This is explicit future work: if built, it would read from `PortfolioTechnology`, not from a revived User-level technology relationship, and is not designed or scheduled as part of the current Technology architecture.
 
-- Preferred technologies
-- Preferred categories
-- Preferred locations
-- Online / Offline preference
-- Notification channels
-
-Separating these preferences keeps the User model focused on identity rather than configuration.
+Separating notification configuration from identity keeps the User model focused on identity rather than configuration.
 
 ---
 

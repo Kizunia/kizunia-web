@@ -26,6 +26,7 @@ import { rateLimitService } from "@/lib/rate-limit/service";
 import { portfolioService } from "./service";
 import { portfolioProjectService } from "./portfolio-project.service";
 import { portfolioTestimonialService } from "./portfolio-testimonial.service";
+import { portfolioTechnologyService } from "./portfolio-technology.service";
 
 
 
@@ -42,6 +43,11 @@ import {
   ReorderPortfolioProjectsSchema,
   UpdatePortfolioProjectSchema,
 } from "../schemas/portfolio-project.schema";
+import {
+  AddPortfolioTechnologySchema,
+  ReorderPortfolioTechnologiesSchema,
+  UpdatePortfolioTechnologySchema,
+} from "../schemas/portfolio-technology.schema";
 
 export class PortfolioController {
   // ===========================================================================
@@ -477,6 +483,90 @@ static async updateProfile(request: NextRequest) {
       });
 
       return ApiResponse.ok(testimonials);
+    });
+  }
+
+  // ===========================================================================
+  // Technologies
+  //
+  // No handler accepts a portfolio id: the portfolio is always derived from
+  // the session, matching Projects/Testimonials above. Every mutation
+  // returns the resulting list so the editor never has to re-derive server
+  // ordering.
+  // ===========================================================================
+
+  static async listTechnologies(request: NextRequest) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const technologies = await portfolioTechnologyService.list({ actor });
+
+      return ApiResponse.ok(technologies);
+    });
+  }
+
+  static async addTechnology(request: NextRequest) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const body = await request.json();
+
+      const dto = AddPortfolioTechnologySchema.parse(body);
+
+      const technologies = await portfolioTechnologyService.add({
+        actor,
+        dto,
+      });
+
+      return ApiResponse.created(technologies);
+    });
+  }
+
+  static async reorderTechnologies(request: NextRequest) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const body = await request.json();
+
+      const dto = ReorderPortfolioTechnologiesSchema.parse(body);
+
+      const technologies = await portfolioTechnologyService.reorder({
+        actor,
+        dto,
+      });
+
+      return ApiResponse.ok(technologies);
+    });
+  }
+
+  static async updateTechnology(request: NextRequest, technologyId: string) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const body = await request.json();
+
+      const dto = UpdatePortfolioTechnologySchema.parse(body);
+
+      const technologies = await portfolioTechnologyService.updateMetadata({
+        actor,
+        technologyId,
+        dto,
+      });
+
+      return ApiResponse.ok(technologies);
+    });
+  }
+
+  static async removeTechnology(request: NextRequest, technologyId: string) {
+    return Route.execute(async () => {
+      const actor = await SessionService.getStrictActor(request);
+
+      const technologies = await portfolioTechnologyService.remove({
+        actor,
+        technologyId,
+      });
+
+      return ApiResponse.ok(technologies);
     });
   }
 }

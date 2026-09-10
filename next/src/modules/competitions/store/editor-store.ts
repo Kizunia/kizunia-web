@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import type { CompetitionEditDTOWithPermissions } from "../types/edit-dto";
 import type { CompetitionLocationDTO } from "../types/competition-location.dto";
+import type { CompetitionTechnologyDTO } from "../types/competition-technology.dto";
 import { CompetitionApi } from "../api/competition-api";
 import { ApiError } from "@/lib/http";
 
@@ -31,6 +32,14 @@ interface CompetitionEditorStore {
    * already committed on the server.
    */
   setLocations(locations: CompetitionLocationDTO[]): void;
+
+  /**
+   * Replaces the technology list after a technologies endpoint has already
+   * persisted it. Same reasoning as `setLocations`: technologies attach and
+   * detach through their own endpoints, so this leaves `dirty` alone rather
+   * than treating the change as an unsaved edit.
+   */
+  setTechnologies(technologies: CompetitionTechnologyDTO[]): void;
 
   deleteCompetition: () => Promise<void>;
   setCompetition(competition: CompetitionEditDTOWithPermissions): void;
@@ -84,6 +93,27 @@ export const useCompetitionEditorStore = create<CompetitionEditorStore>(
             ? {
                 ...state.original,
                 locations,
+              }
+            : state.original,
+        };
+      }),
+
+    setTechnologies: (technologies) =>
+      set((state) => {
+        if (!state.competition) {
+          return state;
+        }
+
+        return {
+          competition: {
+            ...state.competition,
+            technologies,
+          },
+
+          original: state.original
+            ? {
+                ...state.original,
+                technologies,
               }
             : state.original,
         };

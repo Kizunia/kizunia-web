@@ -20,4 +20,6 @@ export interface CompetitionPermissionsDTO {
   canManageMedia: boolean;
 
   canManageLinks: boolean;
+
+  canManageTechnologies: boolean;
 }

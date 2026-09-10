@@ -49,6 +49,7 @@ export const PlatformPermissionSet = {
         PlatformAction.ACCESS_ADMIN_DASHBOARD,
         PlatformAction.VIEW_COMPETITION_SUGGESTIONS,
         PlatformAction.REVIEW_COMPETITION_SUGGESTIONS,
+        PlatformAction.MANAGE_TECHNOLOGIES,
     ]),
 
     [PlatformRole.SUPER_ADMIN]: new Set<PlatformAction>([
@@ -60,5 +61,6 @@ export const PlatformPermissionSet = {
         PlatformAction.MANAGE_USERS,
         PlatformAction.VIEW_COMPETITION_SUGGESTIONS,
         PlatformAction.REVIEW_COMPETITION_SUGGESTIONS,
+        PlatformAction.MANAGE_TECHNOLOGIES,
     ]),
 } as const;

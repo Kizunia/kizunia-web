@@ -63,6 +63,9 @@ const projectSummarySelect = {
   },
 
   technologies: {
+    orderBy: {
+      displayOrder: "asc",
+    },
     select: {
       technology: {
         select: {
@@ -134,6 +137,9 @@ const projectDetailsInclude = {
   },
 
   technologies: {
+    orderBy: {
+      displayOrder: "asc",
+    },
     include: {
       technology: true,
       // role: true,

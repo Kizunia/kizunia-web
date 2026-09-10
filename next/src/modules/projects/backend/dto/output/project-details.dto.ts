@@ -100,8 +100,6 @@ export interface ProjectDetailsDto {
     name: string;
 
     slug: string;
-
-    iconUrl: string | null;
   }[];
 
   // ===========================================================================

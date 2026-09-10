@@ -39,6 +39,16 @@ export const CompetitionErrorCode = {
 
     BULK_UNAUTHORIZED: "COMPETITION_BULK_UNAUTHORIZED",
 
+    TECHNOLOGY_NOT_FOUND: "COMPETITION_TECHNOLOGY_NOT_FOUND",
+
+    /**
+     * Attaching a Technology that does not exist, or that has been
+     * soft-deleted from the global catalog. Re-checked server-side on every
+     * attach — the catalog endpoint already excludes deleted rows, but a
+     * stale client payload could still submit one.
+     */
+    TECHNOLOGY_INACTIVE: "COMPETITION_TECHNOLOGY_INACTIVE",
+
 } as const;
 
 export type CompetitionErrorCode =

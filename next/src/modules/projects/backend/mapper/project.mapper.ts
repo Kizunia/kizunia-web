@@ -7,6 +7,7 @@ import type {
   ProjectSummaryEntity,
   ProjectMineSummaryEntity,
 } from "../repository";
+import type { ProjectTechnologyEntity } from "../project-technology.repository";
 import { CreateProjectDto, UpdateProjectDto } from "../dto/input";
 import {
   ProjectSummaryDto,
@@ -15,6 +16,7 @@ import {
   ProjectPublicDetailsDto,
   ProjectLinkDto,
   ProjectTestimonialDto,
+  ProjectTechnologyDto,
 } from "../dto/output";
 import type { ProjectPermissionsDTO } from "../authorization/dto";
 import { ProjectContextResolver } from "../authorization/context-resolver";
@@ -77,6 +79,24 @@ export class ProjectMapper {
       displayOrder: testimonial.displayOrder,
 
       image: this.toAssetDto(testimonial.imageAsset),
+    };
+  }
+
+  static toTechnologyDto(
+    entry: ProjectTechnologyEntity,
+  ): ProjectTechnologyDto {
+    return {
+      id: entry.technology.id,
+
+      name: entry.technology.name,
+
+      slug: entry.technology.slug,
+
+      type: entry.technology.type,
+
+      iconAsset: this.toAssetDto(entry.technology.iconAsset),
+
+      displayOrder: entry.displayOrder,
     };
   }
 
@@ -313,8 +333,6 @@ export class ProjectMapper {
         name: technology.name,
 
         slug: technology.slug,
-
-        iconUrl: technology.iconUrl,
       })),
 
       badges: project.badges.map((projectBadge) => ({
@@ -437,8 +455,6 @@ export class ProjectMapper {
         name: technology.name,
 
         slug: technology.slug,
-
-        iconUrl: technology.iconUrl,
       })),
 
       links: project.links.map((link) => this.toLinkDto(link)),

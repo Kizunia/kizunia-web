@@ -69,6 +69,7 @@ async function seed(): Promise<Fixture> {
     data: {
       name: `${FIXTURE_PREFIX} technology`,
       slug: `${FIXTURE_PREFIX}-technology`,
+      type: "OTHER",
     },
   });
 

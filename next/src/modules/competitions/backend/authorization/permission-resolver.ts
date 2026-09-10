@@ -42,6 +42,11 @@ export class CompetitionPermissionResolver {
         context,
         CompetitionAction.MANAGE_LINKS,
       ),
+
+      canManageTechnologies: this.can(
+        context,
+        CompetitionAction.MANAGE_TECHNOLOGIES,
+      ),
     };
   }
 

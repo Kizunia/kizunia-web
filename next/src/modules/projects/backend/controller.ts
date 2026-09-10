@@ -20,6 +20,7 @@ import { UnauthorizedError } from "@/lib/errors";
 import { projectService } from "./service";
 import { projectLinkService } from "./project-link.service";
 import { projectTestimonialService } from "./project-testimonial.service";
+import { projectTechnologyService } from "./project-technology.service";
 import { ProjectMineQuerySchema } from "../search";
 import { SessionService } from "@/lib/auth/session";
 import { CreateProjectSchema, DeleteProjectSchema } from "../schemas";
@@ -38,6 +39,10 @@ import {
   ReorderProjectTestimonialsSchema,
   UpdateProjectTestimonialSchema,
 } from "../schemas/project-testimonial.schema";
+import {
+  AttachProjectTechnologySchema,
+  ReorderProjectTechnologiesSchema,
+} from "../schemas/project-technology.schema";
 import { SetAssetSchema } from "@/modules/assets/schemas/set-asset";
 import { ValidationError } from "@/lib/errors";
 import { isProjectAssetSlot } from "../types/asset-slot";
@@ -565,6 +570,87 @@ export class ProjectController {
       });
 
       return ApiResponse.ok(testimonials);
+    });
+  }
+
+  // ===========================================================================
+  // Technologies
+  // ===========================================================================
+
+  static async listTechnologies(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Business Logic
+      const technologies = await projectTechnologyService.list({
+        projectId,
+        actor,
+      });
+
+      return ApiResponse.ok(technologies);
+    });
+  }
+
+  static async attachTechnology(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Validation
+      const dto = AttachProjectTechnologySchema.parse(await request.json());
+
+      // Business Logic
+      const technologies = await projectTechnologyService.attach({
+        projectId,
+        actor,
+        technologyId: dto.technologyId,
+      });
+
+      return ApiResponse.ok(technologies);
+    });
+  }
+
+  static async detachTechnology(
+    request: NextRequest,
+    projectId: string,
+    technologyId: string,
+  ) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Business Logic
+      const technologies = await projectTechnologyService.detach({
+        projectId,
+        actor,
+        technologyId,
+      });
+
+      return ApiResponse.ok(technologies);
+    });
+  }
+
+  /**
+   * Reorders the project's technologies. Lives on the collection rather than
+   * an individual technology because ordering is a property of the list.
+   */
+  static async reorderTechnologies(request: NextRequest, projectId: string) {
+    return Route.execute(async () => {
+      // Authentication
+      const actor = await SessionService.getStrictActor(request);
+
+      // Validation
+      const dto = ReorderProjectTechnologiesSchema.parse(await request.json());
+
+      // Business Logic
+      const technologies = await projectTechnologyService.reorder({
+        projectId,
+        actor,
+        dto,
+      });
+
+      return ApiResponse.ok(technologies);
     });
   }
 }

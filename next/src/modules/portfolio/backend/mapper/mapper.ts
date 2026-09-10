@@ -10,6 +10,7 @@ import type { PortfolioSummaryDto } from "../../dtos";
 
 import type { PortfolioProjectSummaryDto } from "../../dtos";
 import type { PortfolioTestimonialSummaryDto } from "../../dtos";
+import type { PortfolioTechnologySummaryDto } from "../../dtos";
 
 import type {
   PortfolioEditorEntity,
@@ -19,6 +20,7 @@ import type {
 
 import type { PortfolioProjectSummaryEntity } from "../portfolio-project.repository";
 import type { PortfolioTestimonialEntity } from "../portfolio-testimonial.repository";
+import type { PortfolioTechnologyEntity } from "../portfolio-technology.repository";
 
 function toPublicAssetDto(
   asset: {
@@ -110,7 +112,6 @@ export class PortfolioMapper {
           id: entry.technology.id,
           name: entry.technology.name,
           slug: entry.technology.slug,
-          iconUrl: entry.technology.iconUrl,
         },
         startedUsingAt: entry.startedUsingAt,
         description: entry.description,
@@ -191,7 +192,6 @@ export class PortfolioMapper {
             id: tech.technology.id,
             name: tech.technology.name,
             slug: tech.technology.slug,
-            iconUrl: tech.technology.iconUrl,
           })),
           categories: entry.project.categories.map((cat) => ({
             id: cat.category.id,
@@ -287,6 +287,34 @@ export class PortfolioMapper {
     entries: PortfolioTestimonialEntity[],
   ): PortfolioTestimonialSummaryDto[] {
     return entries.map((entry) => this.toTestimonialSummaryDto(entry));
+  }
+
+  static toTechnologySummaryDto(
+    entry: PortfolioTechnologyEntity,
+  ): PortfolioTechnologySummaryDto {
+    return {
+      technologyId: entry.technologyId,
+
+      name: entry.technology.name,
+
+      slug: entry.technology.slug,
+
+      type: entry.technology.type,
+
+      icon: toPublicAssetDto(entry.technology.iconAsset),
+
+      startedUsingAt: entry.startedUsingAt,
+
+      description: entry.description,
+
+      displayOrder: entry.displayOrder,
+    };
+  }
+
+  static toTechnologySummaryDtos(
+    entries: PortfolioTechnologyEntity[],
+  ): PortfolioTechnologySummaryDto[] {
+    return entries.map((entry) => this.toTechnologySummaryDto(entry));
   }
 
   static toSummaryDto(portfolio: PortfolioSummaryEntity): PortfolioSummaryDto {

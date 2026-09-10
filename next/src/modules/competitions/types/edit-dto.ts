@@ -11,6 +11,7 @@ import {
 } from "@/generated/prisma";
 import { CompetitionPermissionsDTO } from "../backend/authorization/dto";
 import type { CompetitionLocationDTO } from "./competition-location.dto";
+import type { CompetitionTechnologyDTO } from "./competition-technology.dto";
 
 
 export interface CompetitionEditDTO {
@@ -129,11 +130,13 @@ export interface CompetitionEditDTO {
     slug: string;
   }[];
 
-  technologies: {
-    id: string;
-    name: string;
-    slug: string;
-  }[];
+  /**
+   * Technologies relevant to the competition — not a required-tools list.
+   * Managed through the dedicated technologies endpoints, not the
+   * competition PATCH, same as `locations`. Unlike Project and Portfolio
+   * technologies, this relationship has no ordering.
+   */
+  technologies: CompetitionTechnologyDTO[];
 
 }
 export interface CompetitionEditDTOWithPermissions extends CompetitionEditDTO {

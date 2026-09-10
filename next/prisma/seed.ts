@@ -55,7 +55,7 @@ async function main() {
   const { techMap, catMap, badgeMap } = await seedTaxonomy(prisma);
 
   // ── Step 3: User enrichment (interests, badges, prefs) ─────
-  await seedUserEnrichment(prisma, { techMap, catMap, badgeMap, userIdList });
+  await seedUserEnrichment(prisma, { catMap, badgeMap, userIdList });
 
   // ── Step 4: Competitions ─────────────────────────────────────
   const competitionMap = await seedCompetitions(prisma, {
