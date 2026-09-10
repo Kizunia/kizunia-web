@@ -37,6 +37,9 @@ export class PortfolioPolicy {
       case PortfolioAction.DELETE:
         return this.canDelete(context);
 
+      case PortfolioAction.MANAGE_PROJECTS:
+        return this.canManageProjects(context);
+
       default:
         return {
           allowed: false,
@@ -119,6 +122,36 @@ export class PortfolioPolicy {
       allowed: false,
       code: AuthorizationCode.UNAUTHORIZED,
       message: "You do not have permission to edit this portfolio.",
+    };
+  }
+
+  /**
+   * Relationship management is owner-only. Note this says nothing about the
+   * Project on the other side of the relationship — that eligibility is a
+   * membership check the service performs separately.
+   */
+  private static canManageProjects(
+    context: PortfolioContext,
+  ): AuthorizationDecision {
+    if (!context.portfolio) {
+      return {
+        allowed: false,
+        code: AuthorizationCode.UNAUTHORIZED,
+        message: "Portfolio context is missing.",
+      };
+    }
+
+    if (context.isOwner) {
+      return {
+        allowed: true,
+      };
+    }
+
+    return {
+      allowed: false,
+      code: AuthorizationCode.UNAUTHORIZED,
+      message:
+        "You do not have permission to manage this portfolio's projects.",
     };
   }
 

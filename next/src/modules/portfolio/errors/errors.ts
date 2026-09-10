@@ -1,7 +1,9 @@
 import {
   ConflictError,
+  ForbiddenError,
   HttpStatus,
   NotFoundError,
+  ValidationError,
 } from "@/lib/errors";
 
 
@@ -21,6 +23,67 @@ export class PortfolioAlreadyExistsError extends ConflictError {
       code: "PORTFOLIO_ALREADY_EXISTS",
       status: HttpStatus.CONFLICT,
       message: "The user already has a portfolio.",
+    });
+  }
+}
+
+// =============================================================================
+// Portfolio Projects
+// =============================================================================
+
+/**
+ * Raised when the composite primary key rejects a second attempt to attach
+ * the same project. The database constraint is the authority here — two
+ * concurrent adds can both pass a service-level pre-check.
+ */
+export class PortfolioProjectAlreadyExistsError extends ConflictError {
+  constructor() {
+    super({
+      code: "PORTFOLIO_PROJECT_ALREADY_EXISTS",
+      status: HttpStatus.CONFLICT,
+      message: "This project is already in your portfolio.",
+    });
+  }
+}
+
+/**
+ * Raised when a mutation scoped to `(portfolioId, projectId)` matches no row.
+ * Deliberately indistinguishable from "belongs to another portfolio" — the
+ * scoping makes a foreign relationship simply invisible rather than forbidden.
+ */
+export class PortfolioProjectNotFoundError extends NotFoundError {
+  constructor() {
+    super({
+      code: "PORTFOLIO_PROJECT_NOT_FOUND",
+      message: "This project is not in your portfolio.",
+    });
+  }
+}
+
+/**
+ * Raised when the actor is not a member of the project they are trying to
+ * attach or feature. Membership existence is the eligibility mechanism —
+ * OWNER, MAINTAINER and CONTRIBUTOR all qualify. Also covers a project that
+ * does not exist or has been soft-deleted, so a probe cannot distinguish the
+ * two cases.
+ */
+export class PortfolioProjectMembershipRequiredError extends ForbiddenError {
+  constructor() {
+    super({
+      code: "PORTFOLIO_PROJECT_MEMBERSHIP_REQUIRED",
+      message:
+        "You must be a member of this project to add it to your portfolio.",
+    });
+  }
+}
+
+export class PortfolioProjectReorderMismatchError extends ValidationError {
+  constructor() {
+    super({
+      code: "PORTFOLIO_PROJECT_REORDER_MISMATCH",
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      message:
+        "Reorder must list every project in your portfolio exactly once.",
     });
   }
 }

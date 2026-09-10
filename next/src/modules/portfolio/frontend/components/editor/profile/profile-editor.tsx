@@ -1,114 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { usePortfolioStore } from "../../../store/portfolio.store";
+import { usePortfolioProfileStore } from "../../../store/portfolio-profile.store";
 import { DocumentUploader } from "@/modules/assets/frontend/components/document-uploader";
-
-interface ProfileFormState {
-  displayName: string;
-  headline: string;
-  bio: string;
-  phone: string;
-  publicContactEmail: string;
-  location: string;
-  resumeAssetId: string;
-}
-
-const EMPTY_FORM: ProfileFormState = {
-  displayName: "",
-  headline: "",
-  bio: "",
-  phone: "",
-  publicContactEmail: "",
-  location: "",
-  resumeAssetId: "",
-};
 
 export function ProfileEditor() {
   const portfolio = usePortfolioStore((state) => state.portfolio);
-  // load protfolio
-  const getMine = usePortfolioStore((state) => state.getMine);
-  const isLoading = usePortfolioStore((state) => state.isLoading);
-  const error = usePortfolioStore((state) => state.error);
-  const updateProfile = usePortfolioStore((state) => state.updateProfile);
 
-  const [form, setForm] = useState<ProfileFormState>(EMPTY_FORM);
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (!portfolio) {
-      return;
-    }
-
-    setForm({
-      displayName: portfolio.displayName ?? "",
-      headline: portfolio.headline ?? "",
-      bio: portfolio.bio ?? "",
-      phone: portfolio.phone ?? "",
-      publicContactEmail: portfolio.publicContactEmail ?? "",
-      location: portfolio.location ?? "",
-      resumeAssetId: portfolio.resumeAssetId ?? "",
-    });
-  }, [portfolio]);
+  const form = usePortfolioProfileStore((state) => state.form);
+  const isSaving = usePortfolioProfileStore((state) => state.isSaving);
+  const error = usePortfolioProfileStore((state) => state.error);
+  const fieldErrors = usePortfolioProfileStore((state) => state.fieldErrors);
+  const initialize = usePortfolioProfileStore((state) => state.initialize);
+  const setField = usePortfolioProfileStore((state) => state.setField);
+  const updateProfile = usePortfolioProfileStore((state) => state.updateProfile);
 
   useEffect(() => {
-    if (!portfolio) {
-      getMine();
+    if (portfolio) {
+      initialize(portfolio);
     }
-  }, []);
-
-  const updateField = <K extends keyof ProfileFormState>(
-    field: K,
-    value: ProfileFormState[K],
-  ) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-
-    try {
-      await updateProfile({
-        displayName: form.displayName,
-        headline: form.headline || null,
-        bio: form.bio || null,
-        phone: form.phone || null,
-        publicContactEmail: form.publicContactEmail || null,
-        location: form.location || null,
-        resumeAssetId: form.resumeAssetId || null,
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <div className="h-7 w-32 animate-pulse rounded-md bg-muted" />
-          <div className="mt-2 h-4 w-72 animate-pulse rounded-md bg-muted" />
-        </div>
-
-        <div>
-          <CardContent className="space-y-6 pt-6">
-            <div className="h-10 animate-pulse rounded-md bg-muted" />
-            <div className="h-10 animate-pulse rounded-md bg-muted" />
-            <div className="h-32 animate-pulse rounded-md bg-muted" />
-          </CardContent>
-        </div>
-      </div>
-    );
-  }
+  }, [portfolio, initialize]);
 
   if (!portfolio) {
     return (
@@ -123,7 +41,7 @@ export function ProfileEditor() {
   }
 
   return (
-    <div className=" w-full max-w-3xl space-y-8">
+    <div className="w-full max-w-3xl space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
@@ -141,7 +59,7 @@ export function ProfileEditor() {
       )}
 
       {/* Identity */}
-      <div className="flex flex-col gap-4 ">
+      <div className="flex flex-col gap-4">
         <CardHeader>
           <CardTitle className="text-base">Identity</CardTitle>
 
@@ -156,13 +74,17 @@ export function ProfileEditor() {
 
             <Input
               id="display-name"
-              value={form.displayName}
-              onChange={(event) =>
-                updateField("displayName", event.target.value)
-              }
+              value={form.displayName ?? ""}
+              onChange={(event) => setField("displayName", event.target.value)}
               placeholder="Your name"
               maxLength={100}
             />
+
+            {fieldErrors.displayName && (
+              <p className="text-xs text-destructive">
+                {fieldErrors.displayName}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -170,8 +92,10 @@ export function ProfileEditor() {
 
             <Input
               id="headline"
-              value={form.headline}
-              onChange={(event) => updateField("headline", event.target.value)}
+              value={form.headline ?? ""}
+              onChange={(event) =>
+                setField("headline", event.target.value || null)
+              }
               placeholder="Software Engineer"
               maxLength={150}
             />
@@ -179,12 +103,16 @@ export function ProfileEditor() {
             <p className="text-xs text-muted-foreground">
               A short description that appears below your name.
             </p>
+
+            {fieldErrors.headline && (
+              <p className="text-xs text-destructive">{fieldErrors.headline}</p>
+            )}
           </div>
         </CardContent>
       </div>
 
       {/* About */}
-      <div className="flex flex-col gap-4 ">
+      <div className="flex flex-col gap-4">
         <CardHeader>
           <CardTitle className="text-base">About</CardTitle>
 
@@ -199,8 +127,8 @@ export function ProfileEditor() {
 
             <Textarea
               id="bio"
-              value={form.bio}
-              onChange={(event) => updateField("bio", event.target.value)}
+              value={form.bio ?? ""}
+              onChange={(event) => setField("bio", event.target.value || null)}
               placeholder="Tell people about yourself, what you build, and what you care about."
               maxLength={5000}
               className="min-h-40 resize-y"
@@ -208,15 +136,19 @@ export function ProfileEditor() {
 
             <div className="flex justify-end">
               <span className="text-xs text-muted-foreground">
-                {form.bio.length}/5000
+                {(form.bio ?? "").length}/5000
               </span>
             </div>
+
+            {fieldErrors.bio && (
+              <p className="text-xs text-destructive">{fieldErrors.bio}</p>
+            )}
           </div>
         </CardContent>
       </div>
 
       {/* Contact */}
-      <div className="flex flex-col gap-4 ">
+      <div className="flex flex-col gap-4">
         <CardHeader>
           <CardTitle className="text-base">Contact</CardTitle>
 
@@ -233,12 +165,18 @@ export function ProfileEditor() {
             <Input
               id="public-contact-email"
               type="email"
-              value={form.publicContactEmail}
+              value={form.publicContactEmail ?? ""}
               onChange={(event) =>
-                updateField("publicContactEmail", event.target.value)
+                setField("publicContactEmail", event.target.value || null)
               }
               placeholder="you@example.com"
             />
+
+            {fieldErrors.publicContactEmail && (
+              <p className="text-xs text-destructive">
+                {fieldErrors.publicContactEmail}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -246,11 +184,17 @@ export function ProfileEditor() {
 
             <Input
               id="phone"
-              value={form.phone}
-              onChange={(event) => updateField("phone", event.target.value)}
+              value={form.phone ?? ""}
+              onChange={(event) =>
+                setField("phone", event.target.value || null)
+              }
               placeholder="+91 ..."
               maxLength={30}
             />
+
+            {fieldErrors.phone && (
+              <p className="text-xs text-destructive">{fieldErrors.phone}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -258,17 +202,23 @@ export function ProfileEditor() {
 
             <Input
               id="location"
-              value={form.location}
-              onChange={(event) => updateField("location", event.target.value)}
+              value={form.location ?? ""}
+              onChange={(event) =>
+                setField("location", event.target.value || null)
+              }
               placeholder="Pune, India"
               maxLength={150}
             />
+
+            {fieldErrors.location && (
+              <p className="text-xs text-destructive">{fieldErrors.location}</p>
+            )}
           </div>
         </CardContent>
       </div>
 
       {/* Resume */}
-     <div className="flex flex-col gap-4 ">
+      <div className="flex flex-col gap-4">
         <CardHeader>
           <CardTitle className="text-base">Resume</CardTitle>
 
@@ -285,7 +235,7 @@ export function ProfileEditor() {
                 <button
                   type="button"
                   className="underline"
-                  onClick={() => updateField("resumeAssetId", "")}
+                  onClick={() => setField("resumeAssetId", null)}
                 >
                   Remove
                 </button>
@@ -295,7 +245,7 @@ export function ProfileEditor() {
             <DocumentUploader
               purpose="PORTFOLIO_RESUME"
               accept="application/pdf"
-              onUploaded={(asset) => updateField("resumeAssetId", asset.id)}
+              onUploaded={(asset) => setField("resumeAssetId", asset.id)}
             />
 
             <p className="text-xs text-muted-foreground">
@@ -310,8 +260,8 @@ export function ProfileEditor() {
       <div className="flex justify-end pb-8">
         <Button
           type="button"
-          onClick={handleSave}
-          disabled={isSaving || !form.displayName.trim()}
+          onClick={() => void updateProfile()}
+          disabled={isSaving || !(form.displayName ?? "").trim()}
         >
           {isSaving ? "Saving..." : "Save changes"}
         </Button>

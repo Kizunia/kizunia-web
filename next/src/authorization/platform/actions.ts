@@ -20,6 +20,7 @@ export enum PlatformAction {
 
   // Portfolios
   VIEW_ALL_PORTFOLIOS = "VIEW_ALL_PORTFOLIOS",
+  CREATE_PORTFOLIO = "CREATE_PORTFOLIO",
 
   // Suggestions / Moderation
   VIEW_COMPETITION_SUGGESTIONS = "VIEW_COMPETITION_SUGGESTIONS",

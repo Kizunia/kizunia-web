@@ -94,13 +94,31 @@ Customization should affect presentation rather than ownership of the underlying
 
 ---
 
-# Featured Projects
+# Portfolio Projects
 
-Users may choose one or more projects to highlight.
+Any active member of a Project — Owner, Maintainer, or Contributor — may
+attach that Project to their own Portfolio. This is relationship
+management only: the Portfolio never edits the Project's title,
+description, visibility, status, members, content, technologies,
+categories, badges, testimonials, media, or competitions. It controls
+only whether the Project is shown on the Portfolio and whether that
+showing is featured.
 
-Featured projects appear near the top of the portfolio and represent the work the user wishes to showcase.
+Users may choose one or more attached projects to highlight as **featured**.
+Featuring is independent of ordering — a featured project does not move to
+the top of the list; it is marked with a visual indicator instead. Display
+order is otherwise fully user-controlled.
 
-Featured projects do not replace the complete project history.
+If a user is no longer a member of a Project, it immediately stops
+appearing anywhere on their Portfolio — in the editor and publicly — even
+though the underlying record isn't necessarily deleted right away.
+
+A Project's own visibility/status/deletion rules are always authoritative:
+a Portfolio being public never makes a private, draft, unlisted, or deleted
+Project publicly visible. The Portfolio owner can still manage (feature,
+reorder, remove) their relationship to such a Project in their own editor,
+since they remain an active member — only the public rendering is
+restricted.
 
 ---
 
@@ -166,13 +184,23 @@ The platform may display engineering statistics such as:
 
 Users control the visibility of their portfolio.
 
-Possible visibility levels include:
+Visibility levels are:
 
 * Public
-* Unlisted
 * Private
 
-Users may also hide individual sections without hiding the entire portfolio.
+Users may also hide individual sections without hiding the entire
+portfolio — this is a separate, per-section presentation toggle
+(`hiddenSections`), unrelated to the two-state visibility model above.
+
+A banned user's portfolio is never publicly visible, regardless of its
+visibility setting — this is guaranteed by the backend, not the frontend.
+
+Portfolio URLs are based on the owner's username, not a portfolio-specific
+identifier. A portfolio may exist before its owner sets a username, but it
+is not publicly reachable until they do. Changing or removing a username
+changes or breaks the portfolio's public URL — users should be warned
+before doing so wherever that change is offered.
 
 ---
 
@@ -195,17 +223,48 @@ The purpose of verification is to explain why a user is trusted, not to indicate
 
 # Relationships
 
-A portfolio references information from:
+A portfolio owns its own presentation content (biography, links,
+technologies, education, experience, achievements, certifications) and
+its Testimonials.
 
-* User
-* Projects
-* Teams
-* Hackathons
-* Achievements
+It **references** rather than owns:
 
-The portfolio owns none of this information.
+* User — the account/identity the Portfolio belongs to
+* Projects — respecting each Project's own visibility/status/deletion rules
+* Blogs — planned, not yet possible: there is no Blog domain in the platform today
+* Teams, Hackathons — future integrations, not yet implemented
 
-Changes made elsewhere on the platform should automatically be reflected in the portfolio.
+Changes made elsewhere on the platform (a Project's visibility changing, for example) should automatically be reflected in what the portfolio is allowed to show.
+
+---
+
+# Public Contact Fields
+
+A portfolio may publish a contact email and phone number that are
+intentionally separate from the user's private account email — a builder
+can choose to show a different, more public-facing contact address. These
+are included in the public portfolio response when set; no other private
+account information is exposed there.
+
+---
+
+# Editor API vs Public API
+
+The product guarantees a clear separation between two ways of accessing a
+portfolio:
+
+* An **authenticated editor experience**, scoped to the owner, for viewing
+  and updating their own portfolio.
+* An **anonymous public view**, reachable only by username, that only ever
+  returns portfolios meeting every public-visibility condition (public,
+  not deleted, owner has a username, owner not banned) and only exposes
+  fields that are deliberately part of the public contract — never
+  internal/account fields.
+
+The public contract is intentionally designed to be usable by future
+third-party integrations (e.g. an external site embedding a builder's
+portfolio), though authenticated third-party access (API keys) is not
+available yet.
 
 ---
 
