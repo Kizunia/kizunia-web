@@ -22,7 +22,9 @@ import { RateLimitPolicyId } from "@/lib/rate-limit/policies";
 // We mock the service before importing the route so the mock is in place.
 // ---------------------------------------------------------------------------
 
-const mockEnforce = vi.fn().mockResolvedValue({ allowed: true });
+const { mockEnforce } = vi.hoisted(() => ({
+  mockEnforce: vi.fn().mockResolvedValue({ allowed: true }),
+}));
 
 vi.mock("@/lib/rate-limit/service", () => ({
   rateLimitService: { enforce: mockEnforce },
