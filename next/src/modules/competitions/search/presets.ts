@@ -45,7 +45,11 @@ import {
   type PlatformPreset,
 } from "@/lib/search/client";
 
-import { competitionFilterSpecs, RECORD_STATE_SPEC } from "./ui";
+import {
+  AUTOMATION_STATE_SPEC,
+  competitionFilterSpecs,
+  RECORD_STATE_SPEC,
+} from "./ui";
 
 /**
  * Pune, as the location provider identifies it.
@@ -219,4 +223,46 @@ export const COMPETITION_ADMIN_PRESET_NAMESPACE = "competitions:admin";
 
 export const competitionAdminPresetStore = createCustomPresetStore(
   COMPETITION_ADMIN_PRESET_NAMESPACE,
+);
+
+// =============================================================================
+// Lifecycle console
+// =============================================================================
+//
+// A third, independent catalogue and store, for the same reason admin's is
+// independent of the public one: "Automation disabled" answers a question
+// only the lifecycle console asks.
+
+/**
+ * Competitions with automatic status management turned off — the admin's
+ * worklist for "which of these need a manual decision".
+ */
+const automationDisabled: PlatformPreset = {
+  id: "automation-disabled",
+  name: "Automation disabled",
+  description: "Competitions where automatic status updates are turned off.",
+  filters: presetFilters(presetFilter(AUTOMATION_STATE_SPEC, ["DISABLED"])),
+  displayOrder: 10,
+  enabled: true,
+  icon: "bookmark",
+};
+
+// A second preset built from a relative "ending soon" date range was
+// considered and deliberately left out: platform presets in this
+// architecture store absolute filter values (see `presetFilter`'s doc
+// comment on `writeFilterValue`), while the date-range control's own presets
+// resolve `fromDays`/`toDays` at click time. Encoding "the next 7 days" as a
+// platform preset would freeze today's date into the preset at deploy time
+// rather than at the moment someone applies it — the admin can still reach
+// exactly this view via the `endDate` filter's own "Next 7 days" shortcut.
+
+/** Kizunia's lifecycle-console platform presets, in declaration order. */
+export const COMPETITION_LIFECYCLE_PLATFORM_PRESETS: readonly PlatformPreset[] =
+  [automationDisabled];
+
+/** Where this browser keeps its saved lifecycle-console presets. */
+export const COMPETITION_LIFECYCLE_PRESET_NAMESPACE = "competitions:lifecycle";
+
+export const competitionLifecyclePresetStore = createCustomPresetStore(
+  COMPETITION_LIFECYCLE_PRESET_NAMESPACE,
 );

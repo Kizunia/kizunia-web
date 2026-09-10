@@ -34,6 +34,7 @@ import type { Prisma } from "@/generated/prisma";
 import { ExternalServiceError } from "@/lib/errors";
 import {
   buildSearchQuery,
+  dateRangeFilter,
   readFilterValue,
   resolvableFiltersForScope,
   resolveBaseClauses,
@@ -43,14 +44,46 @@ import {
 import { CompetitionErrorCode } from "../errors/error-code";
 import {
   competitionSearchDefinition,
+  dateBounds,
   type CompetitionSearchContext,
 } from "./definition";
-import { RECORD_STATE_SPEC } from "./ui";
+import {
+  AUTOMATION_STATE_SPEC,
+  RECORD_STATE_SPEC,
+  REGISTRATION_START_DATE_SPEC,
+} from "./ui";
 
 type CompetitionWhere = Prisma.CompetitionWhereInput;
 
 /** The scopes the Competition registry declares. */
-export type CompetitionSearchScope = "public" | "management" | "admin";
+export type CompetitionSearchScope =
+  | "public"
+  | "management"
+  | "admin"
+  | "lifecycle";
+
+/**
+ * Matches rows whose status is anything other than CANCELLED — including
+ * `null`. Written this way deliberately: `{ status: { not: "CANCELLED" } }`
+ * compiles to SQL `status <> 'CANCELLED'`, which is UNKNOWN (and therefore
+ * excludes) NULL rows. A null-status competition is "no status yet", not
+ * CANCELLED, and automatic lifecycle processing must still be able to
+ * propose a status for it — see `resolveAutomaticStatus`'s rule 0.
+ */
+export const NON_CANCELLED_CLAUSE: CompetitionWhere = {
+  OR: [{ status: null }, { status: { not: "CANCELLED" } }],
+};
+
+/**
+ * Not registered on the definition (see `lifecycleClauses` below), but still
+ * built through `dateRangeFilter` so its boundary parsing — inclusive
+ * bounds, bare-date end-of-day — comes from the one function that owns
+ * those semantics, the same as every registered date-range filter.
+ */
+const registrationStartDateFilter = dateRangeFilter<Prisma.DateTimeFilter>({
+  spec: REGISTRATION_START_DATE_SPEC,
+  toWhere: dateBounds,
+});
 
 /**
  * Soft-deleted-row visibility, per request.
@@ -103,6 +136,69 @@ function deletionClauses(
 
   // Absent, or ACTIVE alone: today's default, unchanged.
   return [{ deletedAt: null }];
+}
+
+/**
+ * The lifecycle console's two out-of-band filters:
+ * `registrationStartDate` range and automation state. Same shape as
+ * `deletionClauses` above — scope checked FIRST, so `?registrationStartDateFrom=`
+ * or `?automationState=` on any other scope's request is never even
+ * inspected, let alone honoured.
+ *
+ * Neither spec is a registered filter (see `ui.ts`), because every scope
+ * here declares `allowedFilters: "all"` — an ordinary registered filter
+ * would be reachable from the public listing too.
+ */
+function lifecycleClauses(
+  scope: CompetitionSearchScope,
+  params: RawSearchParams,
+): readonly CompetitionWhere[] {
+  if (scope !== "lifecycle") {
+    return [];
+  }
+
+  const clauses: CompetitionWhere[] = [];
+
+  const range = readFilterValue(REGISTRATION_START_DATE_SPEC, params);
+  if (range) {
+    clauses.push({
+      registrationStartDate: registrationStartDateFilter.toWhere(range),
+    });
+  }
+
+  const automationState = readFilterValue(AUTOMATION_STATE_SPEC, params);
+  const wantsEnabled = automationState?.includes("ENABLED") ?? false;
+  const wantsDisabled = automationState?.includes("DISABLED") ?? false;
+
+  if (wantsDisabled && !wantsEnabled) {
+    clauses.push({ automaticStatusUpdatesDisabled: true });
+  } else if (wantsEnabled && !wantsDisabled) {
+    clauses.push({ automaticStatusUpdatesDisabled: false });
+  }
+  // Both, or neither: no restriction from this filter.
+
+  return clauses;
+}
+
+/**
+ * The lifecycle console's mandatory eligibility clauses — not a filter the
+ * admin can toggle, but the business rule that automation may never propose
+ * a change for a CANCELLED or automation-disabled competition. Always
+ * applied for the `lifecycle` scope, regardless of what `automationState`
+ * (above) is set to: selecting "Disabled" there narrows the *rows shown* for
+ * inspection, while this clause is what guarantees the *actionable* set
+ * those rows produce is always empty — the two compose via a plain AND,
+ * which is exactly the "excluded from preview is not the same as excluded
+ * from automation" distinction the feature specification draws.
+ */
+function automationEligibilityClauses(
+  scope: CompetitionSearchScope,
+): readonly CompetitionWhere[] {
+  if (scope !== "lifecycle") {
+    return [];
+  }
+
+  return [{ automaticStatusUpdatesDisabled: false }, NON_CANCELLED_CLAUSE];
 }
 
 /**
@@ -187,6 +283,8 @@ export async function planCompetitionSearch(
     context,
     baseClauses: [
       ...deletionClauses(args.scope, args.params),
+      ...lifecycleClauses(args.scope, args.params),
+      ...automationEligibilityClauses(args.scope),
       ...resolution.clauses,
     ],
   };

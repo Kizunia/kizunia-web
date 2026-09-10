@@ -57,8 +57,10 @@ import {
 } from "../../search/layout";
 import {
   competitionAdminPresetStore,
+  competitionLifecyclePresetStore,
   competitionPresetStore,
   COMPETITION_ADMIN_PLATFORM_PRESETS,
+  COMPETITION_LIFECYCLE_PLATFORM_PRESETS,
   COMPETITION_PLATFORM_PRESETS,
 } from "../../search/presets";
 import {
@@ -66,6 +68,7 @@ import {
   COMPETITION_DEFAULT_SORT,
   COMPETITION_FILTER_SPECS,
   COMPETITION_SORT_OPTIONS,
+  LIFECYCLE_FILTER_SPECS,
 } from "../../search/ui";
 
 export interface CompetitionFiltersProps {
@@ -82,8 +85,10 @@ export interface CompetitionFiltersProps {
    *
    * `"admin"` adds the Record state filter ahead of everything else, clears
    * against `ADMIN_FILTER_SPECS` so "Clear all" also clears it, and offers its
-   * own presets and saved-preset store — `"public"` is exactly this
-   * component's behaviour before scope existed.
+   * own presets and saved-preset store. `"lifecycle"` adds automation state
+   * and registration-opens instead, against `LIFECYCLE_FILTER_SPECS` and its
+   * own preset store. `"public"` is exactly this component's behaviour
+   * before scope existed.
    */
   readonly scope: CompetitionFilterScope;
 }
@@ -100,7 +105,11 @@ export function CompetitionFilters({
   );
 
   const clearableSpecs =
-    scope === "admin" ? ADMIN_FILTER_SPECS : COMPETITION_FILTER_SPECS;
+    scope === "admin"
+      ? ADMIN_FILTER_SPECS
+      : scope === "lifecycle"
+        ? LIFECYCLE_FILTER_SPECS
+        : COMPETITION_FILTER_SPECS;
 
   /**
    * Lets a chip read "Artificial Intelligence" rather than "ai".
@@ -140,6 +149,11 @@ export function CompetitionFilters({
         return {
           platformPresets: COMPETITION_ADMIN_PLATFORM_PRESETS,
           store: competitionAdminPresetStore,
+        };
+      case "lifecycle":
+        return {
+          platformPresets: COMPETITION_LIFECYCLE_PLATFORM_PRESETS,
+          store: competitionLifecyclePresetStore,
         };
     }
   }, [scope]);

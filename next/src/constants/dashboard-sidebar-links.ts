@@ -36,13 +36,13 @@ export interface SidebarNavSection {
 }
 
 export const SideBarNavMain: SidebarNavSection[] = [
-  {
+  { // competitions
     id: "competitions",
     title: "Competitions",
     url: "/competitions",
     icon: Trophy,
   },
-  {
+  { // community
     id: "community",
     title: "Community",
     icon: UsersIcon,
@@ -59,7 +59,7 @@ export const SideBarNavMain: SidebarNavSection[] = [
       },
     ],
   },
-  {
+  { // admin
     id: "admin",
     title: "Admin",
     icon: UsersIcon,
@@ -80,9 +80,14 @@ export const SideBarNavMain: SidebarNavSection[] = [
         title: "Competition Suggestions",
         url: "/admin/competition-suggestions",
       },
+      {
+        id: "admin-competition-lifecycle",
+        title: "Competition lifecycle",
+        url: "/admin/competitions/lifecycle",
+      },
     ],
   },
-  {
+  { // portfolio
     id: "portfolio",
     title: "Portfolio",
     url: "/portfolio",
@@ -95,7 +100,7 @@ export const SideBarNavMain: SidebarNavSection[] = [
       },
     ],
   },
-  {
+  { // projects
     id: "projects",
     title: "Projects",
     url: "/projects",

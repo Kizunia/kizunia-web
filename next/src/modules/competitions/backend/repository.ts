@@ -450,79 +450,111 @@ export class CompetitionRepository {
     return competition;
   }
 
+  /**
+   * Updates a competition's fields (and, if `content` is present, its
+   * documentation).
+   *
+   * Takes an optional transaction client rather than opening its own —
+   * unlike the version of this method that used to live here, so it can be
+   * composed into a larger transaction. `CompetitionService.update` opens
+   * that transaction, so it can enlist a subsequent lifecycle reconciliation
+   * write into the very same one: either both persist, or neither does.
+   *
+   * `updatedById` is written only when the caller passes it and only when it
+   * is not `undefined` — `null` is a legitimate value (attribution cleared)
+   * distinct from "the caller has no opinion". It is never set by automatic
+   * lifecycle processing; see `CompetitionLifecycleService`, which updates
+   * `status`/`statusUpdatedAt` alone.
+   *
+   * `statusUpdatedAt` is written only when this call's `data.status` differs
+   * from the row's current status — an update that does not touch `status`,
+   * or that sets it to the value it already has, must not disturb this
+   * column.
+   */
   static async update({
     id,
     data,
+    updatedById,
+    db = prisma,
   }: {
     id: string;
     data: UpdateCompetitionInput;
+    updatedById?: string | null;
+    db?: Prisma.TransactionClient | Prisma.DefaultPrismaClient;
   }) {
     const { content, ...rest } = data;
 
-    return prisma.$transaction(async (tx) => {
-      const competition = await tx.competition.findUnique({
-        where: {
-          id,
-        },
-        select: {
-          contentId: true,
-        },
-      });
+    const competition = await db.competition.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        contentId: true,
+        status: true,
+      },
+    });
 
-      if (!competition) {
-        throw new CompetitionNotFoundError();
+    if (!competition) {
+      throw new CompetitionNotFoundError();
+    }
+
+    let contentId = competition.contentId;
+
+    // ------------------------------------------------------------
+    // Update or create documentation
+    // ------------------------------------------------------------
+
+    if (content !== undefined) {
+      if (contentId) {
+        await db.content.update({
+          where: {
+            id: contentId,
+          },
+          data: {
+            content,
+            version: {
+              increment: 1,
+            },
+          },
+        });
+      } else {
+        const createdContent = await db.content.create({
+          data: {
+            content,
+          },
+        });
+
+        contentId = createdContent.id;
       }
+    }
 
-      let contentId = competition.contentId;
+    const statusChanging =
+      rest.status !== undefined && rest.status !== competition.status;
 
-      // ------------------------------------------------------------
-      // Update or create documentation
-      // ------------------------------------------------------------
+    // ------------------------------------------------------------
+    // Update competition
+    // ------------------------------------------------------------
 
-      if (content !== undefined) {
-        if (contentId) {
-          await tx.content.update({
-            where: {
-              id: contentId,
-            },
-            data: {
-              content,
-              version: {
-                increment: 1,
-              },
-            },
-          });
-        } else {
-          const createdContent = await tx.content.create({
-            data: {
-              content,
-            },
-          });
+    return db.competition.update({
+      where: {
+        id,
+      },
+      data: {
+        ...rest,
 
-          contentId = createdContent.id;
-        }
-      }
+        ...(statusChanging && { statusUpdatedAt: new Date() }),
 
-      // ------------------------------------------------------------
-      // Update competition
-      // ------------------------------------------------------------
+        ...(updatedById !== undefined && { updatedById }),
 
-      return tx.competition.update({
-        where: {
-          id,
-        },
-        data: {
-          ...rest,
-
-          ...(contentId !== competition.contentId && {
-            content: {
-              connect: {
-                id: contentId!,
-              },
-            },
-          }),
-        },
-      });
+        // Written as the raw scalar FK (not `content: { connect }`) so this
+        // payload stays entirely within Prisma's "unchecked" update shape —
+        // mixing a relation-style write with a scalar FK write like
+        // `updatedById` in the same call is a type error, since the two
+        // belong to different (mutually exclusive) generated input types.
+        ...(contentId !== competition.contentId && {
+          contentId,
+        }),
+      },
     });
   }
 
