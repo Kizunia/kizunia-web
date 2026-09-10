@@ -79,6 +79,17 @@ export const UpdateCompetitionSchema = z
 
     registrationDeadline: z.coerce.date().nullable().optional(),
 
+    registrationStartDate: z.coerce.date().nullable().optional(),
+
+    // ---------------------------------------------------------------------
+    // Lifecycle automation
+    // ---------------------------------------------------------------------
+
+    // Opt-out from automatic lifecycle management. Manual status changes
+    // (the `status` field below) always remain allowed regardless of this
+    // flag — it disables automation only, never explicit admin intent.
+    automaticStatusUpdatesDisabled: z.boolean().optional(),
+
     // ---------------------------------------------------------------------
     // Team
     // ---------------------------------------------------------------------
@@ -117,15 +128,21 @@ export const UpdateCompetitionSchema = z
       });
     }
 
+    // Deliberately NOT enforcing `registrationDeadline <= startDate` here.
+    // A deadline after the start date is valid — it's what keeps a
+    // competition that has already started in REGISTRATION_OPEN rather than
+    // ONGOING (late registration). See the lifecycle resolver's precedence
+    // rules in `src/modules/competitions/lifecycle/resolver.ts`.
+
     if (
+      data.registrationStartDate &&
       data.registrationDeadline &&
-      data.startDate &&
-      data.registrationDeadline > data.startDate
+      data.registrationStartDate > data.registrationDeadline
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["registrationDeadline"],
-        message: "Registration deadline must be before the start date.",
+        message: "Registration deadline must be after registration opens.",
       });
     }
 

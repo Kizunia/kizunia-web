@@ -34,10 +34,14 @@ import {
   type ResolvedFilterLayout,
 } from "@/lib/search/client";
 
-import { ADMIN_FILTER_SPECS, COMPETITION_FILTER_SPECS } from "./ui";
+import {
+  ADMIN_FILTER_SPECS,
+  COMPETITION_FILTER_SPECS,
+  LIFECYCLE_FILTER_SPECS,
+} from "./ui";
 
 /** Which spec list and layout a render resolves against. */
-export type CompetitionFilterScope = "public" | "admin";
+export type CompetitionFilterScope = "public" | "admin" | "lifecycle";
 
 /**
  * The order the quick bar leads with.
@@ -108,6 +112,17 @@ const ADMIN_LAYOUT: FilterLayoutSource = {
 };
 
 /**
+ * The lifecycle console leads with the two controls unique to it —
+ * automation state first (the axis that decides whether a row can be
+ * automated at all), then when registration opens — ahead of the ordinary
+ * quick bar.
+ */
+const LIFECYCLE_LAYOUT: FilterLayoutSource = {
+  id: "kizunia-lifecycle",
+  pinned: ["automationState", "registrationStartDate", ...QUICK_BAR_ORDER],
+};
+
+/**
  * Resolves the layout for one render.
  *
  * `params` is required because a filter hidden by layout but currently holding
@@ -116,8 +131,14 @@ const ADMIN_LAYOUT: FilterLayoutSource = {
  *
  * `scope` picks both the spec list and the layout it resolves against —
  * `admin` sees `ADMIN_FILTER_SPECS` (the shared filters plus Record state)
- * under the shared layout plus `ADMIN_LAYOUT`'s one addition; `public` is
- * exactly what this function has always done.
+ * under the shared layout plus `ADMIN_LAYOUT`'s one addition; `lifecycle`
+ * sees `LIFECYCLE_FILTER_SPECS` under the shared layout plus
+ * `LIFECYCLE_LAYOUT`'s two additions; `public` is exactly what this function
+ * has always done.
+ *
+ * No `default` case in the switch below: adding a fourth scope to
+ * `CompetitionFilterScope` without a matching branch here is a compile
+ * error, not a silent fallback to `public`.
  *
  * @param extraSources further layers, highest precedence last. The seam user
  *        preferences will arrive through.
@@ -127,16 +148,25 @@ export function resolveCompetitionFilterLayout(
   scope: CompetitionFilterScope,
   extraSources: readonly FilterLayoutSource[] = [],
 ): ResolvedFilterLayout {
-  if (scope === "admin") {
-    return resolveFilterLayout(ADMIN_FILTER_SPECS, params, [
-      KIZUNIA_COMPETITION_LAYOUT,
-      ADMIN_LAYOUT,
-      ...extraSources,
-    ]);
-  }
+  switch (scope) {
+    case "admin":
+      return resolveFilterLayout(ADMIN_FILTER_SPECS, params, [
+        KIZUNIA_COMPETITION_LAYOUT,
+        ADMIN_LAYOUT,
+        ...extraSources,
+      ]);
 
-  return resolveFilterLayout(COMPETITION_FILTER_SPECS, params, [
-    KIZUNIA_COMPETITION_LAYOUT,
-    ...extraSources,
-  ]);
+    case "lifecycle":
+      return resolveFilterLayout(LIFECYCLE_FILTER_SPECS, params, [
+        KIZUNIA_COMPETITION_LAYOUT,
+        LIFECYCLE_LAYOUT,
+        ...extraSources,
+      ]);
+
+    case "public":
+      return resolveFilterLayout(COMPETITION_FILTER_SPECS, params, [
+        KIZUNIA_COMPETITION_LAYOUT,
+        ...extraSources,
+      ]);
+  }
 }

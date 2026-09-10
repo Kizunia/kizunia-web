@@ -154,11 +154,17 @@ function AdminShell({
 }) {
   return (
     <PageWrapper breadcrumbs={[{ label: "Competitions", href: PATHNAME }]}>
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold tracking-tight">Competitions</h1>
-        <p className="max-w-2xl text-muted-foreground">
-          Every competition on the platform, regardless of visibility.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold tracking-tight">Competitions</h1>
+          <p className="max-w-2xl text-muted-foreground">
+            Every competition on the platform, regardless of visibility.
+          </p>
+        </div>
+
+        <Button asChild variant="outline" size="sm">
+          <Link href="/admin/competitions/lifecycle">Update statuses</Link>
+        </Button>
       </div>
 
       <AdminSummaryStrip summary={summary} params={params} />

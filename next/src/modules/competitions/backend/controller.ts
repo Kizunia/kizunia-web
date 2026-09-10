@@ -177,6 +177,119 @@ export class CompetitionController {
     });
   }
 
+  /**
+   * The admin lifecycle preview: every competition whose automatically
+   * derived status differs from what is currently persisted, given the
+   * request's filters. Read-only — nothing is mutated here.
+   */
+  static async previewLifecycle(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+      if (!actor || !actor.id || !actor.role || actor.banned == undefined) {
+        throw new UnauthorizedError({
+          code: "UNAUTHORIZED",
+          message: "Failed to authenticate the actor or actor is banned.",
+        });
+      }
+
+      const strictActor: StrictAuthorizationActor = {
+        id: actor.id,
+        role: actor.role,
+        banned: actor.banned,
+      };
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+      //
+      // Independent of any page-level guard — this API is reachable on its
+      // own, exactly like `searchAdminManageable` above.
+
+      PlatformAuthorizer.can(
+        { actor: strictActor },
+        PlatformAction.MANAGE_COMPETITION_LIFECYCLE,
+      );
+
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const query = Object.fromEntries(request.nextUrl.searchParams.entries());
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const preview = await CompetitionLifecycleService.preview(query);
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(preview);
+    });
+  }
+
+  /**
+   * Applies automatic lifecycle reconciliation to the given competition
+   * ids. The request carries ids only — the server re-reads and
+   * re-evaluates each one against authoritative state; see
+   * `CompetitionLifecycleService.apply`.
+   */
+  static async applyLifecycle(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getActor(request);
+      if (!actor || !actor.id || !actor.role || actor.banned == undefined) {
+        throw new UnauthorizedError({
+          code: "UNAUTHORIZED",
+          message: "Failed to authenticate the actor or actor is banned.",
+        });
+      }
+
+      const strictActor: StrictAuthorizationActor = {
+        id: actor.id,
+        role: actor.role,
+        banned: actor.banned,
+      };
+
+      // -----------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------
+
+      PlatformAuthorizer.can(
+        { actor: strictActor },
+        PlatformAction.MANAGE_COMPETITION_LIFECYCLE,
+      );
+
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const body = await request.json();
+      const { ids } = ApplyLifecycleSchema.parse(body);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const result = await CompetitionLifecycleService.apply(ids);
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok(result);
+    });
+  }
+
   static async findBySlug(request: NextRequest, slug: string) {
     return Route.execute(async () => {
       const parsedSlug = SlugSchema.parse(slug);
@@ -245,6 +358,19 @@ export class CompetitionController {
       // -----------------------------------------------------------------
 
       CompetitionAuthorizer.edit(context);
+
+      // Toggling automation is a lifecycle-management capability, distinct
+      // from ordinary field edits — a competition OWNER/MAINTAINER who can
+      // edit every other field on this form still may not turn automatic
+      // status management on or off without the platform capability. An
+      // explicit `status` in the same payload is unaffected: that remains
+      // gated by `CompetitionAuthorizer.edit` above, exactly as before.
+      if (data.automaticStatusUpdatesDisabled !== undefined) {
+        PlatformAuthorizer.can(
+          { actor: context.actor },
+          PlatformAction.MANAGE_COMPETITION_LIFECYCLE,
+        );
+      }
 
       // -----------------------------------------------------------------
       // Business Logic

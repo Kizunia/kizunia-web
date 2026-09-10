@@ -50,6 +50,15 @@ export interface UpdateCompetitionRequestDTO {
 
   endDate?: string | null;
 
+  registrationStartDate?: string | null;
+
+  /**
+   * Opt-out from automatic lifecycle management. Omit to leave it
+   * unchanged; manual status changes (the `status` field above) always
+   * remain allowed regardless of this flag.
+   */
+  automaticStatusUpdatesDisabled?: boolean;
+
   minTeamSize?: number | null;
 
   maxTeamSize?: number | null;
