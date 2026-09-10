@@ -11,7 +11,8 @@
 
 import { NextRequest } from "next/server";
 
-import { ApiResponse, Route } from "@/lib/http";
+import { ApiResponse } from "@/lib/http";
+import { Route } from "@/lib/http/route";
 
 import { searchAreaMapper } from "../mapper/search-area.mapper";
 import { SearchAreaRepository } from "../repository/search-area.repository";

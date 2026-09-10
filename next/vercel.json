@@ -1,5 +1,11 @@
 {
     "git": {
         "deploymentEnabled": true
-    }
+    },
+    "crons": [
+        {
+            "path": "/api/v1/internal/rate-limit/prune",
+            "schedule": "0 * * * *"
+        }
+    ]
 }

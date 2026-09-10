@@ -14,11 +14,14 @@
 
 import { NextRequest } from "next/server";
 
-import { ApiResponse, Route } from "@/lib/http";
+import { ApiResponse } from "@/lib/http";
+import { Route } from "@/lib/http/route";
 
 import { UnauthorizedError } from "@/lib/errors";
 
 import { SessionService } from "@/lib/auth/session";
+import { RateLimitPolicyId } from "@/lib/rate-limit/policies";
+import { rateLimitService } from "@/lib/rate-limit/service";
 
 import { portfolioService } from "./service";
 import { portfolioProjectService } from "./portfolio-project.service";
@@ -40,9 +43,21 @@ export class PortfolioController {
   // ===========================================================================
 
   static async findPublicByUsername(
+    request: NextRequest,
     username: string,
   ) {
     return Route.execute(async () => {
+      // -----------------------------------------------------------------------
+      // Rate Limiting
+      // -----------------------------------------------------------------------
+      // Public, unauthenticated. Guards against enumeration/scraping of a
+      // full portfolio aggregate.
+
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.PORTFOLIO_READ_PUBLIC,
+        request,
+      });
+
       // -----------------------------------------------------------------------
       // Business Logic
       // -----------------------------------------------------------------------

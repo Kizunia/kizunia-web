@@ -10,8 +10,7 @@ import crypto from "crypto";
 
 import { AssetCategory, AssetPurpose, UploadIntent } from "@/generated/prisma";
 import type { AuthorizationActor } from "@/authorization";
-import { RateLimitError, UnauthorizedError, ValidationError } from "@/lib/errors";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { UnauthorizedError, ValidationError } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 
 import type { AssetDTO } from "../dto/asset.dto";
@@ -39,13 +38,6 @@ import { UploadIntentRepository } from "./upload-intent.repository";
  * without touching calling code.
  */
 const UPLOAD_INTENT_TTL_MS = 15 * 60 * 1_000;
-
-/** Same status: an explicit, isolated assumption pending a product decision. */
-const UPLOAD_INTENT_RATE_LIMIT = {
-  scope: "upload-intent",
-  limit: 30,
-  windowSeconds: 60 * 60,
-};
 
 export interface CreateUploadIntentInput {
   actorId: string;
@@ -128,17 +120,6 @@ export class UploadIntentService {
       throw new UploadPolicyViolationError(
         `${purpose} allows files up to ${declaredMaxSize} bytes; this file declares ${declaredSize} bytes.`,
       );
-    }
-
-    // Rate limiting, reusing the existing Postgres-backed limiter.
-    const rateLimit = await checkRateLimit(actor.id, UPLOAD_INTENT_RATE_LIMIT);
-
-    if (!rateLimit.allowed) {
-      throw new RateLimitError({
-        code: "UPLOAD_INTENT_RATE_LIMITED",
-        message: "Too many upload attempts. Try again shortly.",
-        retryAfterSeconds: rateLimit.retryAfterSeconds,
-      });
     }
 
     // Server-generated correlation id — never client-supplied. This is what

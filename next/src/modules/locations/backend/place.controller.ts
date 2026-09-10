@@ -12,9 +12,10 @@
 
 import { NextRequest } from "next/server";
 
-import { RateLimitError } from "@/lib/errors";
-import { ApiResponse, Route } from "@/lib/http";
-import { checkRateLimit, clientIdentifier } from "@/lib/rate-limit";
+import { ApiResponse } from "@/lib/http";
+import { Route } from "@/lib/http/route";
+import { RateLimitPolicyId } from "@/lib/rate-limit/policies";
+import { rateLimitService } from "@/lib/rate-limit/service";
 
 import { resolvePlaceProvider } from "../providers";
 import { PlaceAutocompleteQuerySchema } from "../schemas/location-search";
@@ -22,18 +23,6 @@ import type { PlaceSuggestion } from "../types/place";
 
 /** Short on purpose: a picker should fall back rather than hang. */
 const PROVIDER_TIMEOUT_MS = 3_000;
-
-/**
- * Generous enough for continuous typing, tight enough to bound provider spend.
- *
- * The client already debounces and requires two characters, so a normal search
- * costs a handful of requests. This is the backstop for a client that does not.
- */
-const RATE_LIMIT = {
-  scope: "places:autocomplete",
-  limit: 30,
-  windowSeconds: 60,
-} as const;
 
 export class PlaceController {
   /**
@@ -55,15 +44,10 @@ export class PlaceController {
       // Rate Limiting
       // -----------------------------------------------------------------
 
-      const limit = await checkRateLimit(clientIdentifier(request), RATE_LIMIT);
-
-      if (!limit.allowed) {
-        throw new RateLimitError({
-          code: "PLACE_AUTOCOMPLETE_RATE_LIMITED",
-          message: "Too many location searches. Try again in a moment.",
-          retryAfterSeconds: limit.retryAfterSeconds,
-        });
-      }
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.PLACES_AUTOCOMPLETE,
+        request,
+      });
 
       // -----------------------------------------------------------------
       // Validation
