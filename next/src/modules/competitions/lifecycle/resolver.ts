@@ -15,44 +15,85 @@
  * in the codebase is allowed to re-encode these rules.
  *
  * =============================================================================
+ * Lifecycle semantics
+ * =============================================================================
+ *
+ * The resolver answers "what is the most accurate lifecycle state right now".
+ *
+ * Strong evidence wins. Missing dates are unknown, not evidence of an earlier
+ * or later lifecycle state.
+ *
+ * Important edge cases:
+ *
+ * - REGISTRATION_OPEN + future startDate is valid. Registration may legitimately
+ *   be open before the event starts, so startDate must not downgrade it to
+ *   UPCOMING.
+ *
+ * - REGISTRATION_OPEN + null registrationStartDate + future
+ *   registrationDeadline is also valid. The missing start date does not prove
+ *   that registration has not started. The competition remains
+ *   REGISTRATION_OPEN until the deadline is reached.
+ *
+ * - ONGOING + future startDate is contradictory. The future start date is
+ *   sufficient evidence that the event has not started, so automation may move
+ *   ONGOING back to UPCOMING.
+ *
+ * - If ONGOING has a future startDate but registration is currently known to
+ *   be open, REGISTRATION_OPEN takes precedence because that is the more
+ *   accurate user-facing state.
+ *
+ * - COMPLETED + future endDate is ambiguous. This may represent a manual
+ *   correction, rescheduling, stale data, or another data inconsistency.
+ *   The resolver intentionally does not invent organizer intent for this case.
+ *
+ * - A future registrationDeadline by itself is not evidence that the
+ *   competition is UPCOMING. It may simply be the future expiry of an already
+ *   open registration window.
+ *
+ * =============================================================================
  * Precedence, in evaluation order (first match wins)
  * =============================================================================
  *
  *   0. CANCELLED is terminal for automatic processing — never overwritten.
  *   1. COMPLETED           — endDate has been reached.
- *   2. REGISTRATION_OPEN   — registrationStartDate has been reached AND
- *                            registration is not yet past its deadline.
+ *   2. REGISTRATION_OPEN   — registration is known to be open.
  *   3. ONGOING              — startDate has been reached.
  *   4. REGISTRATION_CLOSED — registrationDeadline has been reached.
- *   5. UPCOMING             — at least one lifecycle date is known, but none
- *                            of the rules above matched.
- *   6. unchanged             — no lifecycle date is known at all; there is
- *                            nothing to derive a status from.
+ *   5. UPCOMING             — sufficient evidence exists that the competition
+ *                            is still before its first relevant milestone.
+ *   6. unchanged            — no safe automatic transition can be established.
  *
  * REGISTRATION_OPEN outranks ONGOING deliberately: a competition may already
  * have started while registration is still open (late registration), and the
- * two are not mutually exclusive states — the registration window is what the
- * status describes at that point, not the event itself. ONGOING outranks
- * REGISTRATION_CLOSED because "the event has started" is a stronger signal
- * than "the registration window is over" whenever both are true.
+ * registration window is what the status describes at that point, not the
+ * event itself.
+ *
+ * ONGOING outranks REGISTRATION_CLOSED because "the event has started" is a
+ * stronger signal than "the registration window is over" whenever both are
+ * true.
  *
  * =============================================================================
  * Missing dates
  * =============================================================================
  *
  * Every rule names exactly the date(s) it needs and is skipped — not
- * defaulted, not inferred — when that date is null. In particular, a null
- * `registrationStartDate` disables rule 2 only; it never means "registration
- * is always open" and it never suppresses any other rule. If none of the four
- * dates are known, there is nothing to derive from, and the current status is
- * preserved unchanged (rule 6).
+ * defaulted, not inferred — when that date is null.
+ *
+ * In particular, a null `registrationStartDate` does not mean that
+ * registration has not started. If the current status is REGISTRATION_OPEN
+ * and its deadline has not been reached, that status is preserved even when
+ * the registration start date is unavailable.
+ *
+ * Missing information is not evidence of another lifecycle state. If the
+ * available dates do not provide sufficient evidence for a transition, the
+ * current status is preserved unchanged.
  *
  * =============================================================================
  * Boundary semantics
  * =============================================================================
  *
  * "Reached" is inclusive: `date.getTime() <= now.getTime()`. Its complement
- * (a deadline that has not yet been reached, in rule 2) is therefore strict
+ * (a deadline that has not yet been reached) is therefore strict
  * (`> now`). One consistent rule, so there is no gap or overlap at the exact
  * instant `now` equals a lifecycle date.
  */
@@ -66,17 +107,23 @@ import type { CompetitionStatus } from "@/generated/prisma";
 export const LifecycleReason = {
   /** currentStatus was CANCELLED; automation never moves it. */
   CANCELLED_PRESERVED: "CANCELLED_PRESERVED",
+
   /** endDate has been reached or passed. */
   END_DATE_PASSED: "END_DATE_PASSED",
-  /** registrationStartDate reached and registrationDeadline not yet passed. */
+
+  /** Registration is currently known/preserved as open. */
   REGISTRATION_WINDOW_OPEN: "REGISTRATION_WINDOW_OPEN",
+
   /** startDate has been reached or passed. */
   START_DATE_REACHED: "START_DATE_REACHED",
+
   /** registrationDeadline has been reached or passed. */
   REGISTRATION_DEADLINE_PASSED: "REGISTRATION_DEADLINE_PASSED",
-  /** At least one lifecycle date is known, but none has been reached yet. */
+
+  /** A future lifecycle date provides sufficient evidence for UPCOMING. */
   AWAITING_FIRST_MILESTONE: "AWAITING_FIRST_MILESTONE",
-  /** No lifecycle date is known at all; status is left unchanged. */
+
+  /** No safe automatic transition can be established. */
   NO_LIFECYCLE_DATES: "NO_LIFECYCLE_DATES",
 } as const;
 
@@ -95,16 +142,13 @@ export interface LifecycleInput {
 
 export interface LifecycleResolution {
   /**
-   * The status automation believes is correct right now. For CANCELLED
-   * (rule 0) and "no lifecycle dates" (rule 6) this equals `currentStatus`.
+   * The status automation believes is correct right now.
    */
   readonly status: CompetitionStatus | null;
   readonly reason: LifecycleReason;
   /**
-   * The date that drove this resolution, for display ("Why" column). Null
-   * for CANCELLED_PRESERVED and NO_LIFECYCLE_DATES. For
-   * AWAITING_FIRST_MILESTONE this is the earliest known future lifecycle
-   * date, shown as the next milestone rather than something already reached.
+   * The date that drove this resolution, for display ("Why" column).
+   * Null when there is no specific driving date.
    */
   readonly drivingDate: Date | null;
 }
@@ -127,16 +171,30 @@ function notYetReached(date: Date | null, now: Date): boolean {
   return date === null || date.getTime() > now.getTime();
 }
 
-function earliestKnownDate(
+/**
+ * Returns the earliest lifecycle date that is still in the future.
+ *
+ * This intentionally does NOT treat a past date as a future milestone.
+ * More importantly, callers must decide whether a future milestone is
+ * actually sufficient evidence for UPCOMING; the existence of a future date
+ * alone does not determine the lifecycle state.
+ */
+function earliestKnownFutureDate(
+  now: Date,
   ...dates: readonly (Date | null)[]
 ): Date | null {
   let earliest: Date | null = null;
+
   for (const date of dates) {
-    if (date === null) continue;
+    if (date === null || date.getTime() <= now.getTime()) {
+      continue;
+    }
+
     if (earliest === null || date.getTime() < earliest.getTime()) {
       earliest = date;
     }
   }
+
   return earliest;
 }
 
@@ -181,8 +239,15 @@ export function resolveAutomaticStatus(
 
   // Rule 2 — REGISTRATION_OPEN outranks ONGOING: the event may already have
   // started while registration is still accepting entries.
+  //
+  // If registrationStartDate is missing but the current status is already
+  // REGISTRATION_OPEN, preserve that status until its deadline is reached.
+  //
+  // A missing registrationStartDate is unknown information; it is not evidence
+  // that registration has not started.
   if (
-    reached(registrationStartDate, now) &&
+    (reached(registrationStartDate, now) ||
+      currentStatus === "REGISTRATION_OPEN") &&
     notYetReached(registrationDeadline, now)
   ) {
     return {
@@ -202,8 +267,7 @@ export function resolveAutomaticStatus(
   }
 
   // Rule 4 — REGISTRATION_CLOSED once the deadline has passed, provided
-  // nothing above already matched (i.e. the event has not started and has
-  // not ended).
+  // nothing above already matched.
   if (reached(registrationDeadline, now)) {
     return {
       status: "REGISTRATION_CLOSED",
@@ -212,15 +276,36 @@ export function resolveAutomaticStatus(
     };
   }
 
-  // Rule 5 — UPCOMING: something is known about this competition's
-  // schedule, but no milestone has been reached yet.
-  const nextMilestone = earliestKnownDate(
+  // Rule 5 — UPCOMING.
+  //
+  // A future date by itself is NOT enough to establish UPCOMING.
+  //
+  // In particular, a future registrationDeadline may simply be the deadline
+  // for an already-open registration window.
+  //
+  // ONGOING + future startDate is different: ONGOING explicitly claims that
+  // the event has started, so a future startDate is sufficient evidence for a
+  // backward transition to UPCOMING.
+  //
+  // REGISTRATION_OPEN is intentionally not overridden here because registration
+  // can legitimately be open before the event begins.
+  //
+  // COMPLETED + future endDate is intentionally left untouched because the
+  // resolver cannot determine whether the data represents rescheduling,
+  // correction, stale data, or another situation.
+  const nextMilestone = earliestKnownFutureDate(
+    now,
     registrationStartDate,
-    registrationDeadline,
     startDate,
     endDate,
   );
-  if (nextMilestone !== null) {
+
+  if (
+    nextMilestone !== null &&
+    (currentStatus === null ||
+      currentStatus === "UPCOMING" ||
+      currentStatus === "ONGOING")
+  ) {
     return {
       status: "UPCOMING",
       reason: LifecycleReason.AWAITING_FIRST_MILESTONE,
@@ -228,8 +313,10 @@ export function resolveAutomaticStatus(
     };
   }
 
-  // Rule 6 — no lifecycle date is known at all. Nothing to derive from;
-  // preserve whatever status is currently persisted (including null).
+  // Rule 6 — ambiguous or incomplete data.
+  //
+  // There is not enough evidence for a safe automatic transition.
+  // Preserve the currently stored status rather than guessing.
   return {
     status: currentStatus,
     reason: LifecycleReason.NO_LIFECYCLE_DATES,
