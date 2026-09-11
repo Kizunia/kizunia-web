@@ -22,6 +22,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { PostgresRateLimitStore } from "@/lib/rate-limit/postgres.store";
+import { secretEquals } from "@/lib/security/timing-safe-equal";
 
 export async function GET(request: NextRequest) {
   const expectedSecret = process.env.CRON_SECRET;
@@ -30,7 +31,8 @@ export async function GET(request: NextRequest) {
 
   if (
     !expectedSecret ||
-    providedAuthorization !== `Bearer ${expectedSecret}`
+    !providedAuthorization ||
+    !secretEquals(providedAuthorization, `Bearer ${expectedSecret}`)
   ) {
     return NextResponse.json(
       { success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized." } },

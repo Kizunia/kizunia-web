@@ -49,6 +49,15 @@ export class CompetitionAssetService {
       context.competition[SLOT_ASSET_ID_FIELD[slot] as "logoAssetId" | "bannerAssetId" | "coverAssetId"];
 
     return prisma.$transaction(async (tx) => {
+      // Authoritative, race-safe re-validation under lock — see
+      // AssetService.prepareAssetAttach. The pre-transaction
+      // assertAssetReferenceAllowed call above is a fast-fail check only.
+      await assetService.prepareAssetAttach(tx, {
+        assetId,
+        previousAssetId,
+        purpose: SLOT_PURPOSE[slot],
+      });
+
       // Attach Asset
       await CompetitionRepository.setAsset(tx, competitionId, slot, assetId);
 

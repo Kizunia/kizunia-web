@@ -453,6 +453,15 @@ export class ProjectService {
       slot === "logo" ? project.logoAssetId : project.coverAssetId;
 
     const updatedProject = await prisma.$transaction(async (tx) => {
+      // Authoritative, race-safe re-validation under lock — see
+      // AssetService.prepareAssetAttach. The pre-transaction
+      // assertAssetReferenceAllowed call above is a fast-fail check only.
+      await assetService.prepareAssetAttach(tx, {
+        assetId,
+        previousAssetId,
+        purpose: SLOT_PURPOSE[slot],
+      });
+
       const repository = new ProjectRepository(tx);
 
       const updated = await repository.setAsset({ id, slot, assetId });

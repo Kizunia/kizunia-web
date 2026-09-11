@@ -220,6 +220,17 @@ export class PortfolioService {
     const previousResumeAssetId = portfolio.resumeAssetId;
 
     const updatedPortfolio = await prisma.$transaction(async (tx) => {
+      // Authoritative, race-safe re-validation under lock — see
+      // AssetService.prepareAssetAttach. The pre-transaction
+      // assertAssetReferenceAllowed call above is a fast-fail check only.
+      if (dto.resumeAssetId !== undefined) {
+        await assetService.prepareAssetAttach(tx, {
+          assetId: dto.resumeAssetId,
+          previousAssetId: previousResumeAssetId,
+          purpose: AssetPurpose.PORTFOLIO_RESUME,
+        });
+      }
+
       const repository = new PortfolioRepository(tx);
 
       const updated = await repository.updateProfile({

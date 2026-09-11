@@ -6,7 +6,11 @@
  */
 
 import type { User } from "@/generated/prisma";
-import type { UserDTO } from "../types";
+import { buildAssetViewUrl } from "@/modules/assets/backend/download-url";
+
+import type { UserAssetSlot } from "../types/asset-slot";
+import type { UserAssetDTO, UserDTO } from "../types";
+import type { UserWithAssets } from "./repository";
 
 export function toUserDTO(user: User): UserDTO {
   return {
@@ -17,5 +21,19 @@ export function toUserDTO(user: User): UserDTO {
     image: user.image,
     role: user.role,
     createdAt: user.createdAt,
+  };
+}
+
+/** Maps the slot that was just set/cleared to its response DTO. */
+export function toUserAssetDTO(
+  user: UserWithAssets,
+  slot: UserAssetSlot,
+): UserAssetDTO {
+  const asset = slot === "avatar" ? user.avatarAsset : user.coverAsset;
+
+  return {
+    slot,
+    assetId: asset?.id ?? null,
+    url: asset ? buildAssetViewUrl(asset) : null,
   };
 }

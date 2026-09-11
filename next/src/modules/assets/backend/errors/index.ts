@@ -15,11 +15,44 @@ export const AssetErrorCode = {
   INTENT_EXPIRED: "UPLOAD_INTENT_EXPIRED",
   INTENT_ALREADY_CONSUMED: "UPLOAD_INTENT_ALREADY_CONSUMED",
   POLICY_VIOLATION: "ASSET_POLICY_VIOLATION",
+  PROVIDER_OBJECT_NOT_FOUND: "PROVIDER_OBJECT_NOT_FOUND",
+  NOT_DOWNLOADABLE: "ASSET_NOT_DOWNLOADABLE",
 } as const;
 
 export class AssetNotFoundError extends NotFoundError {
   constructor(message = "Asset not found.") {
     super({ code: AssetErrorCode.NOT_FOUND, message });
+  }
+}
+
+/**
+ * The storage provider has confirmed there is no object for a given
+ * reference (e.g. an UploadIntent's correlation id) — distinct from
+ * `ExternalServiceError`, which means the provider could not be asked at
+ * all. Callers that only catch this specific error (rather than any
+ * thrown error) can safely tell "confirmed absent" apart from "transient
+ * provider failure" — see AssetReconciliationService.sweepAbandonedIntents.
+ */
+export class ProviderObjectNotFoundError extends NotFoundError {
+  constructor(
+    message = "The storage provider has no object for this reference.",
+  ) {
+    super({ code: AssetErrorCode.PROVIDER_OBJECT_NOT_FOUND, message });
+  }
+}
+
+/**
+ * The admin download route refuses to mint a delivery URL for a `DELETED`
+ * Asset — the provider object is gone (or on its way out), so there is
+ * nothing left to fetch. See AssetAdminService.getDownloadTarget.
+ */
+export class AssetNotDownloadableError extends ConflictError {
+  constructor(message = "This asset has been deleted and can no longer be downloaded.") {
+    super({
+      code: AssetErrorCode.NOT_DOWNLOADABLE,
+      status: HttpStatus.CONFLICT,
+      message,
+    });
   }
 }
 

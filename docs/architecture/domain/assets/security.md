@@ -1,10 +1,10 @@
 # Asset — Security and Abuse Prevention
 
-> **Status:** Draft (Target Architecture)
+> **Status:** Stable (Implemented)
 >
-> **Version:** 1.0
+> **Version:** 1.1
 >
-> **Last Updated:** 2026-09-05
+> **Last Updated:** 2026-09-11
 
 ---
 
@@ -12,13 +12,15 @@
 
 The Asset system must protect against upload spam, oversized uploads, unauthorized uploads and deletions, malicious files, orphaned storage objects, abuse of signed upload credentials, and provider quota exhaustion. This document defines what that means at each layer, and is explicit about which of these protections exist today and which do not.
 
+The `POST /api/cloudinary-sign` endpoint this document originally audited (an unscoped, entity-blind signing endpoint) no longer exists. It has been replaced end-to-end by the Upload Intent architecture described in [`upload.md`](./upload.md); the sections below describe that replacement, not the endpoint that used to exist.
+
 ---
 
 # Authentication
 
 Only authenticated actors should be able to perform protected uploads.
 
-**Current Implementation:** `POST /api/cloudinary-sign` calls `auth.api.getSession(...)` (Better Auth) and throws `UnauthorizedError` if there is no session. This part matches the target and should be preserved.
+**Implementation:** `AssetController.createUploadIntent`/`finalize` (`next/src/modules/assets/backend/controller.ts`) both call `SessionService.getStrictActor(request)` and reject unauthenticated requests before anything else runs.
 
 ---
 
@@ -26,15 +28,15 @@ Only authenticated actors should be able to perform protected uploads.
 
 The actor must be authorized to upload an asset for the *intended purpose and entity* — not merely logged in.
 
-**Current Implementation:** The signing endpoint only checks that a session exists. It has no idea which entity the upload is for, so it cannot check "is this user a maintainer of this project / organizer of this competition." Authorization for *attaching* an asset presumably happens wherever `SetCompetitionAssetController` (or equivalent) is invoked from a route, but that is downstream of the point where a Cloudinary signature has already been issued — meaning **an authenticated user who is not authorized to edit a given competition can still obtain a valid, working Cloudinary upload signature** through this endpoint, even if they could not ultimately attach the result to that competition. Closing this requires the signing/authorization step itself to be scoped to a purpose and entity, per [`upload.md`](./upload.md), and to run Kizunia's existing authorization checks (see `docs/architecture/authorization/`) *before* issuing anything to the client.
+**Implementation:** `UploadIntentService.create` (`next/src/modules/assets/backend/upload-intent.service.ts`) runs `authorizeUploadForPurpose` (`target-authorization.ts`) — which dispatches to the owning domain's own authorizer (`CompetitionAuthorizer.edit`, `ProjectAuthorizer.edit`, etc., or, for a self-scoped purpose like `USER_AVATAR`/`USER_COVER`, simply confirms the actor has an id) — **before** any provider authorization is issued. An actor who is not authorized to edit a given target never receives a working upload authorization for it, closing the gap this section originally described.
 
 ---
 
 # Rate Limiting
 
-Upload attempts should be rate limited. Kizunia does not need new infrastructure for this — a fixed-window, Postgres-backed rate limiter already exists (`next/src/lib/rate-limit/index.ts`, backed by the `RateLimit` Prisma model) and is already used elsewhere in the codebase (`modules/taxonomy`, `modules/locations`).
+Upload attempts should be rate limited. Kizunia does not need new infrastructure for this — a fixed-window, Postgres-backed rate limiter already exists (`next/src/lib/rate-limit/`) and is already used elsewhere in the codebase.
 
-**Current Implementation:** This limiter is **not applied** to `/api/cloudinary-sign` or to any Asset-creation endpoint today. Nothing currently stops an authenticated user from requesting an unbounded number of signatures or creating an unbounded number of `Asset` rows. The target architecture should apply the existing `checkRateLimit` utility, scoped per actor and per upload purpose, to the upload-intent step — this is an application of existing infrastructure, not new infrastructure.
+**Implementation:** `RateLimitPolicyId.ASSETS_UPLOAD_INTENT` (30/hour, scoped per actor *and* per purpose) and `RateLimitPolicyId.ASSETS_FINALIZE` (60/hour, per actor) are enforced in `AssetController`, both failing closed.
 
 ---
 
@@ -48,7 +50,7 @@ Policies (see [`policies.md`](./policies.md)) should be able to express file siz
 
 Any upload authorization or signature issued to the client should be short-lived and scoped to the specific upload it was issued for.
 
-**Current Implementation:** Cloudinary signatures are implicitly time-bounded by the `timestamp` parameter Cloudinary itself validates (Cloudinary rejects signed requests once its timestamp is too old), so there is some time-boxing today, inherited from Cloudinary's own behavior rather than designed by Kizunia. There is **no scoping**, however: the signed parameters are whatever the client's `paramsToSign` object contains (`{ timestamp, folder }` in the current hook), and nothing restricts which folder, resource type, or transformation the client could ask to have signed. The target requires that whatever is authorized only be usable for the one upload it was issued for — an intended `PROJECT_LOGO` upload for a specific project, not "any Cloudinary upload."
+**Implementation:** Every `UploadIntent` carries a server-generated `providerCorrelationId` (never client-supplied) and an `expiresAt` 15 minutes out (`UPLOAD_INTENT_TTL_MS`). `CloudinaryStorageProvider.authorizeUpload` signs a fixed `public_id`/`timestamp` pair derived from that correlation id — the client cannot choose its own public id, folder, or resource type; the signature is only valid for the one upload it authorized.
 
 ---
 
@@ -56,7 +58,7 @@ Any upload authorization or signature issued to the client should be short-lived
 
 Provider secrets must never reach the browser.
 
-**Current Implementation:** `CLOUDINARY_API_SECRET` is only read server-side (`next/src/app/api/cloudinary-sign/route.ts`), which is correct. `CLOUDINARY_API_KEY` / `NEXT_PUBLIC_CLOUDINARY_API_KEY` and `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` are exposed to the client — this is consistent with Cloudinary's own signing model, where the API key identifies the account but is not itself a secret capable of authorizing anything without a valid signature. This does not need to change for Cloudinary specifically, but a future provider adapter must be evaluated against its own credential model rather than assumed to work the same way.
+**Implementation:** `CLOUDINARY_API_SECRET` is only read server-side, inside `CloudinaryStorageProvider` — the only module permitted to import the `cloudinary` SDK at all. `CLOUDINARY_API_KEY`/`NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` are exposed to the client, consistent with Cloudinary's own signing model (the API key identifies the account but authorizes nothing without a valid signature).
 
 ---
 
@@ -64,7 +66,7 @@ Provider secrets must never reach the browser.
 
 Client-side file-type/size checks (the `accept` prop on `ReusableImageUploader`, any size check before cropping) exist to give the user immediate feedback. They must never be treated as enforcement — see [`policies.md`](./policies.md#frontend-vs-backend-enforcement).
 
-**Current Implementation:** Today, client-side checks are effectively the *only* checks — nothing server-side re-validates a submitted upload's type, size, or dimensions against any rule. `CreateAssetSchema` validates shape (an int is an int, a URL is a URL), not policy compliance.
+**Implementation:** `UploadIntentService.create` validates the actor's declared MIME type/size against the resolved `UploadPolicy` before ever issuing a provider authorization, and `finalize` re-validates the **provider-confirmed** result (not the client's declaration) against the same policy before an Asset is ever created — see [File Validation](#file-validation--do-not-trust-client-metadata) below.
 
 ---
 
@@ -72,9 +74,9 @@ Client-side file-type/size checks (the `accept` prop on `ReusableImageUploader`,
 
 The backend must not trust client-reported filename, browser-supplied MIME type, extension alone, client-provided size, or arbitrary provider parameters supplied by the client. The provider's *actual* result — and, where appropriate, the file's actual content — must be validated.
 
-**Current Implementation:** This is the most significant current gap. `CreateAssetSchema` accepts `publicId`, `secureUrl`, `format`, `mimeType`, `width`, `height`, `bytes`, `checksum`, and `originalFilename` directly from the client's request body, with no re-verification against Cloudinary or against any policy (see [`upload.md`](./upload.md#current-implementation)). A client controls every one of these values as persisted in the database today.
+**Implementation:** `UploadIntentService.finalize` calls `StorageProvider.confirmUpload`, which re-fetches the object directly from Cloudinary's Admin API, and validates the returned (not client-declared) `bytes`/`mimeType` against policy before creating the `Asset` row; a violation triggers best-effort provider cleanup and the finalize call fails — no `Asset` is ever created for a policy-violating upload. The client only ever supplies an `intentId` to `finalize`; it cannot assert any Asset field directly.
 
-For document types such as PDFs (and any future DOCX support), the same principle extends to content safety: **a storage provider successfully accepting and hosting a file does not make that file safe.** Malware/virus scanning for document uploads is a security requirement of the target architecture, not something Cloudinary or any provider provides automatically. **No such scanning exists in the repository today**, and none is assumed by this document to exist implicitly — it must be designed and added when document uploads are implemented.
+For document types such as PDFs (and any future DOCX support), the same principle extends to content safety: **a storage provider successfully accepting and hosting a file does not make that file safe.** Malware/virus scanning for document uploads remains a genuine, currently-unaddressed gap — **no such scanning exists in the repository today**, and none is assumed by this document to exist implicitly. It must be designed and added if/when document uploads that need it are implemented.
 
 ---
 
@@ -111,16 +113,20 @@ sequenceDiagram
 
 This is a **reconciliation problem**, distinct from ordinary error handling: by the time the failure is visible, the side effect that needs to be undone (or accounted for) is sitting in a third-party system, not in Kizunia's own database where a transaction rollback would erase it.
 
-**Current Implementation:** This exact scenario is already possible today. The browser uploads directly to Cloudinary and only afterward posts the result to a Kizunia endpoint to persist an `Asset` row; if that second step fails for any reason, the Cloudinary object is already orphaned with nothing in the system aware of it. There is no reconciliation job, cron infrastructure, or queue of any kind in the repository today (verified — no scheduled-job or worker infrastructure was found).
+**Implementation:** `AssetReconciliationService` (`next/src/modules/assets/backend/reconciliation.service.ts`) is the reconciliation mechanism, run via `GET /api/v1/internal/assets/reconcile` on a schedule — see [`internal-jobs.md`](../../workflows/internal-jobs.md) for the invocation convention and cadence. There is still no queue or generic background-job framework of any kind in this repository, by design — the service is a plain, callable set of methods with no idea a scheduler exists.
 
-Likewise, `DETACHED → DELETING → provider deletion` (see [`lifecycle.md`](./lifecycle.md)) are separate concerns: detaching a reference should not have to succeed or fail together with the (potentially slow, potentially failing) act of deleting the underlying storage object.
+Likewise, `DETACHED → DELETING → provider deletion` (see [`lifecycle.md`](./lifecycle.md)) are separate concerns: detaching a reference does not have to succeed or fail together with the (potentially slow, potentially failing) act of deleting the underlying storage object.
 
-The target architecture requires that both of these be treated as first-class reconciliation problems:
+The reconciliation service treats each of the following as a distinct sweep:
 
-- an upload that succeeded in storage but never became a finalized `Asset` must eventually be found and either finalized or cleaned up,
-- an Asset that became `DETACHED` must eventually be picked up for `DELETING`.
+- `sweepAbandonedIntents` — an upload that succeeded in storage but never became a finalized `Asset` (the intent expired unconsumed) is found and its provider object, if any, is cleaned up.
+- `sweepDetached` — an Asset that became `DETACHED` (past a grace period) is picked up for `DELETING`, then physical deletion.
+- `sweepStaleDeleting` — an Asset stuck in `DELETING` after a failed deletion attempt is retried.
+- `sweepUnreferencedActive` — a finalized `ACTIVE` Asset that was never attached to anything at all (a distinct case from the ones above: no intent to reconcile, no detachment that already happened — see [`lifecycle.md`](./lifecycle.md#active)) is detected once no domain relation references it, past its own grace period, and moved to `DETACHED` to flow through the ordinary pipeline.
 
-**Decision: TBD** on the concrete mechanism (a scheduled job, a queue, a periodic reconciliation script) — no such infrastructure exists in this repository today, so none is assumed. What this document establishes is the *requirement* that such reconciliation exist, not its implementation.
+Each sweep is cursor/batch-bounded (a fixed batch size, and a fixed maximum number of batches per invocation) so one scheduled run stays bounded regardless of backlog size; a backlog larger than one run's cap simply drains across multiple scheduled invocations.
+
+`sweepUnreferencedActive`'s candidate discovery is deliberately optimistic — an unlocked query — but the actual `ACTIVE → DETACHED` decision for each candidate goes through the same row-locked, authoritative recheck every normal attach/detach path uses (`AssetService.detachIfUnreferenced`), so a candidate that picks up a legitimate reference concurrently is never incorrectly detached. See [`lifecycle.md#concurrency`](./lifecycle.md#concurrency) for the full mechanism.
 
 ---
 
@@ -128,21 +134,23 @@ The target architecture requires that both of these be treated as first-class re
 
 Users and other domain actors do not directly delete Asset records, and no one directly transitions an Asset into `DELETING`. What actors authorize is the **domain operation** that adds or removes an Asset *reference* — replacing an avatar, clearing a competition banner, removing a gallery image. That operation is authorized the same way any other write to that entity is (Kizunia's existing authorization system — see `docs/architecture/authorization/`), because it is fundamentally an edit to the entity, not an Asset-level permission.
 
-Once an Asset becomes `DETACHED` as a result of that operation, moving it onward to `DELETING` and physically removing it from storage is performed by trusted cleanup/reconciliation (see [Orphan and Cleanup Architecture](#orphan-and-cleanup-architecture)) — not by the user who happened to trigger the detachment, and not by any other end-user action. There is no user-facing or admin-facing "delete this Asset" operation in V1.
+Once an Asset becomes `DETACHED` as a result of that operation, moving it onward to `DELETING` and physically removing it from storage is performed by trusted cleanup/reconciliation (see [Orphan and Cleanup Architecture](#orphan-and-cleanup-architecture)) — not by the user who happened to trigger the detachment, and not by any other end-user action.
 
-**Current Implementation:** There is no deletion code path of any kind in the repository (verified: no calls to a Cloudinary destroy/removal API, no `AssetRepository.delete`, no admin or user-facing delete-asset action anywhere). This needs to be designed alongside the deletion lifecycle in [`lifecycle.md`](./lifecycle.md) as trusted, system-initiated cleanup — not as a new user-facing permission.
+**Implementation:** There is still no user-facing "delete this Asset" operation, and no admin-facing one either — `AssetRepository` has no `delete` method a route could call even if one wanted to expose it. An **Asset Admin UI**, giving admins visibility into Asset records and a manual, re-validated preview/apply trigger for reconciliation (reusing `AssetReconciliationService`, not a new deletion permission), is the next planned phase for this domain — see [`lifecycle.md`](./lifecycle.md#future-work). It is not implemented yet.
 
 ---
 
 # Denial of Arbitrary Provider Operations
 
-The Storage Provider Contract (see [`storage.md`](./storage.md)) should expose only the specific operations the Asset system needs (authorize/upload, confirm, delete, generate delivery info) — never a general-purpose passthrough to the provider's full API. The current signing endpoint's "sign whatever parameters you send me" shape is exactly the pattern to avoid; the target's Upload Intent model (see [`upload.md`](./upload.md)) replaces it with authorization scoped to one declared, policy-validated upload.
+The Storage Provider Contract (see [`storage.md`](./storage.md)) exposes only the specific operations the Asset system needs (`authorizeUpload`, `confirmUpload`, `deleteObject`, `buildViewUrl`/`buildDownloadUrl`) — never a general-purpose passthrough to the provider's full API. `CloudinaryStorageProvider` is the only module permitted to import the `cloudinary` SDK at all; nothing else in the Asset application layer can ask the provider for anything outside this contract.
+
+Within `confirmUpload`/`deleteObject` specifically, provider errors are classified rather than treated identically: a confirmed "no such object" (`ProviderObjectNotFoundError`) is distinguished from a transient/ambiguous provider failure (`ExternalServiceError`), so reconciliation (`sweepAbandonedIntents`) can tell "there is nothing to clean up" apart from "we could not find out" and never treat the latter as the former.
 
 ---
 
 # Observability
 
-At minimum, the target architecture should make it possible to answer: who initiated an upload, for what purpose, whether it completed, whether it became orphaned, and whether deletion succeeded or failed. This should integrate with Kizunia's existing audit/error conventions (`lib/errors/`) rather than introducing a separate logging model. **Current Implementation:** no upload-specific observability exists today beyond what generic error handling and toast notifications on the client provide.
+At minimum, it should be possible to answer: who initiated an upload, for what purpose, whether it completed, whether it became orphaned, and whether deletion succeeded or failed. **Implementation:** each reconciliation run (`AssetReconciliationService.runAll`) returns a structured `ReconciliationSummary` (per-sweep processed/deleted/detached/deferred counts) as its HTTP response body — visible in Vercel's function logs for the scheduled invocation. There is still no per-upload audit trail beyond that summary and generic error handling/toast notifications on the client; a dedicated audit/history model remains unbuilt and unplanned without a demonstrated need (see [`lifecycle.md`](./lifecycle.md#future-work)).
 
 ---
 
