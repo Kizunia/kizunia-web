@@ -253,6 +253,16 @@ export class TechnologyService {
         const previousAssetId = technology.iconAssetId;
 
         return prisma.$transaction(async (tx) => {
+            // Authoritative, race-safe re-validation under lock — see
+            // AssetService.prepareAssetAttach. The pre-transaction
+            // assertAssetReferenceAllowed call above is a fast-fail check
+            // only.
+            await assetService.prepareAssetAttach(tx, {
+                assetId,
+                previousAssetId,
+                purpose: AssetPurpose.TECHNOLOGY_ICON,
+            });
+
             if (assetId === null) {
                 await TechnologyRepository.clearIcon(tx, id);
             } else {

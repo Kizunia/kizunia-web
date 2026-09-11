@@ -26,26 +26,26 @@ import { getUploadPolicy, resolveAllowedCategories } from "./policies/upload-pol
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
-export async function assertAssetReferenceAllowed({
-  db,
-  assetId,
-  purpose,
-}: {
-  db?: Db;
-  assetId: string;
-  purpose: AssetPurpose;
-}): Promise<Asset> {
-  const repository = new AssetRepository(db);
-
-  const asset = await repository.findById({ id: assetId });
-
+/**
+ * The pure "is this Asset usable for this purpose" check — exists/active/
+ * right category — with no database access of its own, so it can validate
+ * both a plain, unlocked read (`assertAssetReferenceAllowed`, a fast-fail
+ * pre-transaction check) and a row-locked read taken mid-transaction
+ * (`AssetService.prepareAssetAttach`, the authoritative, race-safe check —
+ * see docs/architecture/domain/assets/lifecycle.md#concurrency) without
+ * duplicating the rule itself.
+ */
+export function validateAssetForPurpose(
+  asset: Asset | null,
+  purpose: AssetPurpose,
+): asserts asset is Asset {
   if (!asset) {
     throw new AssetNotFoundError();
   }
 
   if (asset.status !== AssetStatus.ACTIVE) {
     throw new AssetNotActiveError(
-      `Asset ${assetId} is ${asset.status.toLowerCase()}, not active, and cannot be attached.`,
+      `Asset ${asset.id} is ${asset.status.toLowerCase()}, not active, and cannot be attached.`,
     );
   }
 
@@ -66,6 +66,31 @@ export async function assertAssetReferenceAllowed({
       `${purpose} does not accept ${asset.category} assets.`,
     );
   }
+}
+
+/**
+ * Fast-fail pre-transaction check only — reads the Asset without a lock, so
+ * by the time a caller's transaction actually writes a reference to
+ * `assetId`, this result may be stale (see `validateAssetForPurpose`'s
+ * doc comment). Every attach path must also re-validate under
+ * `AssetService.prepareAssetAttach` inside its transaction; this function
+ * exists purely so obviously-invalid requests (wrong asset, wrong category)
+ * fail before a transaction is even opened.
+ */
+export async function assertAssetReferenceAllowed({
+  db,
+  assetId,
+  purpose,
+}: {
+  db?: Db;
+  assetId: string;
+  purpose: AssetPurpose;
+}): Promise<Asset> {
+  const repository = new AssetRepository(db);
+
+  const asset = await repository.findById({ id: assetId });
+
+  validateAssetForPurpose(asset, purpose);
 
   return asset;
 }

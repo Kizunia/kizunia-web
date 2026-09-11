@@ -126,6 +126,8 @@ The reconciliation service treats each of the following as a distinct sweep:
 
 Each sweep is cursor/batch-bounded (a fixed batch size, and a fixed maximum number of batches per invocation) so one scheduled run stays bounded regardless of backlog size; a backlog larger than one run's cap simply drains across multiple scheduled invocations.
 
+`sweepUnreferencedActive`'s candidate discovery is deliberately optimistic — an unlocked query — but the actual `ACTIVE → DETACHED` decision for each candidate goes through the same row-locked, authoritative recheck every normal attach/detach path uses (`AssetService.detachIfUnreferenced`), so a candidate that picks up a legitimate reference concurrently is never incorrectly detached. See [`lifecycle.md#concurrency`](./lifecycle.md#concurrency) for the full mechanism.
+
 ---
 
 # Deletion Authorization

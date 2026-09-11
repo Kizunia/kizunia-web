@@ -20,7 +20,7 @@ import prisma from "@/lib/prisma";
 import type { AssetCategory } from "@/generated/prisma";
 
 import { AssetRepository } from "./repository";
-import { AssetReferenceChecker } from "./reference-checker";
+import { assetService } from "./service";
 import { UploadIntentRepository } from "./upload-intent.repository";
 import { getStorageProvider } from "./storage";
 import { ProviderObjectNotFoundError } from "./errors";
@@ -175,6 +175,16 @@ export class AssetReconciliationService {
    * candidate set on its own, so without a cursor a batch of
    * mostly-referenced rows would starve progress through the rest of the
    * table.
+   *
+   * Candidate discovery here is deliberately optimistic and unlocked — it
+   * would be wasteful to hold a row lock on every candidate in a batch for
+   * the duration of the whole sweep. The authoritative decision is made
+   * per-candidate, in its own short transaction, via
+   * `AssetService.detachIfUnreferenced` — the same race-safe, row-locked
+   * recheck every normal attach/detach path uses (see
+   * docs/architecture/domain/assets/lifecycle.md#concurrency). If a
+   * candidate gets a legitimate reference attached between being selected
+   * here and that recheck running, it simply stays ACTIVE.
    */
   async sweepUnreferencedActive(): Promise<{
     processed: number;
@@ -198,13 +208,11 @@ export class AssetReconciliationService {
       }
 
       for (const asset of candidates) {
-        const remaining = await AssetReferenceChecker.countReferences(
-          prisma,
-          asset.id,
+        const wasDetached = await prisma.$transaction((tx) =>
+          assetService.detachIfUnreferenced(tx, asset.id),
         );
 
-        if (remaining === 0) {
-          await this.assetRepository.markDetached(asset.id);
+        if (wasDetached) {
           detached += 1;
         }
       }

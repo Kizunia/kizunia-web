@@ -87,6 +87,15 @@ export class UserService {
       slot === "avatar" ? user.avatarAssetId : user.coverAssetId;
 
     const updated = await prisma.$transaction(async (tx) => {
+      // Authoritative, race-safe re-validation under lock — see
+      // AssetService.prepareAssetAttach. The pre-transaction
+      // assertAssetReferenceAllowed call above is a fast-fail check only.
+      await assetService.prepareAssetAttach(tx, {
+        assetId,
+        previousAssetId,
+        purpose: SLOT_PURPOSE[slot],
+      });
+
       const repository = new UserRepository(tx);
 
       const updatedUser = await repository.setAsset(actor.id, slot, assetId);

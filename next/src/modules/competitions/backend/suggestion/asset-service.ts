@@ -52,6 +52,16 @@ export class CompetitionSuggestionAssetService {
     });
 
     return prisma.$transaction(async (tx) => {
+      // Authoritative, race-safe re-validation under lock — see
+      // AssetService.prepareAssetAttach. The assertAssetReferenceAllowed
+      // call above is a fast-fail check only. There is no "previous" Asset
+      // here (this is an additive gallery attach, not a slot replace).
+      await assetService.prepareAssetAttach(tx, {
+        assetId,
+        previousAssetId: null,
+        purpose: AssetPurpose.COMPETITION_SUGGESTION_GALLERY,
+      });
+
       // Re-read inside the transaction so the count/duplicate check sees a
       // consistent snapshot even if two attach requests race.
       const current = await tx.competitionSuggestionAsset.findMany({

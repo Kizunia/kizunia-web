@@ -77,6 +77,15 @@ export class PortfolioTestimonialService {
     }
 
     await prisma.$transaction(async (tx) => {
+      // Authoritative, race-safe re-validation under lock — see
+      // AssetService.prepareAssetAttach. The pre-transaction
+      // assertAssetReferenceAllowed call above is a fast-fail check only.
+      await assetService.prepareAssetAttach(tx, {
+        assetId: imageAssetId,
+        previousAssetId: null,
+        purpose: AssetPurpose.PORTFOLIO_TESTIMONIAL_IMAGE,
+      });
+
       const repository = new PortfolioTestimonialRepository(tx);
 
       const displayOrder = await repository.nextDisplayOrder({
@@ -135,6 +144,17 @@ export class PortfolioTestimonialService {
     }
 
     await prisma.$transaction(async (tx) => {
+      // Authoritative, race-safe re-validation under lock — see
+      // AssetService.prepareAssetAttach. The pre-transaction
+      // assertAssetReferenceAllowed call above is a fast-fail check only.
+      if (imageChanged) {
+        await assetService.prepareAssetAttach(tx, {
+          assetId: nextImageAssetId,
+          previousAssetId: existing.imageAssetId,
+          purpose: AssetPurpose.PORTFOLIO_TESTIMONIAL_IMAGE,
+        });
+      }
+
       const repository = new PortfolioTestimonialRepository(tx);
 
       await repository.findByIdForPortfolioOrThrow({

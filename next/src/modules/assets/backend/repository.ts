@@ -102,6 +102,31 @@ export class AssetRepository {
   }
 
   /**
+   * Locks this Asset row for the remainder of the caller's transaction
+   * (`SELECT ... FOR UPDATE`) and returns its current state (or `null` if
+   * it doesn't exist). This is the serialization point the Asset
+   * concurrency model depends on — see `AssetService.prepareAssetAttach`/
+   * `detachIfUnreferenced` and
+   * docs/architecture/domain/assets/lifecycle.md#concurrency. Prisma has no
+   * typed API for row-level locking, so this is the one place in the Asset
+   * module that issues a raw query; the table is `@@map("asset")` (see
+   * schema.prisma) but every column keeps its Prisma field name, so the
+   * returned rows match the `Asset` type exactly.
+   *
+   * Must only be called through a repository constructed on a
+   * `Prisma.TransactionClient` — taking this lock outside an explicit
+   * transaction would release it before the caller could use it for
+   * anything.
+   */
+  async lockForUpdate(id: string): Promise<Asset | null> {
+    const rows = await this.db.$queryRaw<Asset[]>`
+      SELECT * FROM "asset" WHERE id = ${id} FOR UPDATE
+    `;
+
+    return rows[0] ?? null;
+  }
+
+  /**
    * ACTIVE and older than `cutoff` — candidates for the unreferenced-ACTIVE
    * sweep (see AssetReconciliationService.sweepUnreferencedActive). Cursor
    * paginated on `id`, not offset-based: unlike `findDetachedBefore`, a row

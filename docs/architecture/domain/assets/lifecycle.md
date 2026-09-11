@@ -2,7 +2,7 @@
 
 > **Status:** Stable (Implemented)
 >
-> **Version:** 1.1
+> **Version:** 1.2
 >
 > **Last Updated:** 2026-09-11
 
@@ -77,7 +77,7 @@ An Asset becomes `DETACHED` when it is no longer referenced by anything that use
 
 **`DETACHED` is terminal with respect to reuse.** A detached Asset cannot be reattached. If the same underlying file is needed again after detachment, that requires a new upload producing a new Asset — there is no `DETACHED → ACTIVE` transition.
 
-**Implementation:** `AssetRepository.markDetached` performs this transition, scoped to `status: ACTIVE` (compare-and-set — a repeat or concurrent call is a no-op, not an error), and stamps `detachedAt` so periodic cleanup can find "detached long enough ago" rows without scanning every `DETACHED` row. Every domain's `setAsset`-shaped method (see [ACTIVE](#active)) calls `AssetService.detachIfUnreferenced` on the *previous* Asset in the same transaction as the FK swap, guarded so a same-Asset resubmission never redundantly detaches the asset that is still current.
+**Implementation:** `AssetRepository.markDetached` performs this transition, scoped to `status: ACTIVE` (compare-and-set — a repeat or concurrent call is a no-op, not an error), and stamps `detachedAt` so periodic cleanup can find "detached long enough ago" rows without scanning every `DETACHED` row. Every domain's `setAsset`-shaped method (see [ACTIVE](#active)) calls `AssetService.detachIfUnreferenced` on the *previous* Asset in the same transaction as the FK swap, guarded so a same-Asset resubmission never redundantly detaches the asset that is still current. This decision is race-safe against a concurrent attach — see [Concurrency](#concurrency).
 
 ---
 
@@ -138,6 +138,28 @@ The state machine only has teeth if every failure mode has a defined destination
 - A `DETACHED`, `DELETING`, or `DELETED` Asset is never a valid target for a *new* attachment. Reuse after detachment always means a new upload, never reattachment of the existing record.
 - Storage success and Asset-finalization success are two different facts. The lifecycle must never assume one implies the other — this is the core reason the orphan-reconciliation problem exists (see [`security.md`](./security.md)).
 - Detachment (reference removal) and deletion (storage removal) are always separate operations, and physical deletion never runs ahead of detachment.
+
+---
+
+# Concurrency
+
+**A reference count alone is not sufficient to decide `ACTIVE → DETACHED`.** Under PostgreSQL's default `READ COMMITTED` isolation, a `SELECT` (counting references) and a later `UPDATE` (transitioning the Asset) inside the same transaction do not serialize against a concurrent transaction on their own — a legitimate new reference can be written and committed by another transaction in the gap between the count and the transition, producing exactly the outcome the lifecycle must never allow: an Asset that becomes `DETACHED` (and is later physically deleted) while something still legitimately references it.
+
+**The fix: the Asset row itself is the serialization point.** `AssetRepository.lockForUpdate` (`SELECT ... FOR UPDATE`) locks the specific Asset row for the remainder of the caller's transaction. Every write that can create, remove, or replace a reference to an Asset takes this same lock before making its decision:
+
+- `AssetService.detachIfUnreferenced` — the shared, authoritative detach path — locks the Asset, re-verifies it is still `ACTIVE` (a concurrent call may have already transitioned it), and only *then* counts references and transitions it. The count it acts on can never be stale by the time `markDetached` runs, because any transaction that could change that count (see below) is either fully committed before this lock is acquired, or blocked waiting for this transaction to release it.
+- `AssetService.prepareAssetAttach` — called by every domain's `setAsset`-shaped write (User, Competition, Project, Portfolio, Portfolio/Project Testimonials, Technology, Competition Suggestion assets) *before* it writes a new `...AssetId` FK — locks the Asset being attached (and, if different, the one it is replacing) and re-validates it is still usable (`validateAssetForPurpose`: exists, `ACTIVE`, correct category) under that lock. The earlier, pre-transaction `assertAssetReferenceAllowed` check every caller also makes is a fast-fail UX convenience only — it reads the Asset unlocked, so by itself it cannot guarantee anything about the moment the transaction actually commits.
+
+Whichever transaction — an attach or a detach — reaches a given Asset row first fully commits (or rolls back) before the other proceeds past its own lock acquisition. This is what makes the two sides of the race safe against each other **regardless of which one happens to run first**:
+
+- If the attacher commits first, the detacher's subsequent recheck sees the new reference and does not detach.
+- If the detacher commits first, the attacher's subsequent recheck sees the Asset is no longer `ACTIVE` and rejects the attach (`AssetNotActiveError`) — a legitimate, surfaced failure, never a silent reference to a doomed Asset.
+
+**Lock ordering.** A single `setAsset`-shaped write can touch two Asset rows in one transaction — the Asset being attached and the one it replaces. `prepareAssetAttach` always locks both (when both exist) in a single, fixed ascending-id order, never "new, then old." Without this, a concurrent transaction performing the reverse swap (trading the same two Assets in the opposite direction) could lock the same two rows in the opposite order and deadlock against this one; a single global lock order makes that impossible by construction.
+
+**Reconciliation shares the exact same boundary.** `AssetReconciliationService.sweepUnreferencedActive` does not reimplement "safe detach" — it selects candidates cheaply and optimistically (an unlocked query, `AssetRepository.findActiveBefore`), then calls the same `AssetService.detachIfUnreferenced` for each candidate, in its own short transaction. Candidate discovery does not need to be authoritative: if a candidate picks up a legitimate reference between being selected and its recheck running, `detachIfUnreferenced`'s lock-and-recheck simply leaves it `ACTIVE`. This also keeps locking cheap — no candidate is locked for longer than its own individual recheck-and-transition, never for the duration of a whole batch.
+
+**Shared Assets remain fully supported.** None of this changes the underlying rule: an Asset detaches only when *every* reference `AssetReferenceChecker` knows about is gone, not merely the one reference a particular caller just removed. The lock changes *when* that count is trusted, not what it counts.
 
 ---
 
