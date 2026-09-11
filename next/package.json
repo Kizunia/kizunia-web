@@ -17,6 +17,7 @@
     "@better-auth/prisma-adapter": "^1.6.23",
     "@hookform/resolvers": "^5.4.0",
     "@mdxeditor/editor": "^4.0.4",
+    "@phosphor-icons/react": "^2.1.10",
     "@prisma/client": "6.14.0",
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-avatar": "^1.2.3",
