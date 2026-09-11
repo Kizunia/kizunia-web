@@ -17,6 +17,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { AssetCategory } from "@/generated/prisma";
 import { ExternalServiceError } from "@/lib/errors";
 
+import { ProviderObjectNotFoundError } from "../errors";
 import type {
   StorageAuthorizeUploadInput,
   StorageConfirmUploadInput,
@@ -256,6 +257,18 @@ export class CloudinaryStorageProvider implements StorageProvider {
         providerMessage: provider.message,
       });
 
+      // Cloudinary's Admin API reports a missing resource as a 404 — that
+      // is a confirmed, expected answer ("no such object"), not a failure
+      // to reach the provider. Throwing a distinct error type lets callers
+      // (see AssetReconciliationService.sweepAbandonedIntents) tell that
+      // apart from a genuinely transient/ambiguous provider failure, which
+      // must not be treated the same way.
+      if (provider.httpCode === 404) {
+        throw new ProviderObjectNotFoundError(
+          `No provider object exists for "${objectId}".`,
+        );
+      }
+
       throw new ExternalServiceError({
         code: "CLOUDINARY_CONFIRM_FAILED",
         message: "Could not confirm the upload with the storage provider.",
@@ -271,10 +284,27 @@ export class CloudinaryStorageProvider implements StorageProvider {
     const resourceType = resourceTypeFor(category);
 
     try {
-      await cloudinary.uploader.destroy(providerObjectId, {
+      const result = await cloudinary.uploader.destroy(providerObjectId, {
         resource_type: resourceType,
       });
+
+      // Cloudinary resolves (rather than throws) `destroy` for an object
+      // that no longer exists, reporting `result: "not found"` — this
+      // adapter's contract (see StorageProvider.deleteObject) requires
+      // treating that as success, not failure: a missing object is exactly
+      // what "already deleted" looks like on retry. Anything else in
+      // `result` is an unexpected outcome worth surfacing as a failure.
+      if (result?.result !== "ok" && result?.result !== "not found") {
+        throw new ExternalServiceError({
+          code: "CLOUDINARY_DELETE_FAILED",
+          message: `Cloudinary reported an unexpected delete result: "${result?.result}".`,
+        });
+      }
     } catch (error) {
+      if (error instanceof ExternalServiceError) {
+        throw error;
+      }
+
       throw new ExternalServiceError({
         code: "CLOUDINARY_DELETE_FAILED",
         message: "Could not delete the object from the storage provider.",

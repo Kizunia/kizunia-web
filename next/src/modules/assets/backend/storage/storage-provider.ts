@@ -82,7 +82,13 @@ export interface StorageProvider {
   /**
    * Confirms a completed upload by asking the provider directly what it
    * actually holds for this correlation id — never the client's own report.
-   * Throws if the provider has no matching object.
+   *
+   * Throws `ProviderObjectNotFoundError` (see ../errors) if the provider has
+   * confirmed there is no matching object — a real, expected answer, not a
+   * failure to reach the provider. Any other failure (network, auth,
+   * transient outage) throws `ExternalServiceError` instead. Callers that
+   * need to tell "confirmed absent" apart from "could not confirm" must
+   * distinguish on the error type, not treat every throw identically.
    */
   confirmUpload(
     input: StorageConfirmUploadInput,

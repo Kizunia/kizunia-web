@@ -100,4 +100,26 @@ export class AssetRepository {
       orderBy: { updatedAt: "asc" },
     });
   }
+
+  /**
+   * ACTIVE and older than `cutoff` — candidates for the unreferenced-ACTIVE
+   * sweep (see AssetReconciliationService.sweepUnreferencedActive). Cursor
+   * paginated on `id`, not offset-based: unlike `findDetachedBefore`, a row
+   * that turns out to still be referenced never leaves this candidate set
+   * on its own (it stays ACTIVE), so an un-cursored re-query would see the
+   * same still-referenced rows on every batch and never make progress
+   * through the rest of the table.
+   */
+  async findActiveBefore(
+    cutoff: Date,
+    limit: number,
+    cursor: string | null = null,
+  ): Promise<Asset[]> {
+    return this.db.asset.findMany({
+      where: { status: AssetStatus.ACTIVE, createdAt: { lte: cutoff } },
+      take: limit,
+      orderBy: { id: "asc" },
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+    });
+  }
 }
