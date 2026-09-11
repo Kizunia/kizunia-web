@@ -72,7 +72,7 @@ export function ProjectEditorLayout({
   }
 
   return (
-    <div className="flex min-h-full flex-col mx-auto w-fit md:min-w-2xl">
+    <div className="flex min-h-full w-full flex-col md:mx-auto md:w-fit md:min-w-2xl">
       <div className="space-y-4">
         <ProjectEditorHeader projectName={project.title} />
 

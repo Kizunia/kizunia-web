@@ -62,7 +62,7 @@ export function ProjectEditorNavigation({
 
   return (
     <nav className="border-b" >
-      <div className="flex items-center gap-1 overflow-x-auto max-w-xs sm:max-w-sm md:max-w-fit">
+      <div className="flex items-center gap-1 overflow-x-auto">
         {visibleTabs.map((tab) => {
           const href = tab.segment
             ? `${basePath}/${tab.segment}`
@@ -79,7 +79,7 @@ export function ProjectEditorNavigation({
               key={tab.label}
               href={href}
               className={cn(
-                "relative whitespace-nowrap px-4 py-3 text-sm font-medium text-muted-foreground transition-colors",
+                "relative shrink-0 whitespace-nowrap px-4 py-3 text-sm font-medium text-muted-foreground transition-colors",
                 isDanger ? "hover:text-destructive" : "hover:text-foreground",
                 isActive && (isDanger ? "text-destructive" : "text-foreground"),
                 isActive &&
