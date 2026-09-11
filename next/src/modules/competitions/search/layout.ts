@@ -93,6 +93,9 @@ export const KIZUNIA_COMPETITION_LAYOUT: FilterLayoutSource = {
     // `registrationTypes` itself completely untouched — still a real filter,
     // still applied if a URL names it, and still revealed (via
     // `revealedBecauseActive`) if one does.
+    { key: "categories", hidden: true },
+    { key: "technologies", hidden: true },
+    { key: "difficultyLevels", hidden: true },
     { key: "registrationTypes", hidden: true },
   ],
 };
