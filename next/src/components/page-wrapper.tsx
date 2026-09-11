@@ -26,9 +26,9 @@ export default function PageWrapper({
   return (
     // <div className="flex flex-col gap-1">
     <>
-      <header className="bg-background flex items-center p-2 sticky top-0 z-10">
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-1">
+      <header className="bg-background flex h-12 shrink-0 items-center p-2 sticky top-0 z-10">
+        <div className="flex items-center justify-between w-full min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
             <SidebarTrigger />
 
             <Separator
@@ -61,7 +61,7 @@ export default function PageWrapper({
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col gap-4 p-4   ">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col gap-4 p-4">{children}</div>
       {/* </div> */}
     </>
   );

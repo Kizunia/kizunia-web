@@ -18,7 +18,8 @@ export interface UpdateCompetitionRequestDTO {
 
   organizer?: string | null;
 
-  content?: string;
+  /** Omit to leave documentation unchanged; `null` explicitly clears it. */
+  content?: string | null;
 
   website?: string | null;
 

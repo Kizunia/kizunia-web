@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -18,19 +17,24 @@ import { Button } from "@/components/ui/button";
 export function AssetsTab() {
   const competition = useCompetitionEditorStore((s) => s.competition);
 
-  const setCompetition = useCompetitionEditorStore((s) => s.setCompetition);
+  const applyPersistedAsset = useCompetitionEditorStore(
+    (s) => s.applyPersistedAsset,
+  );
 
   if (!competition) {
     return null;
   }
 
   return (
-    <div className="">
+    <div className="flex flex-wrap gap-3">
       <Dialog>
-        <DialogTrigger>
-            <Button variant={"secondary"} >Update Logo</Button>
+        <DialogTrigger asChild>
+          <Button variant="secondary">Update Logo</Button>
         </DialogTrigger>
         <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Competition Logo</DialogTitle>
+          </DialogHeader>
           <ReusableImageUploader
             title="Competition Logo"
             initialImage={competition.logoAsset?.secureUrl ?? ""}
@@ -48,7 +52,7 @@ export function AssetsTab() {
                   { assetId: asset.id },
                 );
 
-                setCompetition(updated);
+                applyPersistedAsset("logo", updated);
 
                 toast.success("Logo updated successfully.");
               } catch (error) {
@@ -58,22 +62,31 @@ export function AssetsTab() {
               }
             }}
             onDelete={async () => {
-              const updated = await CompetitionApi.clearAsset(
-                competition.id,
-                "logo",
-              );
+              try {
+                const updated = await CompetitionApi.clearAsset(
+                  competition.id,
+                  "logo",
+                );
 
-              setCompetition(updated);
+                applyPersistedAsset("logo", updated);
+              } catch (error) {
+                console.error(error);
+
+                toast.error("Failed to remove logo.");
+              }
             }}
           />
         </DialogContent>
       </Dialog>
 
       <Dialog>
-        <DialogTrigger>
-            <Button variant={"secondary"} >Update Banner</Button>
+        <DialogTrigger asChild>
+          <Button variant="secondary">Update Banner</Button>
         </DialogTrigger>
         <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Competition Banner</DialogTitle>
+          </DialogHeader>
           <ReusableImageUploader
             title="Competition Banner"
             initialImage={competition.bannerAsset?.secureUrl ?? ""}
@@ -92,7 +105,7 @@ export function AssetsTab() {
                   { assetId: asset.id },
                 );
 
-                setCompetition(updated);
+                applyPersistedAsset("banner", updated);
 
                 toast.success("Banner updated successfully.");
               } catch (error) {
@@ -102,12 +115,18 @@ export function AssetsTab() {
               }
             }}
             onDelete={async () => {
-              const updated = await CompetitionApi.clearAsset(
-                competition.id,
-                "banner",
-              );
+              try {
+                const updated = await CompetitionApi.clearAsset(
+                  competition.id,
+                  "banner",
+                );
 
-              setCompetition(updated);
+                applyPersistedAsset("banner", updated);
+              } catch (error) {
+                console.error(error);
+
+                toast.error("Failed to remove banner.");
+              }
             }}
           />
         </DialogContent>

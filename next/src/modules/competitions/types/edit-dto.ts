@@ -28,7 +28,10 @@ export interface CompetitionEditDTO {
 
   organizer: string | null;
 
-  content: string;
+  /** `null` means no documentation has ever been written — distinct from a
+   * saved-but-empty document, which cannot occur once cleared (see
+   * `CompetitionRepository.update`, the `content: null` branch). */
+  content: string | null;
 
   // ---------------------------------------------------------------------------
   // Registration

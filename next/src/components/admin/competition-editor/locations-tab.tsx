@@ -5,16 +5,20 @@ import { toast } from "sonner";
 import { ArrowDown, ArrowUp, MapPin, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/http";
 import { CompetitionLocationApi } from "@/modules/competitions/api/competition-location-api";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import type { CompetitionLocationDTO } from "@/modules/competitions/types/competition-location.dto";
 import { LocationPicker, type PickedLocation } from "./location-picker";
-import { toDateTimeLocal, toIsoOrNull } from "./datetime-field";
+import { BufferedTextInput } from "./buffered-text-input";
+import { DateTimePicker } from "./datetime-picker";
+import { TabCompletenessFooter } from "./tab-completeness-footer";
+import { useScrollToFocusedField } from "./use-scroll-to-focused-field";
 
 export function LocationsTab() {
+  useScrollToFocusedField();
+
   const competition = useCompetitionEditorStore((state) => state.competition);
 
   const setLocations = useCompetitionEditorStore((state) => state.setLocations);
@@ -112,7 +116,7 @@ export function LocationsTab() {
   }
 
   return (
-    <div className="grid gap-6 pt-6">
+    <div id="field-locations" className="grid gap-6 pt-6">
       <div className="space-y-2">
         <Label>Add a location</Label>
 
@@ -190,15 +194,13 @@ export function LocationsTab() {
                     Label
                   </Label>
 
-                  <Input
+                  <BufferedTextInput
                     id={`label-${competitionLocation.id}`}
-                    defaultValue={competitionLocation.label ?? ""}
+                    value={competitionLocation.label ?? ""}
                     placeholder="Qualifier, Final, Opening Ceremony…"
                     disabled={busy}
-                    onBlur={(event) =>
-                      patch(competitionLocation.id, {
-                        label: event.target.value.trim() || null,
-                      })
+                    onCommit={(label) =>
+                      patch(competitionLocation.id, { label })
                     }
                   />
                 </div>
@@ -208,15 +210,13 @@ export function LocationsTab() {
                     Venue
                   </Label>
 
-                  <Input
+                  <BufferedTextInput
                     id={`venue-${competitionLocation.id}`}
-                    defaultValue={competitionLocation.venueName ?? ""}
+                    value={competitionLocation.venueName ?? ""}
                     placeholder="MIT-WPU Auditorium"
                     disabled={busy}
-                    onBlur={(event) =>
-                      patch(competitionLocation.id, {
-                        venueName: event.target.value.trim() || null,
-                      })
+                    onCommit={(venueName) =>
+                      patch(competitionLocation.id, { venueName })
                     }
                   />
                 </div>
@@ -226,15 +226,13 @@ export function LocationsTab() {
                     Address
                   </Label>
 
-                  <Input
+                  <BufferedTextInput
                     id={`address-${competitionLocation.id}`}
-                    defaultValue={competitionLocation.address ?? ""}
+                    value={competitionLocation.address ?? ""}
                     placeholder="Kothrud Campus, Survey No. 124"
                     disabled={busy}
-                    onBlur={(event) =>
-                      patch(competitionLocation.id, {
-                        address: event.target.value.trim() || null,
-                      })
+                    onCommit={(address) =>
+                      patch(competitionLocation.id, { address })
                     }
                   />
                 </div>
@@ -244,15 +242,12 @@ export function LocationsTab() {
                     Starts
                   </Label>
 
-                  <Input
+                  <DateTimePicker
                     id={`start-${competitionLocation.id}`}
-                    type="datetime-local"
-                    defaultValue={toDateTimeLocal(competitionLocation.startDate)}
+                    value={competitionLocation.startDate}
                     disabled={busy}
-                    onBlur={(event) =>
-                      patch(competitionLocation.id, {
-                        startDate: toIsoOrNull(event.target.value),
-                      })
+                    onCommit={(startDate) =>
+                      patch(competitionLocation.id, { startDate })
                     }
                   />
                 </div>
@@ -260,15 +255,12 @@ export function LocationsTab() {
                 <div className="space-y-2">
                   <Label htmlFor={`end-${competitionLocation.id}`}>Ends</Label>
 
-                  <Input
+                  <DateTimePicker
                     id={`end-${competitionLocation.id}`}
-                    type="datetime-local"
-                    defaultValue={toDateTimeLocal(competitionLocation.endDate)}
+                    value={competitionLocation.endDate}
                     disabled={busy}
-                    onBlur={(event) =>
-                      patch(competitionLocation.id, {
-                        endDate: toIsoOrNull(event.target.value),
-                      })
+                    onCommit={(endDate) =>
+                      patch(competitionLocation.id, { endDate })
                     }
                   />
                 </div>
@@ -277,6 +269,8 @@ export function LocationsTab() {
           ))}
         </div>
       )}
+
+      <TabCompletenessFooter tab="locations" />
     </div>
   );
 }

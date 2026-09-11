@@ -504,12 +504,32 @@ export class CompetitionRepository {
 
     let contentId = competition.contentId;
 
+    // The Content row this update makes unreferenced, if any — deleted only
+    // after the competition row itself has been repointed away from it, so
+    // there is never a moment where `competition.contentId` refers to a row
+    // that no longer exists.
+    let contentIdToDelete: string | null = null;
+
     // ------------------------------------------------------------
-    // Update or create documentation
+    // Update, create, or clear documentation
+    //
+    // `content` has three distinct meanings here: `undefined` (key absent)
+    // leaves documentation untouched; a string creates or updates the
+    // Content row; `null` explicitly clears it — disconnecting the
+    // competition from its Content row and deleting that row, since a
+    // Content row is always single-owner (see the schema's `Competition`,
+    // `Project`, and `CompetitionSuggestion` relations, each with its own
+    // `@unique` FK) and nothing else can be holding a reference to it.
     // ------------------------------------------------------------
 
     if (content !== undefined) {
-      if (contentId) {
+      if (content === null) {
+        if (contentId) {
+          contentIdToDelete = contentId;
+          contentId = null;
+        }
+        // Already null: no-op.
+      } else if (contentId) {
         await db.content.update({
           where: {
             id: contentId,
@@ -539,7 +559,7 @@ export class CompetitionRepository {
     // Update competition
     // ------------------------------------------------------------
 
-    return db.competition.update({
+    const updated = await db.competition.update({
       where: {
         id,
       },
@@ -560,6 +580,16 @@ export class CompetitionRepository {
         }),
       },
     });
+
+    if (contentIdToDelete) {
+      await db.content.delete({
+        where: {
+          id: contentIdToDelete,
+        },
+      });
+    }
+
+    return updated;
   }
 
   static async setLogoAsset(

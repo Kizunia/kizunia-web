@@ -179,7 +179,7 @@ export class CompetitionMapper {
 
       registrationLink: competition.registrationLink,
 
-      content: competition.content?.content ?? "",
+      content: competition.content?.content ?? null,
 
       mode: competition.mode,
 
@@ -276,7 +276,7 @@ export class CompetitionMapper {
 
       registrationLink: competition.registrationLink,
 
-      content: competition.content?.content ?? "",
+      content: competition.content?.content ?? null,
 
       mode: competition.mode,
 
@@ -400,7 +400,7 @@ export class CompetitionMapper {
 
   //     registrationLink: competition.registrationLink,
 
-  //     content: competition.content?.content ?? "",
+  //     content: competition.content?.content ?? null,
 
   //     mode: competition.mode,
 
