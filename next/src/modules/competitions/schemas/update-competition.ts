@@ -32,7 +32,12 @@ export const UpdateCompetitionSchema = z
 
     visibility: z.nativeEnum(CompetitionVisibility).optional(),
 
-    content: ContentSchema.optional(),
+    // Nullable here even though the shared `ContentSchema` is not: `null`
+    // means "clear documentation" (see `CompetitionRepository.update`), a
+    // capability specific to competitions. `ContentSchema` is also used by
+    // `UpdateProjectContentSchema`, where a project's documentation is
+    // always required, so `.nullable()` is applied at this call site only.
+    content: ContentSchema.nullable().optional(),
 
     // ---------------------------------------------------------------------
     // Registration
