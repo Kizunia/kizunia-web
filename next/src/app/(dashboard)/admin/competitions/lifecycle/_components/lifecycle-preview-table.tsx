@@ -54,6 +54,7 @@ const REASON_LABEL: Record<LifecycleReason, string> = {
   [LifecycleReason.REGISTRATION_DEADLINE_PASSED]: "Registration deadline has passed",
   [LifecycleReason.AWAITING_FIRST_MILESTONE]: "Next milestone ahead",
   [LifecycleReason.NO_LIFECYCLE_DATES]: "No lifecycle dates set",
+  [LifecycleReason.AMBIGUOUS_LIFECYCLE_DATA]: "Insufficient lifecycle evidence",
 };
 
 function formatDate(iso: string | null): string {

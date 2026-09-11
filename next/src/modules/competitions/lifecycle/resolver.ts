@@ -62,6 +62,9 @@
  *   5. UPCOMING             — sufficient evidence exists that the competition
  *                            is still before its first relevant milestone.
  *   6. unchanged            — no safe automatic transition can be established.
+ *                            NO_LIFECYCLE_DATES when no lifecycle date is
+ *                            known at all; AMBIGUOUS_LIFECYCLE_DATA when at
+ *                            least one date exists but doesn't clear the bar.
  *
  * REGISTRATION_OPEN outranks ONGOING deliberately: a competition may already
  * have started while registration is still open (late registration), and the
@@ -123,8 +126,16 @@ export const LifecycleReason = {
   /** A future lifecycle date provides sufficient evidence for UPCOMING. */
   AWAITING_FIRST_MILESTONE: "AWAITING_FIRST_MILESTONE",
 
-  /** No safe automatic transition can be established. */
+  /** All four lifecycle dates are null; there is nothing to reason about. */
   NO_LIFECYCLE_DATES: "NO_LIFECYCLE_DATES",
+
+  /**
+   * At least one lifecycle date exists, but it is not sufficient (or is
+   * contradictory) evidence for an automatic transition. Distinct from
+   * NO_LIFECYCLE_DATES because dates do exist — they just do not clear the
+   * bar for a safe automatic change.
+   */
+  AMBIGUOUS_LIFECYCLE_DATA: "AMBIGUOUS_LIFECYCLE_DATA",
 } as const;
 
 export type LifecycleReason =
@@ -285,7 +296,10 @@ export function resolveAutomaticStatus(
   //
   // ONGOING + future startDate is different: ONGOING explicitly claims that
   // the event has started, so a future startDate is sufficient evidence for a
-  // backward transition to UPCOMING.
+  // backward transition to UPCOMING. But it must be startDate specifically —
+  // ONGOING says nothing about registration or end dates, so a future
+  // registrationStartDate or endDate does not contradict it and must not be
+  // used to justify the same backward transition.
   //
   // REGISTRATION_OPEN is intentionally not overridden here because registration
   // can legitimately be open before the event begins.
@@ -293,33 +307,52 @@ export function resolveAutomaticStatus(
   // COMPLETED + future endDate is intentionally left untouched because the
   // resolver cannot determine whether the data represents rescheduling,
   // correction, stale data, or another situation.
-  const nextMilestone = earliestKnownFutureDate(
-    now,
-    registrationStartDate,
-    startDate,
-    endDate,
-  );
+  if (currentStatus === "ONGOING") {
+    if (notYetReached(startDate, now) && startDate !== null) {
+      return {
+        status: "UPCOMING",
+        reason: LifecycleReason.AWAITING_FIRST_MILESTONE,
+        drivingDate: startDate,
+      };
+    }
+  } else if (currentStatus === null || currentStatus === "UPCOMING") {
+    const nextMilestone = earliestKnownFutureDate(
+      now,
+      registrationStartDate,
+      startDate,
+      endDate,
+    );
 
-  if (
-    nextMilestone !== null &&
-    (currentStatus === null ||
-      currentStatus === "UPCOMING" ||
-      currentStatus === "ONGOING")
-  ) {
-    return {
-      status: "UPCOMING",
-      reason: LifecycleReason.AWAITING_FIRST_MILESTONE,
-      drivingDate: nextMilestone,
-    };
+    if (nextMilestone !== null) {
+      return {
+        status: "UPCOMING",
+        reason: LifecycleReason.AWAITING_FIRST_MILESTONE,
+        drivingDate: nextMilestone,
+      };
+    }
   }
 
   // Rule 6 — ambiguous or incomplete data.
   //
   // There is not enough evidence for a safe automatic transition.
   // Preserve the currently stored status rather than guessing.
+  //
+  // NO_LIFECYCLE_DATES is reserved for the case where all four lifecycle
+  // dates are null — there is nothing to reason about. If at least one date
+  // exists but still isn't enough (or is contradictory) evidence for a
+  // transition, that is AMBIGUOUS_LIFECYCLE_DATA instead, so callers like the
+  // admin preview don't misreport dates that do exist as absent.
+  const hasLifecycleDates =
+    registrationStartDate !== null ||
+    registrationDeadline !== null ||
+    startDate !== null ||
+    endDate !== null;
+
   return {
     status: currentStatus,
-    reason: LifecycleReason.NO_LIFECYCLE_DATES,
+    reason: hasLifecycleDates
+      ? LifecycleReason.AMBIGUOUS_LIFECYCLE_DATA
+      : LifecycleReason.NO_LIFECYCLE_DATES,
     drivingDate: null,
   };
 }

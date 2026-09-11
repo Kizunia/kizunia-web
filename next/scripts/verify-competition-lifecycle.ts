@@ -515,6 +515,68 @@ function verifyBackwardTransitions(): void {
   );
 }
 
+function verifyAmbiguousLifecycleData(): void {
+  console.log("\nAMBIGUOUS_LIFECYCLE_DATA vs NO_LIFECYCLE_DATES");
+
+  runCase({
+    label: "ONGOING, startDate null, future endDate -> stays ONGOING (ambiguous)",
+    input: input({
+      currentStatus: "ONGOING",
+      startDate: null,
+      endDate: FUTURE_5,
+    }),
+    expectedStatus: "ONGOING",
+    expectedReason: LifecycleReason.AMBIGUOUS_LIFECYCLE_DATA,
+  });
+
+  runCase({
+    label: "ONGOING, startDate null, future registrationStartDate -> stays ONGOING (ambiguous)",
+    input: input({
+      currentStatus: "ONGOING",
+      startDate: null,
+      registrationStartDate: FUTURE_1,
+    }),
+    expectedStatus: "ONGOING",
+    expectedReason: LifecycleReason.AMBIGUOUS_LIFECYCLE_DATA,
+  });
+
+  runCase({
+    label: "ONGOING, future startDate -> UPCOMING driven by startDate",
+    input: input({
+      currentStatus: "ONGOING",
+      startDate: FUTURE_1,
+    }),
+    expectedStatus: "UPCOMING",
+    expectedReason: LifecycleReason.AWAITING_FIRST_MILESTONE,
+  });
+
+  const drivenByStartDate = resolveAutomaticStatus(
+    input({ currentStatus: "ONGOING", startDate: FUTURE_1 }),
+  );
+  report(
+    "ONGOING -> UPCOMING driving date is startDate",
+    drivenByStartDate.drivingDate?.getTime() === FUTURE_1.getTime(),
+    JSON.stringify(drivenByStartDate),
+  );
+
+  runCase({
+    label: "REGISTRATION_CLOSED, future endDate -> stays REGISTRATION_CLOSED (ambiguous)",
+    input: input({
+      currentStatus: "REGISTRATION_CLOSED",
+      endDate: FUTURE_5,
+    }),
+    expectedStatus: "REGISTRATION_CLOSED",
+    expectedReason: LifecycleReason.AMBIGUOUS_LIFECYCLE_DATA,
+  });
+
+  runCase({
+    label: "all four lifecycle dates null -> NO_LIFECYCLE_DATES",
+    input: input({ currentStatus: "REGISTRATION_CLOSED" }),
+    expectedStatus: "REGISTRATION_CLOSED",
+    expectedReason: LifecycleReason.NO_LIFECYCLE_DATES,
+  });
+}
+
 function verifyDeterminism(): void {
   console.log("\ndeterminism");
 
@@ -550,6 +612,7 @@ async function main(): Promise<void> {
   verifyBoundaries();
   verifyNullStatus();
   verifyBackwardTransitions();
+  verifyAmbiguousLifecycleData();
   verifyDeterminism();
 
   console.log(`\n${checks - failures}/${checks} checks passed.`);
