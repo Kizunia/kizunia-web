@@ -1,14 +1,14 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/modules/competitions/components/status-badge";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
+import { useIsDirty } from "./use-field-status";
 import { deriveFieldStatus } from "@/modules/competitions/editor/field-status";
 import {
   FIELD_METADATA,
   type FieldImportance,
-  type EditorTab,
 } from "@/modules/competitions/editor/field-metadata";
 import type { CompetitionEditDTOWithPermissions } from "@/modules/competitions/types/edit-dto";
 
@@ -28,17 +28,16 @@ const IMPORTANCE_LABEL: Record<FieldImportance, string> = {
  * `FIELD_METADATA` + `deriveFieldStatus`, the same functions the tabs and
  * their status badges already use.
  */
-export function SummaryTab({
-  onNavigateToTab,
-}: {
-  onNavigateToTab: (tab: EditorTab) => void;
-}) {
+export function SummaryTab() {
   const competition = useCompetitionEditorStore((s) => s.competition);
   const original = useCompetitionEditorStore((s) => s.original);
   const fieldErrors = useCompetitionEditorStore((s) => s.fieldErrors);
-  const isDirty = useCompetitionEditorStore((s) => s.isDirty);
+  const isDirty = useIsDirty();
 
   if (!competition || !original) return null;
+
+  const tabHref = (tab: string, key: string) =>
+    `/admin/competitions/${competition.id}/${tab}?focus=${key}`;
 
   const rows = FIELD_METADATA.map((meta) => {
     const key = meta.key as keyof CompetitionEditDTOWithPermissions;
@@ -87,13 +86,12 @@ export function SummaryTab({
           <ul className="space-y-1 text-sm text-destructive">
             {blockers.map(({ meta }) => (
               <li key={meta.key}>
-                <button
-                  type="button"
+                <Link
+                  href={tabHref(meta.tab, meta.key)}
                   className="underline underline-offset-2"
-                  onClick={() => onNavigateToTab(meta.tab)}
                 >
                   {meta.label}
-                </button>{" "}
+                </Link>{" "}
                 is required.
               </li>
             ))}
@@ -130,14 +128,12 @@ export function SummaryTab({
                     className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
                   >
                     <span>{meta.label}</span>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-muted-foreground"
-                      onClick={() => onNavigateToTab(meta.tab)}
+                    <Link
+                      href={tabHref(meta.tab, meta.key)}
+                      className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
                     >
                       Not specified
-                    </Button>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -154,7 +150,7 @@ export function SummaryTab({
           )}
       </section>
 
-      {isDirty() && unsaved.length > 0 && (
+      {isDirty && unsaved.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-sm font-medium text-muted-foreground">
             Unsaved changes

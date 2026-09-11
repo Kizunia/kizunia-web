@@ -12,10 +12,13 @@ import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-s
 import type { CompetitionLocationDTO } from "@/modules/competitions/types/competition-location.dto";
 import { LocationPicker, type PickedLocation } from "./location-picker";
 import { BufferedTextInput } from "./buffered-text-input";
-import { DateTimeInput } from "./datetime-input";
+import { DateTimePicker } from "./datetime-picker";
 import { TabCompletenessFooter } from "./tab-completeness-footer";
+import { useScrollToFocusedField } from "./use-scroll-to-focused-field";
 
 export function LocationsTab() {
+  useScrollToFocusedField();
+
   const competition = useCompetitionEditorStore((state) => state.competition);
 
   const setLocations = useCompetitionEditorStore((state) => state.setLocations);
@@ -113,7 +116,7 @@ export function LocationsTab() {
   }
 
   return (
-    <div className="grid gap-6 pt-6">
+    <div id="field-locations" className="grid gap-6 pt-6">
       <div className="space-y-2">
         <Label>Add a location</Label>
 
@@ -239,7 +242,7 @@ export function LocationsTab() {
                     Starts
                   </Label>
 
-                  <DateTimeInput
+                  <DateTimePicker
                     id={`start-${competitionLocation.id}`}
                     value={competitionLocation.startDate}
                     disabled={busy}
@@ -252,7 +255,7 @@ export function LocationsTab() {
                 <div className="space-y-2">
                   <Label htmlFor={`end-${competitionLocation.id}`}>Ends</Label>
 
-                  <DateTimeInput
+                  <DateTimePicker
                     id={`end-${competitionLocation.id}`}
                     value={competitionLocation.endDate}
                     disabled={busy}

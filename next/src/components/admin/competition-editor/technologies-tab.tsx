@@ -23,8 +23,11 @@ import type { TechnologyCatalogDTO } from "@/modules/technologies/backend/dto/te
 import { CompetitionTechnologyApi } from "@/modules/competitions/api/competition-technology-api";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { TabCompletenessFooter } from "./tab-completeness-footer";
+import { useScrollToFocusedField } from "./use-scroll-to-focused-field";
 
 export function TechnologiesTab() {
+  useScrollToFocusedField();
+
   const competition = useCompetitionEditorStore((state) => state.competition);
 
   const setTechnologies = useCompetitionEditorStore(
@@ -125,7 +128,7 @@ export function TechnologiesTab() {
   }
 
   return (
-    <div className="grid gap-6 pt-6">
+    <div id="field-technologies" className="grid gap-6 pt-6">
       {canManage ? (
         <div className="space-y-2">
           <Label>Technologies</Label>

@@ -21,8 +21,11 @@ import { EditorField } from "./editor-field";
 import { TeamSizeField } from "./team-size-field";
 import { TabCompletenessFooter } from "./tab-completeness-footer";
 import { useFieldStatus } from "./use-field-status";
+import { useScrollToFocusedField } from "./use-scroll-to-focused-field";
 
 export function GeneralTab() {
+  useScrollToFocusedField();
+
   const competition = useCompetitionEditorStore((state) => state.competition);
 
   const updateCompetition = useCompetitionEditorStore(
@@ -56,7 +59,7 @@ export function GeneralTab() {
 
   return (
     <div className="space-y-8 pt-6">
-      <FieldSet>
+      <FieldSet id="field-logoAsset">
         <FieldLegend variant="label">Assets</FieldLegend>
         <AssetsTab />
       </FieldSet>
@@ -64,7 +67,7 @@ export function GeneralTab() {
       <FieldSet>
         <FieldLegend variant="label">Identity</FieldLegend>
         <div className="grid gap-4 sm:grid-cols-2">
-          <EditorField label="Title" htmlFor="title" status={titleStatus}>
+          <EditorField label="Title" htmlFor="title" fieldKey="title" status={titleStatus}>
             <Input
               id="title"
               value={competition.title ?? ""}
@@ -75,6 +78,7 @@ export function GeneralTab() {
           <EditorField
             label="Slug"
             htmlFor="slug"
+            fieldKey="slug"
             status={slugStatus}
             error={fieldErrors.slug}
             description={
@@ -99,6 +103,7 @@ export function GeneralTab() {
           <EditorField
             label="Organizer"
             htmlFor="organizer"
+            fieldKey="organizer"
             status={organizerStatus}
           >
             <Input
@@ -110,7 +115,7 @@ export function GeneralTab() {
             />
           </EditorField>
 
-          <EditorField label="Website" htmlFor="website" status={websiteStatus}>
+          <EditorField label="Website" htmlFor="website" fieldKey="website" status={websiteStatus}>
             <Input
               id="website"
               value={competition.website ?? ""}
@@ -121,6 +126,7 @@ export function GeneralTab() {
           <EditorField
             label="Short Description"
             htmlFor="shortDescription"
+            fieldKey="shortDescription"
             status={shortDescriptionStatus}
             className="sm:col-span-2"
           >
@@ -144,6 +150,7 @@ export function GeneralTab() {
             value={competition.status}
             options={COMPETITION_STATUS_OPTIONS}
             nullable
+            fieldKey="status"
             status={statusStatus}
             onValueChange={(status) =>
               updateCompetition({
@@ -156,6 +163,7 @@ export function GeneralTab() {
             label="Visibility"
             value={competition.visibility}
             options={COMPETITION_VISIBILITY_OPTIONS}
+            fieldKey="visibility"
             status={visibilityStatus}
             onValueChange={(visibility) =>
               updateCompetition({
@@ -169,6 +177,7 @@ export function GeneralTab() {
             value={competition.mode}
             options={COMPETITION_MODE_OPTIONS}
             nullable
+            fieldKey="mode"
             status={modeStatus}
             onValueChange={(mode) =>
               updateCompetition({ mode: mode as typeof competition.mode })
@@ -180,6 +189,7 @@ export function GeneralTab() {
             value={competition.organizerType}
             options={ORGANIZER_TYPE_OPTIONS}
             nullable
+            fieldKey="organizerType"
             status={organizerTypeStatus}
             onValueChange={(organizerType) =>
               updateCompetition({
@@ -193,6 +203,7 @@ export function GeneralTab() {
             value={competition.difficulty}
             options={DIFFICULTY_OPTIONS}
             nullable
+            fieldKey="difficulty"
             status={difficultyStatus}
             onValueChange={(difficulty) =>
               updateCompetition({
@@ -206,6 +217,7 @@ export function GeneralTab() {
             value={competition.certificateType}
             options={CERTIFICATE_OPTIONS}
             nullable
+            fieldKey="certificateType"
             status={certificateTypeStatus}
             onValueChange={(certificateType) =>
               updateCompetition({
@@ -223,6 +235,7 @@ export function GeneralTab() {
           <EditorField
             label="Registration Link"
             htmlFor="registrationLink"
+            fieldKey="registrationLink"
             status={registrationLinkStatus}
           >
             <Input
@@ -239,6 +252,7 @@ export function GeneralTab() {
             value={competition.registrationPlatform}
             options={REGISTRATION_PLATFORM_OPTIONS}
             nullable
+            fieldKey="registrationPlatform"
             status={registrationPlatformStatus}
             onValueChange={(registrationPlatform) =>
               updateCompetition({
@@ -251,6 +265,7 @@ export function GeneralTab() {
           <EditorField
             label="Prize Pool"
             htmlFor="prizePool"
+            fieldKey="prizePool"
             status={prizePoolStatus}
           >
             <Input
@@ -266,6 +281,7 @@ export function GeneralTab() {
           <EditorField
             label="Registration Fee"
             htmlFor="registrationFee"
+            fieldKey="registrationFee"
             status={registrationFeeStatus}
           >
             <Input
@@ -283,6 +299,7 @@ export function GeneralTab() {
             value={competition.registrationFeeType}
             options={REGISTRATION_FEE_TYPE_OPTIONS}
             nullable
+            fieldKey="registrationFeeType"
             status={registrationFeeTypeStatus}
             onValueChange={(registrationFeeType) =>
               updateCompetition({

@@ -56,6 +56,33 @@ describe("isEquivalent", () => {
   it("treats two empty arrays as equivalent", () => {
     expect(isEquivalent([], [])).toBe(true);
   });
+
+  it("compares single id-bearing objects by id, not by reference", () => {
+    // Regression for a real bug: `original` is a `structuredClone` of
+    // `competition` (see `initialize` in the store), so an asset object
+    // like `logoAsset` never reference-equals its clone counterpart even
+    // when the content is identical — `Object.is` alone reported these as
+    // permanently different, showing a phantom UNSAVED status from load.
+    const a = { id: "asset-1", secureUrl: "https://example.com/a.png" };
+    const b = { id: "asset-1", secureUrl: "https://example.com/a.png" };
+    expect(a).not.toBe(b);
+    expect(isEquivalent(a, b)).toBe(true);
+  });
+
+  it("detects a different id-bearing object", () => {
+    expect(
+      isEquivalent({ id: "asset-1" }, { id: "asset-2" }),
+    ).toBe(false);
+  });
+
+  it("detects a change from an asset to null, and vice versa", () => {
+    expect(isEquivalent({ id: "asset-1" }, null)).toBe(false);
+    expect(isEquivalent(null, { id: "asset-1" })).toBe(false);
+  });
+
+  it("treats two nulls as equivalent for an id-bearing field", () => {
+    expect(isEquivalent(null, null)).toBe(true);
+  });
 });
 
 describe("deriveFieldStatus", () => {

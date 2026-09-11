@@ -17,10 +17,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { StatusBadge } from "@/modules/competitions/components/status-badge";
-import { DateTimeInput } from "./datetime-input";
+import { DateTimePicker } from "./datetime-picker";
 import { EditorField } from "./editor-field";
 import { TabCompletenessFooter } from "./tab-completeness-footer";
 import { useFieldStatus } from "./use-field-status";
+import { useScrollToFocusedField } from "./use-scroll-to-focused-field";
 
 function formatUpdatedAt(iso: string | null): string {
   if (!iso) return "Never";
@@ -35,6 +36,8 @@ function formatUpdatedAt(iso: string | null): string {
 }
 
 export function ScheduleTab() {
+  useScrollToFocusedField();
+
   const competition = useCompetitionEditorStore((state) => state.competition);
   const updateCompetition = useCompetitionEditorStore(
     (state) => state.updateCompetition,
@@ -91,6 +94,7 @@ export function ScheduleTab() {
         <EditorField
           label="Registration opens"
           htmlFor="registrationStartDate"
+          fieldKey="registrationStartDate"
           status={registrationStartDateStatus}
           description={
             <p className="text-xs text-muted-foreground">
@@ -99,7 +103,7 @@ export function ScheduleTab() {
             </p>
           }
         >
-          <DateTimeInput
+          <DateTimePicker
             id="registrationStartDate"
             value={competition.registrationStartDate}
             onCommit={(iso) =>
@@ -111,6 +115,7 @@ export function ScheduleTab() {
         <EditorField
           label="Registration deadline"
           htmlFor="registrationDeadline"
+          fieldKey="registrationDeadline"
           status={registrationDeadlineStatus}
           description={
             <p className="text-xs text-muted-foreground">
@@ -119,7 +124,7 @@ export function ScheduleTab() {
             </p>
           }
         >
-          <DateTimeInput
+          <DateTimePicker
             id="registrationDeadline"
             value={competition.registrationDeadline}
             onCommit={(iso) => updateCompetition({ registrationDeadline: iso })}
@@ -129,17 +134,18 @@ export function ScheduleTab() {
         <EditorField
           label="Starts"
           htmlFor="startDate"
+          fieldKey="startDate"
           status={startDateStatus}
         >
-          <DateTimeInput
+          <DateTimePicker
             id="startDate"
             value={competition.startDate}
             onCommit={(iso) => updateCompetition({ startDate: iso })}
           />
         </EditorField>
 
-        <EditorField label="Ends" htmlFor="endDate" status={endDateStatus}>
-          <DateTimeInput
+        <EditorField label="Ends" htmlFor="endDate" fieldKey="endDate" status={endDateStatus}>
+          <DateTimePicker
             id="endDate"
             value={competition.endDate}
             onCommit={(iso) => updateCompetition({ endDate: iso })}

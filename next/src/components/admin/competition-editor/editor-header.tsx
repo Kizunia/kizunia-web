@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { StatusBadge } from "@/modules/competitions/components/status-badge";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
+import { useIsDirty } from "./use-field-status";
 
 /** A pure function of `lastSavedAt` alone (no `Date.now()`), so it never
  * differs between server and client renders and needs no effect to stay
@@ -32,7 +33,7 @@ export function EditorHeader() {
   const original = useCompetitionEditorStore((s) => s.original);
   const saving = useCompetitionEditorStore((s) => s.saving);
   const lastSavedAt = useCompetitionEditorStore((s) => s.lastSavedAt);
-  const isDirty = useCompetitionEditorStore((s) => s.isDirty);
+  const dirty = useIsDirty();
   const save = useCompetitionEditorStore((s) => s.save);
   const reset = useCompetitionEditorStore((s) => s.reset);
 
@@ -40,7 +41,6 @@ export function EditorHeader() {
 
   if (!competition || !original) return null;
 
-  const dirty = isDirty();
   const isPublic = competition.visibility === "PUBLIC";
 
   let saveLabel: string;

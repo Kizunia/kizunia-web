@@ -46,16 +46,35 @@ export function TeamSizeField({
         onChange({ minTeamSize: 1, maxTeamSize: 1 });
         return;
       case "exact": {
-        const size = minTeamSize ?? maxTeamSize ?? 1;
+        // `(1,1)` always displays as Solo (see `deriveMode`), so seeding
+        // Exact with 1 from Unspecified/Solo would make the toggle snap
+        // straight back to Solo and look unresponsive. Reuse an existing
+        // exact value if there is one; otherwise seed with a value that
+        // can't collide with Solo.
+        const size =
+          minTeamSize != null &&
+          maxTeamSize != null &&
+          minTeamSize === maxTeamSize &&
+          minTeamSize !== 1
+            ? minTeamSize
+            : 2;
         onChange({ minTeamSize: size, maxTeamSize: size });
         return;
       }
-      case "range":
-        onChange({
-          minTeamSize: minTeamSize ?? 1,
-          maxTeamSize: maxTeamSize ?? null,
-        });
+      case "range": {
+        // Same collision: from Solo, `maxTeamSize` is already non-null
+        // (1), so `?? null` wouldn't apply and the pair would stay (1,1),
+        // which `deriveMode` reads back as Solo. Force a genuinely
+        // different min/max pair whenever the current values don't
+        // already form a valid range.
+        const nextMin = minTeamSize ?? 1;
+        const nextMax =
+          maxTeamSize != null && maxTeamSize !== nextMin
+            ? maxTeamSize
+            : nextMin + 1;
+        onChange({ minTeamSize: nextMin, maxTeamSize: nextMax });
         return;
+      }
     }
   }
 
@@ -66,7 +85,7 @@ export function TeamSizeField({
     minTeamSize > maxTeamSize;
 
   return (
-    <div className="space-y-2">
+    <div id="field-teamSize" className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium">Team Size</span>
       </div>

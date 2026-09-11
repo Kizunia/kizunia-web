@@ -17,8 +17,11 @@ import { ForwardRefEditor } from "@/components/shared/mdx/ForwardRefEditor";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { FieldStatusBadge } from "./field-status-badge";
 import { useFieldStatus } from "./use-field-status";
+import { useScrollToFocusedField } from "./use-scroll-to-focused-field";
 
 export function DocumentationTab() {
+  useScrollToFocusedField();
+
   const competition = useCompetitionEditorStore((state) => state.competition);
 
   const updateCompetition = useCompetitionEditorStore(
@@ -41,7 +44,7 @@ export function DocumentationTab() {
   const hasContent = competition.content !== null;
 
   return (
-    <div className="space-y-3 pt-6 text-foreground">
+    <div id="field-content" className="space-y-3 pt-6 text-foreground">
       <div className="flex items-center justify-between gap-2">
         {contentStatus && <FieldStatusBadge status={contentStatus} />}
 

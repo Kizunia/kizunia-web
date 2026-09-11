@@ -11,6 +11,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { FieldStatusBadge } from "./field-status-badge";
 import type { FieldStatus } from "@/modules/competitions/editor/field-status";
+import type { SummaryFieldKey } from "@/modules/competitions/editor/field-metadata";
+import { getFieldAnchorId } from "@/modules/competitions/editor/field-metadata";
 
 interface Option {
   value: string;
@@ -33,6 +35,11 @@ interface SelectFieldProps {
    * (`visibility`), where there is no valid "unset" state. */
   nullable?: boolean;
 
+  /** The `FIELD_METADATA` key this select corresponds to — gives the
+   * wrapper a stable scroll/focus anchor id for the Summary tab's "Not
+   * specified" links. Omit for fields with no `FIELD_METADATA` entry. */
+  fieldKey?: SummaryFieldKey;
+
   status?: FieldStatus;
 
   onValueChange(value: string | null): void;
@@ -49,13 +56,17 @@ export function SelectField({
   placeholder,
   options,
   nullable = false,
+  fieldKey,
   status,
   onValueChange,
 }: SelectFieldProps) {
   const id = useId();
 
   return (
-    <div className="space-y-2">
+    <div
+      id={fieldKey ? getFieldAnchorId(fieldKey) : undefined}
+      className="space-y-2"
+    >
       <div className="flex items-center justify-between gap-2">
         <Label htmlFor={id} className="text-sm font-medium">
           {label}

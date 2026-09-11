@@ -5,11 +5,18 @@ import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 import type { FieldStatus } from "@/modules/competitions/editor/field-status";
+import type { SummaryFieldKey } from "@/modules/competitions/editor/field-metadata";
+import { getFieldAnchorId } from "@/modules/competitions/editor/field-metadata";
 import { FieldStatusBadge } from "./field-status-badge";
 
 interface EditorFieldProps {
   label: string;
   htmlFor?: string;
+  /** The `FIELD_METADATA` key this field corresponds to, used only to give
+   * the wrapper a stable scroll/focus anchor id for the Summary tab's
+   * "Not specified" links (`getFieldAnchorId`). Omit for fields with no
+   * `FIELD_METADATA` entry. */
+  fieldKey?: SummaryFieldKey;
   /** Omit for fields that don't participate in the NULL/UNSAVED/DONE system
    * (e.g. a read-only panel). */
   status?: FieldStatus;
@@ -31,6 +38,7 @@ interface EditorFieldProps {
 export function EditorField({
   label,
   htmlFor,
+  fieldKey,
   status,
   error,
   description,
@@ -38,7 +46,11 @@ export function EditorField({
   children,
 }: EditorFieldProps) {
   return (
-    <div className={cn("space-y-2", className)} data-invalid={Boolean(error)}>
+    <div
+      id={fieldKey ? getFieldAnchorId(fieldKey) : undefined}
+      className={cn("space-y-2", className)}
+      data-invalid={Boolean(error)}
+    >
       <div className="flex items-center justify-between gap-2">
         <Label htmlFor={htmlFor} className="text-sm font-medium">
           {label}

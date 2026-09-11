@@ -61,6 +61,17 @@ export function isEquivalent(a: unknown, b: unknown): boolean {
     return true;
   }
 
+  // Single id-bearing objects (logoAsset/bannerAsset/coverAsset): `original`
+  // is a `structuredClone` of `competition` (see `initialize` in the
+  // store), so nested objects never share a reference even when their
+  // content is identical. Comparing by id — the same rule the array branch
+  // above already applies — avoids a permanent phantom UNSAVED status for
+  // every asset field from the moment the editor loads.
+  if (hasId(a) || hasId(b)) {
+    if (!hasId(a) || !hasId(b)) return false;
+    return a.id === b.id;
+  }
+
   return Object.is(a, b);
 }
 

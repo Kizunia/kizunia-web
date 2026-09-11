@@ -175,3 +175,14 @@ const FIELD_METADATA_BY_KEY: ReadonlyMap<SummaryFieldKey, FieldMeta> = new Map(
 export function getFieldMeta(key: SummaryFieldKey): FieldMeta | undefined {
   return FIELD_METADATA_BY_KEY.get(key);
 }
+
+/**
+ * DOM id for the field's scroll/focus target, used by the Summary tab's
+ * "Not specified" links to jump to the right control. Most fields anchor
+ * on their own key; `minTeamSize`/`maxTeamSize` share one control
+ * (`TeamSizeField`) and so share one anchor.
+ */
+export function getFieldAnchorId(key: SummaryFieldKey): string {
+  if (key === "minTeamSize" || key === "maxTeamSize") return "field-teamSize";
+  return `field-${key}`;
+}
