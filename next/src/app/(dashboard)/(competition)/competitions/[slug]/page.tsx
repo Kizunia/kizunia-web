@@ -24,6 +24,15 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ApiError } from "@/lib/http";
 import { CompetitionErrorCode } from "@/modules/competitions/errors/error-code";
+import {
+  COMPETITION_MODE_OPTIONS,
+  COMPETITION_STATUS_OPTIONS,
+  DIFFICULTY_OPTIONS,
+  getCompetitionEnumLabel,
+  ORGANIZER_TYPE_OPTIONS,
+  REGISTRATION_FEE_TYPE_OPTIONS,
+  REGISTRATION_PLATFORM_OPTIONS,
+} from "@/modules/competitions/constants";
 export default async function CompetitionPage({
   params,
   searchParams,
@@ -123,7 +132,12 @@ export default async function CompetitionPage({
                 </div>
 
                 {competition.status && (
-                  <Badge>{competition.status.replaceAll("_", " ")}</Badge>
+                  <Badge>
+                    {getCompetitionEnumLabel(
+                      competition.status,
+                      COMPETITION_STATUS_OPTIONS,
+                    )}
+                  </Badge>
                 )}
               </div>
 
@@ -135,11 +149,21 @@ export default async function CompetitionPage({
 
               <div className="flex flex-wrap gap-2">
                 {competition.mode && (
-                  <Badge variant="secondary">{competition.mode}</Badge>
+                  <Badge variant="secondary">
+                    {getCompetitionEnumLabel(
+                      competition.mode,
+                      COMPETITION_MODE_OPTIONS,
+                    )}
+                  </Badge>
                 )}
 
                 {competition.difficulty && (
-                  <Badge variant="outline">{competition.difficulty.replaceAll("_", " ")}</Badge>
+                  <Badge variant="outline">
+                    {getCompetitionEnumLabel(
+                      competition.difficulty,
+                      DIFFICULTY_OPTIONS,
+                    )}
+                  </Badge>
                 )}
 
                 {/* {competition.certificateType && (
@@ -147,7 +171,12 @@ export default async function CompetitionPage({
                 )} */}
 
                 {competition.organizerType && (
-                  <Badge variant="outline">{competition.organizerType.replaceAll("_", " ")}</Badge>
+                  <Badge variant="outline">
+                    {getCompetitionEnumLabel(
+                      competition.organizerType,
+                      ORGANIZER_TYPE_OPTIONS,
+                    )}
+                  </Badge>
                 )}
 
                 {competition.locations.map((competitionLocation) => (
@@ -243,7 +272,7 @@ export default async function CompetitionPage({
                 <div className="flex flex-wrap gap-2">
                   {competition.eligibilities.map((el: any) => (
                     <Badge key={el.type} variant="outline">
-                      {el.type.replaceAll("_", " ")}
+                      {getCompetitionEnumLabel(el.type)}
                     </Badge>
                   ))}
                 </div>
@@ -370,7 +399,10 @@ export default async function CompetitionPage({
                     <div>
                       <p className="font-medium">Mode</p>
                       <p className="text-sm text-muted-foreground">
-                        {competition.mode}
+                        {getCompetitionEnumLabel(
+                          competition.mode,
+                          COMPETITION_MODE_OPTIONS,
+                        )}
                       </p>
                     </div>
                   </div>
@@ -382,7 +414,15 @@ export default async function CompetitionPage({
                     <div>
                       <p className="font-medium">Registration Fee</p>
                       <p className="text-sm text-muted-foreground">
-                        {competition.registrationFeeType === "FREE" ? "Free" : `${competition.registrationFee ?? ""} ${competition.registrationFeeType ?? ""}`.trim()}
+                        {competition.registrationFeeType === "FREE"
+                          ? getCompetitionEnumLabel(
+                              competition.registrationFeeType,
+                              REGISTRATION_FEE_TYPE_OPTIONS,
+                            )
+                          : `${competition.registrationFee ?? ""} ${getCompetitionEnumLabel(
+                              competition.registrationFeeType,
+                              REGISTRATION_FEE_TYPE_OPTIONS,
+                            ) ?? ""}`.trim()}
                       </p>
                     </div>
                   </div>
@@ -394,7 +434,10 @@ export default async function CompetitionPage({
                     <div>
                       <p className="font-medium">Registration Platform</p>
                       <p className="text-sm text-muted-foreground">
-                        {competition.registrationPlatform}
+                        {getCompetitionEnumLabel(
+                          competition.registrationPlatform,
+                          REGISTRATION_PLATFORM_OPTIONS,
+                        )}
                       </p>
                     </div>
                   </div>

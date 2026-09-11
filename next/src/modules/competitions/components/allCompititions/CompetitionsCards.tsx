@@ -209,9 +209,9 @@ function formatDeadline(deadline: Date): string {
   const daysLeft = differenceInCalendarDays(deadline, new Date());
 
   if (daysLeft < 0) return "Registration closed";
-  if (daysLeft === 0) return "Closes today";
-  if (daysLeft === 1) return "Closes tomorrow";
-  if (daysLeft <= 30) return `Closes in ${daysLeft} days`;
+  if (daysLeft === 0) return "Registration Closes today";
+  if (daysLeft === 1) return "Registration Closes tomorrow";
+  if (daysLeft <= 30) return `Registration Closes in ${daysLeft} days`;
 
   return `Closes ${format(deadline, "d MMM yyyy")}`;
 }

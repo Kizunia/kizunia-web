@@ -106,6 +106,23 @@ export const COMPETITION_MODE_OPTIONS: { value: CompetitionMode; label: string }
     },
   ] as const;
 
+export function getCompetitionEnumLabel(
+  value: string | null | undefined,
+  options: readonly { value: string; label: string }[] = [],
+) {
+  if (!value) {
+    return undefined;
+  }
+
+  return (
+    options.find((option) => option.value === value)?.label ??
+    value
+      .toLowerCase()
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (character) => character.toUpperCase())
+  );
+}
+
 export const REGISTRATION_PLATFORM_OPTIONS: {
   value: RegistrationPlatform;
   label: string;
