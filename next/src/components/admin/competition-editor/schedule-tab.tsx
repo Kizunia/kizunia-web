@@ -13,12 +13,14 @@
  * adopted so a recalculated status appears here without a page refresh.
  */
 
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { StatusBadge } from "@/modules/competitions/components/status-badge";
-import { toDateTimeLocal, toIsoOrNull } from "./datetime-field";
+import { DateTimeInput } from "./datetime-input";
+import { EditorField } from "./editor-field";
+import { TabCompletenessFooter } from "./tab-completeness-footer";
+import { useFieldStatus } from "./use-field-status";
 
 function formatUpdatedAt(iso: string | null): string {
   if (!iso) return "Never";
@@ -37,6 +39,11 @@ export function ScheduleTab() {
   const updateCompetition = useCompetitionEditorStore(
     (state) => state.updateCompetition,
   );
+
+  const registrationStartDateStatus = useFieldStatus("registrationStartDate");
+  const registrationDeadlineStatus = useFieldStatus("registrationDeadline");
+  const startDateStatus = useFieldStatus("startDate");
+  const endDateStatus = useFieldStatus("endDate");
 
   if (!competition) {
     return null;
@@ -81,70 +88,66 @@ export function ScheduleTab() {
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="registrationStartDate">Registration opens</Label>
-          <Input
+        <EditorField
+          label="Registration opens"
+          htmlFor="registrationStartDate"
+          status={registrationStartDateStatus}
+          description={
+            <p className="text-xs text-muted-foreground">
+              Leave blank if registration opening is not automated — it will
+              not become REGISTRATION_OPEN on its own.
+            </p>
+          }
+        >
+          <DateTimeInput
             id="registrationStartDate"
-            type="datetime-local"
-            defaultValue={toDateTimeLocal(competition.registrationStartDate)}
-            onBlur={(event) =>
-              updateCompetition({
-                registrationStartDate: toIsoOrNull(event.target.value),
-              })
+            value={competition.registrationStartDate}
+            onCommit={(iso) =>
+              updateCompetition({ registrationStartDate: iso })
             }
           />
-          <p className="text-xs text-muted-foreground">
-            Leave blank if registration opening is not automated —
-            it will not become REGISTRATION_OPEN on its own.
-          </p>
-        </div>
+        </EditorField>
 
-        <div className="space-y-2">
-          <Label htmlFor="registrationDeadline">Registration deadline</Label>
-          <Input
+        <EditorField
+          label="Registration deadline"
+          htmlFor="registrationDeadline"
+          status={registrationDeadlineStatus}
+          description={
+            <p className="text-xs text-muted-foreground">
+              Can be after the start date — registration then stays open
+              while the competition is already ONGOING.
+            </p>
+          }
+        >
+          <DateTimeInput
             id="registrationDeadline"
-            type="datetime-local"
-            defaultValue={toDateTimeLocal(competition.registrationDeadline)}
-            onBlur={(event) =>
-              updateCompetition({
-                registrationDeadline: toIsoOrNull(event.target.value),
-              })
-            }
+            value={competition.registrationDeadline}
+            onCommit={(iso) => updateCompetition({ registrationDeadline: iso })}
           />
-          <p className="text-xs text-muted-foreground">
-            Can be after the start date — registration then stays open while
-            the competition is already ONGOING.
-          </p>
-        </div>
+        </EditorField>
 
-        <div className="space-y-2">
-          <Label htmlFor="startDate">Starts</Label>
-          <Input
+        <EditorField
+          label="Starts"
+          htmlFor="startDate"
+          status={startDateStatus}
+        >
+          <DateTimeInput
             id="startDate"
-            type="datetime-local"
-            defaultValue={toDateTimeLocal(competition.startDate)}
-            onBlur={(event) =>
-              updateCompetition({
-                startDate: toIsoOrNull(event.target.value),
-              })
-            }
+            value={competition.startDate}
+            onCommit={(iso) => updateCompetition({ startDate: iso })}
           />
-        </div>
+        </EditorField>
 
-        <div className="space-y-2">
-          <Label htmlFor="endDate">Ends</Label>
-          <Input
+        <EditorField label="Ends" htmlFor="endDate" status={endDateStatus}>
+          <DateTimeInput
             id="endDate"
-            type="datetime-local"
-            defaultValue={toDateTimeLocal(competition.endDate)}
-            onBlur={(event) =>
-              updateCompetition({
-                endDate: toIsoOrNull(event.target.value),
-              })
-            }
+            value={competition.endDate}
+            onCommit={(iso) => updateCompetition({ endDate: iso })}
           />
-        </div>
+        </EditorField>
       </div>
+
+      <TabCompletenessFooter tab="schedule" />
     </div>
   );
 }

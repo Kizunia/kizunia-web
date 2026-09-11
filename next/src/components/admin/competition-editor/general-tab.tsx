@@ -1,8 +1,9 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { FieldSet, FieldLegend } from "@/components/ui/field";
 import {
   COMPETITION_STATUS_OPTIONS,
   COMPETITION_VISIBILITY_OPTIONS,
@@ -16,6 +17,10 @@ import {
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { SelectField } from "./select-field";
 import { AssetsTab } from "./assets-tab";
+import { EditorField } from "./editor-field";
+import { TeamSizeField } from "./team-size-field";
+import { TabCompletenessFooter } from "./tab-completeness-footer";
+import { useFieldStatus } from "./use-field-status";
 
 export function GeneralTab() {
   const competition = useCompetitionEditorStore((state) => state.competition);
@@ -24,249 +29,280 @@ export function GeneralTab() {
     (state) => state.updateCompetition,
   );
 
+  const regenerateSlug = useCompetitionEditorStore((s) => s.regenerateSlug);
+
+  const fieldErrors = useCompetitionEditorStore((s) => s.fieldErrors);
+
+  const titleStatus = useFieldStatus("title");
+  const slugStatus = useFieldStatus("slug");
+  const organizerStatus = useFieldStatus("organizer");
+  const websiteStatus = useFieldStatus("website");
+  const shortDescriptionStatus = useFieldStatus("shortDescription");
+  const visibilityStatus = useFieldStatus("visibility");
+  const statusStatus = useFieldStatus("status");
+  const modeStatus = useFieldStatus("mode");
+  const registrationPlatformStatus = useFieldStatus("registrationPlatform");
+  const registrationLinkStatus = useFieldStatus("registrationLink");
+  const prizePoolStatus = useFieldStatus("prizePool");
+  const registrationFeeStatus = useFieldStatus("registrationFee");
+  const registrationFeeTypeStatus = useFieldStatus("registrationFeeType");
+  const organizerTypeStatus = useFieldStatus("organizerType");
+  const difficultyStatus = useFieldStatus("difficulty");
+  const certificateTypeStatus = useFieldStatus("certificateType");
+
   if (!competition) {
     return null;
   }
 
   return (
-    <div className="grid gap-6 pt-6">
-      <div className="space-y-2">
-        <Label htmlFor="assets">Assets</Label>
+    <div className="space-y-8 pt-6">
+      <FieldSet>
+        <FieldLegend variant="label">Assets</FieldLegend>
         <AssetsTab />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="title">Title</Label>
+      </FieldSet>
 
-        <Input
-          id="title"
-          value={competition.title ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              title: e.target.value,
-            })
-          }
-        />
-      </div>
+      <FieldSet>
+        <FieldLegend variant="label">Identity</FieldLegend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <EditorField label="Title" htmlFor="title" status={titleStatus}>
+            <Input
+              id="title"
+              value={competition.title ?? ""}
+              onChange={(e) => updateCompetition({ title: e.target.value })}
+            />
+          </EditorField>
 
-      <div className="space-y-2">
-        <Label htmlFor="slug">Slug</Label>
+          <EditorField
+            label="Slug"
+            htmlFor="slug"
+            status={slugStatus}
+            error={fieldErrors.slug}
+            description={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto p-0 text-xs text-muted-foreground underline underline-offset-2"
+                onClick={() => regenerateSlug()}
+              >
+                Generate from title
+              </Button>
+            }
+          >
+            <Input
+              id="slug"
+              value={competition.slug ?? ""}
+              onChange={(e) => updateCompetition({ slug: e.target.value })}
+            />
+          </EditorField>
 
-        <Input
-          id="slug"
-          value={competition.slug ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              slug: e.target.value,
-            })
-          }
-        />
-      </div>
+          <EditorField
+            label="Organizer"
+            htmlFor="organizer"
+            status={organizerStatus}
+          >
+            <Input
+              id="organizer"
+              value={competition.organizer ?? ""}
+              onChange={(e) =>
+                updateCompetition({ organizer: e.target.value })
+              }
+            />
+          </EditorField>
 
-      <div className="space-y-2">
-        <Label htmlFor="organizer">Organizer</Label>
+          <EditorField label="Website" htmlFor="website" status={websiteStatus}>
+            <Input
+              id="website"
+              value={competition.website ?? ""}
+              onChange={(e) => updateCompetition({ website: e.target.value })}
+            />
+          </EditorField>
 
-        <Input
-          id="organizer"
-          value={competition.organizer ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              organizer: e.target.value,
-            })
-          }
-        />
-      </div>
+          <EditorField
+            label="Short Description"
+            htmlFor="shortDescription"
+            status={shortDescriptionStatus}
+            className="sm:col-span-2"
+          >
+            <Textarea
+              id="shortDescription"
+              rows={4}
+              value={competition.shortDescription ?? ""}
+              onChange={(e) =>
+                updateCompetition({ shortDescription: e.target.value })
+              }
+            />
+          </EditorField>
+        </div>
+      </FieldSet>
 
-      <div className="space-y-2">
-        <Label htmlFor="website">Website</Label>
+      <FieldSet>
+        <FieldLegend variant="label">Classification</FieldLegend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SelectField
+            label="Status"
+            value={competition.status}
+            options={COMPETITION_STATUS_OPTIONS}
+            nullable
+            status={statusStatus}
+            onValueChange={(status) =>
+              updateCompetition({
+                status: status as typeof competition.status,
+              })
+            }
+          />
 
-        <Input
-          id="website"
-          value={competition.website ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              website: e.target.value,
-            })
-          }
-        />
-      </div>
+          <SelectField
+            label="Visibility"
+            value={competition.visibility}
+            options={COMPETITION_VISIBILITY_OPTIONS}
+            status={visibilityStatus}
+            onValueChange={(visibility) =>
+              updateCompetition({
+                visibility: visibility as typeof competition.visibility,
+              })
+            }
+          />
 
-      <div className="space-y-2">
-        <Label htmlFor="registrationLink">Registration Link</Label>
+          <SelectField
+            label="Mode"
+            value={competition.mode}
+            options={COMPETITION_MODE_OPTIONS}
+            nullable
+            status={modeStatus}
+            onValueChange={(mode) =>
+              updateCompetition({ mode: mode as typeof competition.mode })
+            }
+          />
 
-        <Input
-          id="registrationLink"
-          value={competition.registrationLink ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              registrationLink: e.target.value,
-            })
-          }
-        />
-      </div>
+          <SelectField
+            label="Organizer Type"
+            value={competition.organizerType}
+            options={ORGANIZER_TYPE_OPTIONS}
+            nullable
+            status={organizerTypeStatus}
+            onValueChange={(organizerType) =>
+              updateCompetition({
+                organizerType: organizerType as typeof competition.organizerType,
+              })
+            }
+          />
 
-      <div className="space-y-2">
-        <Label htmlFor="shortDescription">Short Description</Label>
+          <SelectField
+            label="Difficulty"
+            value={competition.difficulty}
+            options={DIFFICULTY_OPTIONS}
+            nullable
+            status={difficultyStatus}
+            onValueChange={(difficulty) =>
+              updateCompetition({
+                difficulty: difficulty as typeof competition.difficulty,
+              })
+            }
+          />
 
-        <Textarea
-          id="shortDescription"
-          rows={5}
-          value={competition.shortDescription ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              shortDescription: e.target.value,
-            })
-          }
-        />
-      </div>
+          <SelectField
+            label="Certificate"
+            value={competition.certificateType}
+            options={CERTIFICATE_OPTIONS}
+            nullable
+            status={certificateTypeStatus}
+            onValueChange={(certificateType) =>
+              updateCompetition({
+                certificateType:
+                  certificateType as typeof competition.certificateType,
+              })
+            }
+          />
+        </div>
+      </FieldSet>
 
-      <SelectField
-        label="Status"
-        value={competition.status}
-        options={COMPETITION_STATUS_OPTIONS}
-        onValueChange={(status) =>
-          updateCompetition({
-            status: status as typeof competition.status,
-          })
-        }
-      />
+      <FieldSet>
+        <FieldLegend variant="label">Registration</FieldLegend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <EditorField
+            label="Registration Link"
+            htmlFor="registrationLink"
+            status={registrationLinkStatus}
+          >
+            <Input
+              id="registrationLink"
+              value={competition.registrationLink ?? ""}
+              onChange={(e) =>
+                updateCompetition({ registrationLink: e.target.value })
+              }
+            />
+          </EditorField>
 
-      <SelectField
-        label="Visibility"
-        value={competition.visibility}
-        options={COMPETITION_VISIBILITY_OPTIONS}
-        onValueChange={(visibility) =>
-          updateCompetition({
-            visibility: visibility as typeof competition.visibility,
-          })
-        }
-      />
+          <SelectField
+            label="Registration Platform"
+            value={competition.registrationPlatform}
+            options={REGISTRATION_PLATFORM_OPTIONS}
+            nullable
+            status={registrationPlatformStatus}
+            onValueChange={(registrationPlatform) =>
+              updateCompetition({
+                registrationPlatform:
+                  registrationPlatform as typeof competition.registrationPlatform,
+              })
+            }
+          />
 
-      <SelectField
-        label="Mode"
-        value={competition.mode}
-        options={COMPETITION_MODE_OPTIONS}
-        onValueChange={(mode) =>
-          updateCompetition({
-            mode: mode as typeof competition.mode,
-          })
-        }
-      />
+          <EditorField
+            label="Prize Pool"
+            htmlFor="prizePool"
+            status={prizePoolStatus}
+          >
+            <Input
+              id="prizePool"
+              placeholder="Prize Pool"
+              value={competition.prizePool ?? ""}
+              onChange={(e) =>
+                updateCompetition({ prizePool: e.target.value })
+              }
+            />
+          </EditorField>
 
-      <SelectField
-        label="Registration Platform"
-        value={competition.registrationPlatform}
-        options={REGISTRATION_PLATFORM_OPTIONS}
-        onValueChange={(registrationPlatform) =>
-          updateCompetition({
-            registrationPlatform:
-              registrationPlatform as typeof competition.registrationPlatform,
-          })
-        }
-      />
+          <EditorField
+            label="Registration Fee"
+            htmlFor="registrationFee"
+            status={registrationFeeStatus}
+          >
+            <Input
+              id="registrationFee"
+              placeholder="Registration Fee"
+              value={competition.registrationFee ?? ""}
+              onChange={(e) =>
+                updateCompetition({ registrationFee: e.target.value })
+              }
+            />
+          </EditorField>
 
-      <div className="space-y-2">
-        <Label>Prize Pool</Label>
+          <SelectField
+            label="Registration Fee Type"
+            value={competition.registrationFeeType}
+            options={REGISTRATION_FEE_TYPE_OPTIONS}
+            nullable
+            status={registrationFeeTypeStatus}
+            onValueChange={(registrationFeeType) =>
+              updateCompetition({
+                registrationFeeType:
+                  registrationFeeType as typeof competition.registrationFeeType,
+              })
+            }
+          />
 
-        <Input
-          placeholder="Prize Pool"
-          value={competition.prizePool ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              prizePool: e.target.value || null,
-            })
-          }
-        />
-      </div>
+          <TeamSizeField
+            minTeamSize={competition.minTeamSize}
+            maxTeamSize={competition.maxTeamSize}
+            onChange={({ minTeamSize, maxTeamSize }) =>
+              updateCompetition({ minTeamSize, maxTeamSize })
+            }
+          />
+        </div>
+      </FieldSet>
 
-      <div className="space-y-2">
-        <Label>Registration Fee</Label>
-        <Input
-          placeholder="Registration Fee"
-          value={competition.registrationFee ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              registrationFee: e.target.value || null,
-            })
-          }
-        />
-      </div>
-
-      <SelectField
-        label="Registration Fee Type"
-        value={competition.registrationFeeType}
-        options={REGISTRATION_FEE_TYPE_OPTIONS}
-        onValueChange={(registrationFeeType) =>
-          updateCompetition({
-            registrationFeeType:
-              registrationFeeType as typeof competition.registrationFeeType,
-          })
-        }
-      />
-
-      <SelectField
-        label="Organizer Type"
-        value={competition.organizerType}
-        options={ORGANIZER_TYPE_OPTIONS}
-        onValueChange={(organizerType) =>
-          updateCompetition({
-            organizerType: organizerType as typeof competition.organizerType,
-          })
-        }
-      />
-
-      <SelectField
-        label="Difficulty"
-        value={competition.difficulty}
-        options={DIFFICULTY_OPTIONS}
-        onValueChange={(difficulty) =>
-          updateCompetition({
-            difficulty: difficulty as typeof competition.difficulty,
-          })
-        }
-      />
-
-      <SelectField
-        label="Certificate"
-        value={competition.certificateType}
-        options={CERTIFICATE_OPTIONS}
-        onValueChange={(certificateType) =>
-          updateCompetition({
-            certificateType:
-              certificateType as typeof competition.certificateType,
-          })
-        }
-      />
-
-      <div className="space-y-2">
-        <Label>Min Team Size</Label>
-        <Input
-          type="number"
-          placeholder="Minimum Team Size"
-          value={competition.minTeamSize ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              minTeamSize:
-                e.target.value === "" ? null : Number(e.target.value),
-            })
-          }
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Max Team Size</Label>
-
-        <Input
-          type="number"
-          placeholder="Maximum Team Size"
-          value={competition.maxTeamSize ?? ""}
-          onChange={(e) =>
-            updateCompetition({
-              maxTeamSize:
-                e.target.value === "" ? null : Number(e.target.value),
-            })
-          }
-        />
-      </div>
+      <TabCompletenessFooter tab="general" />
     </div>
   );
 }

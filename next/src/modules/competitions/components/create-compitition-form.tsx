@@ -33,6 +33,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
+import { slugify } from "@/utils/utils";
 import { useCreateCompetitionStore } from "../store/create-competition-store";
 
 export default function CreateCompititionForm() {
@@ -53,6 +54,13 @@ export default function CreateCompititionForm() {
       registrationLink: "",
     },
   });
+
+  // Tracks whether the admin has typed into the slug field directly. Once
+  // true, title changes stop auto-filling it — the admin has taken manual
+  // ownership of the slug (see the plan's slug architecture section). A ref
+  // rather than state: it's write-once intent, not something that should
+  // trigger a re-render.
+  const slugTouched = React.useRef(false);
 
   async function onSubmit(data: CreateCompetitionInput) {
     const competition = await createCompetition(data);
@@ -81,6 +89,15 @@ export default function CreateCompititionForm() {
                     placeholder="Google Solution Challenge 2027"
                     autoComplete="off"
                     aria-invalid={fieldState.invalid}
+                    onChange={(event) => {
+                      field.onChange(event);
+
+                      if (!slugTouched.current) {
+                        form.setValue("slug", slugify(event.target.value), {
+                          shouldValidate: form.formState.isSubmitted,
+                        });
+                      }
+                    }}
                   />
 
                   {fieldState.invalid && (
@@ -105,6 +122,10 @@ export default function CreateCompititionForm() {
                     placeholder="google-solution-challenge-2027"
                     autoComplete="off"
                     aria-invalid={fieldState.invalid}
+                    onChange={(event) => {
+                      slugTouched.current = true;
+                      field.onChange(event);
+                    }}
                   />
 
                   {fieldState.invalid && (

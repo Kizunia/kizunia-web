@@ -1,12 +1,9 @@
 "use client";
-import { SaveBar } from "./save-bar";
 import { CompetitionEditDTOWithPermissions } from "@/modules/competitions/types/edit-dto";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-import { Badge } from "@/components/ui/badge";
 
 import { GeneralTab } from "./general-tab";
 import { DocumentationTab } from "./documentation-tab";
@@ -14,8 +11,14 @@ import { DetailsTab } from "./details-tab";
 import { LocationsTab } from "./locations-tab";
 import { TechnologiesTab } from "./technologies-tab";
 import { ScheduleTab } from "./schedule-tab";
+import { SummaryTab } from "./summary-tab";
 import { useCompetitionEditorStore } from "@/modules/competitions/store/editor-store";
 import { DangerTab } from "./danger-tab";
+import { EditorHeader } from "./editor-header";
+import { useSaveShortcut, useUnsavedChangesGuard } from "./use-save-shortcut";
+import type { EditorTab } from "@/modules/competitions/editor/field-metadata";
+
+type TabValue = EditorTab | "summary" | "details" | "danger";
 
 export function CompetitionEditor({
   competition,
@@ -24,9 +27,14 @@ export function CompetitionEditor({
 }) {
   const initialize = useCompetitionEditorStore((state) => state.initialize);
 
+  const [activeTab, setActiveTab] = useState<TabValue>("summary");
+
   useEffect(() => {
     initialize(competition);
   }, [competition, initialize]);
+
+  useSaveShortcut();
+  useUnsavedChangesGuard();
 
   const editedCompetition = useCompetitionEditorStore((s) => s.competition);
 
@@ -35,20 +43,8 @@ export function CompetitionEditor({
   }
 
   return (
-    <div className="mx-auto max-w-7xl w-full space-y-6 md:p-6">
-      {/* Header */}
-
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold">{editedCompetition.title}</h1>
-
-          <div className="flex gap-2">
-            <Badge>{competition.status}</Badge>
-
-            <Badge variant="secondary">{competition.visibility}</Badge>
-          </div>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-7xl space-y-6 md:p-6">
+      <EditorHeader />
 
       <Card>
         <CardHeader>
@@ -56,22 +52,33 @@ export function CompetitionEditor({
         </CardHeader>
 
         <CardContent>
-          <Tabs defaultValue="general">
-            <TabsList>
-              <TabsTrigger value="general">General</TabsTrigger>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as TabValue)}
+          >
+            <div className="w-full overflow-x-auto">
+              <TabsList className="w-max">
+                <TabsTrigger value="summary">Summary</TabsTrigger>
 
-              <TabsTrigger value="documentation">Documentation</TabsTrigger>
+                <TabsTrigger value="general">General</TabsTrigger>
 
-              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+                <TabsTrigger value="documentation">Documentation</TabsTrigger>
 
-              <TabsTrigger value="locations">Locations</TabsTrigger>
+                <TabsTrigger value="schedule">Schedule</TabsTrigger>
 
-              <TabsTrigger value="technologies">Technologies</TabsTrigger>
+                <TabsTrigger value="locations">Locations</TabsTrigger>
 
-              <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="technologies">Technologies</TabsTrigger>
 
-              <TabsTrigger value="danger">Danger</TabsTrigger>
-            </TabsList>
+                <TabsTrigger value="details">Details</TabsTrigger>
+
+                <TabsTrigger value="danger">Danger</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="summary">
+              <SummaryTab onNavigateToTab={(tab) => setActiveTab(tab)} />
+            </TabsContent>
 
             <TabsContent value="general">
               <GeneralTab />
@@ -103,7 +110,6 @@ export function CompetitionEditor({
           </Tabs>
         </CardContent>
       </Card>
-      <SaveBar />
     </div>
   );
 }
