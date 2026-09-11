@@ -556,6 +556,11 @@ model Asset {
 
   @@index([status])
   @@index([status, detachedAt])
+  // Supports the admin list's default `ORDER BY createdAt DESC` (usually
+  // status-filtered) and AssetRepository.findActiveBefore's
+  // `status = ACTIVE AND createdAt <= cutoff`, which previously had no
+  // supporting index beyond the bare status one above.
+  @@index([status, createdAt])
   @@index([uploadedById])
   @@map("asset")
 }

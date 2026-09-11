@@ -366,6 +366,26 @@ export class CloudinaryStorageProvider implements StorageProvider {
   }
 
   /**
+   * Non-`raw` resources (IMAGE, VIDEO) are already served from the public
+   * CDN via `secureUrl` — durable and safe to cache/persist in an admin
+   * payload. `raw` (DOCUMENT) has no such URL on this account: the only way
+   * to fetch it is `buildRawObjectUrl`'s authenticated endpoint, whose
+   * timestamp Cloudinary only honours for about an hour (see
+   * `buildRawObjectUrl`'s doc comment) — that is never returned here.
+   */
+  buildDurableViewUrl(input: {
+    publicId: string;
+    category: AssetCategory;
+    secureUrl: string;
+  }): string | null {
+    if (resourceTypeFor(input.category) === "raw") {
+      return null;
+    }
+
+    return input.secureUrl;
+  }
+
+  /**
    * Forces a download rather than an inline render.
    *
    * Documents go through the authenticated endpoint for the reasons above.

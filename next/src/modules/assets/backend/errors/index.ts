@@ -16,6 +16,7 @@ export const AssetErrorCode = {
   INTENT_ALREADY_CONSUMED: "UPLOAD_INTENT_ALREADY_CONSUMED",
   POLICY_VIOLATION: "ASSET_POLICY_VIOLATION",
   PROVIDER_OBJECT_NOT_FOUND: "PROVIDER_OBJECT_NOT_FOUND",
+  NOT_DOWNLOADABLE: "ASSET_NOT_DOWNLOADABLE",
 } as const;
 
 export class AssetNotFoundError extends NotFoundError {
@@ -37,6 +38,21 @@ export class ProviderObjectNotFoundError extends NotFoundError {
     message = "The storage provider has no object for this reference.",
   ) {
     super({ code: AssetErrorCode.PROVIDER_OBJECT_NOT_FOUND, message });
+  }
+}
+
+/**
+ * The admin download route refuses to mint a delivery URL for a `DELETED`
+ * Asset — the provider object is gone (or on its way out), so there is
+ * nothing left to fetch. See AssetAdminService.getDownloadTarget.
+ */
+export class AssetNotDownloadableError extends ConflictError {
+  constructor(message = "This asset has been deleted and can no longer be downloaded.") {
+    super({
+      code: AssetErrorCode.NOT_DOWNLOADABLE,
+      status: HttpStatus.CONFLICT,
+      message,
+    });
   }
 }
 

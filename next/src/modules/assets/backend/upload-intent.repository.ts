@@ -56,6 +56,22 @@ export class UploadIntentRepository {
     });
   }
 
+  /**
+   * Visibility-only count for the admin reconciliation preview summary —
+   * see AssetReconciliationService.previewCandidates. Abandoned intents are
+   * never selectable/applicable through the admin apply endpoint (they are
+   * UploadIntent rows, not Assets); this exists purely so an admin can see
+   * that sweepAbandonedIntents has work pending.
+   */
+  async countExpiredPending(): Promise<number> {
+    return this.db.uploadIntent.count({
+      where: {
+        status: UploadIntentStatus.PENDING,
+        expiresAt: { lte: new Date() },
+      },
+    });
+  }
+
   async markExpired(id: string): Promise<void> {
     await this.db.uploadIntent.updateMany({
       where: { id, status: UploadIntentStatus.PENDING },

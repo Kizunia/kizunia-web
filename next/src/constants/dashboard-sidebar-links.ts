@@ -85,6 +85,11 @@ export const SideBarNavMain: SidebarNavSection[] = [
         title: "Competition lifecycle",
         url: "/admin/competitions/lifecycle",
       },
+      {
+        id: "admin-assets",
+        title: "Assets",
+        url: "/admin/assets",
+      },
     ],
   },
   { // portfolio

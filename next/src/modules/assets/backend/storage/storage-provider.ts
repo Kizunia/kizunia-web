@@ -138,4 +138,23 @@ export interface StorageProvider {
     format?: string | null;
     filename?: string | null;
   }): string;
+
+  /**
+   * A durable, non-expiring URL safe to place in a list/preview payload —
+   * or `null` when this category can only be delivered via a signed,
+   * temporary URL, in which case the caller must use the authorized
+   * download flow instead (see AssetAdminService.getDownloadTarget /
+   * docs/architecture/domain/assets/lifecycle.md).
+   *
+   * This exists so admin list/detail/reconciliation-preview DTOs never need
+   * to know which categories are safe to cache or persist a URL for — that
+   * is provider knowledge, not application knowledge. `secureUrl` is passed
+   * in so a provider can return it unchanged for the categories where it
+   * already works, exactly like `buildViewUrl` — never for string surgery.
+   */
+  buildDurableViewUrl(input: {
+    publicId: string;
+    category: AssetCategory;
+    secureUrl: string;
+  }): string | null;
 }
