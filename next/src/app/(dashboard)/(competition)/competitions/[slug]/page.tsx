@@ -9,7 +9,7 @@ import {
   CreditCard,
   Monitor,
 } from "lucide-react";
-import prisma from "@/lib/prisma";
+
 import PageWrapper from "@/components/page-wrapper";
 
 import { Badge } from "@/components/ui/badge";
@@ -188,7 +188,11 @@ export default async function CompetitionPage({
 
                 {competition.website && (
                   <Badge asChild variant="default">
-                    <Link href={competition.website} target="_blank" rel="noopener noreferrer">
+                    <Link
+                      href={competition.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <Globe className="mr-1 h-3 w-3" />
                       Official Website
                     </Link>
@@ -197,7 +201,11 @@ export default async function CompetitionPage({
 
                 {competition.registrationLink && (
                   <Badge asChild>
-                    <Link href={competition.registrationLink} target="_blank" rel="noopener noreferrer">
+                    <Link
+                      href={competition.registrationLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <SquareArrowOutUpRight className="mr-1 h-3 w-3" />
                       Register
                     </Link>
@@ -211,7 +219,7 @@ export default async function CompetitionPage({
         {/* Information */}
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
+          <div className="order-2 space-y-6 lg:order-1 lg:col-span-2">
             {isAboutSectionRequired && (
               <Card className="p-6 space-y-4">
                 <h1 className="text-4xl font-semibold">About</h1>
@@ -263,27 +271,28 @@ export default async function CompetitionPage({
               </Card>
             )}
 
-            {competition.eligibilities && competition.eligibilities.length > 0 && (
-              <Card className="p-6 space-y-4">
-                <h2 className="text-xl font-semibold">Eligibilities</h2>
+            {competition.eligibilities &&
+              competition.eligibilities.length > 0 && (
+                <Card className="p-6 space-y-4">
+                  <h2 className="text-xl font-semibold">Eligibilities</h2>
 
-                <Separator />
+                  <Separator />
 
-                <div className="flex flex-wrap gap-2">
-                  {competition.eligibilities.map((el: any) => (
-                    <Badge key={el.type} variant="outline">
-                      {getCompetitionEnumLabel(el.type)}
-                    </Badge>
-                  ))}
-                </div>
-              </Card>
-            )}
+                  <div className="flex flex-wrap gap-2">
+                    {competition.eligibilities.map((el: any) => (
+                      <Badge key={el.type} variant="outline">
+                        {getCompetitionEnumLabel(el.type)}
+                      </Badge>
+                    ))}
+                  </div>
+                </Card>
+              )}
           </div>
 
           {/* Sidebar */}
 
           {isSideBarRequired && (
-            <div>
+            <div className="order-1 lg:order-2">
               <Card className="p-6 space-y-5">
                 <h2 className="text-lg font-semibold">Competition Details</h2>
 
@@ -408,7 +417,8 @@ export default async function CompetitionPage({
                   </div>
                 )}
 
-                {(competition.registrationFee !== null || competition.registrationFeeType) && (
+                {(competition.registrationFee !== null ||
+                  competition.registrationFeeType) && (
                   <div className="flex gap-3">
                     <CreditCard className="mt-0.5 h-5 w-5 text-muted-foreground" />
                     <div>
@@ -419,10 +429,12 @@ export default async function CompetitionPage({
                               competition.registrationFeeType,
                               REGISTRATION_FEE_TYPE_OPTIONS,
                             )
-                          : `${competition.registrationFee ?? ""} ${getCompetitionEnumLabel(
-                              competition.registrationFeeType,
-                              REGISTRATION_FEE_TYPE_OPTIONS,
-                            ) ?? ""}`.trim()}
+                          : `${competition.registrationFee ?? ""} ${
+                              getCompetitionEnumLabel(
+                                competition.registrationFeeType,
+                                REGISTRATION_FEE_TYPE_OPTIONS,
+                              ) ?? ""
+                            }`.trim()}
                       </p>
                     </div>
                   </div>
