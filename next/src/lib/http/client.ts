@@ -49,6 +49,24 @@ export class HttpClient {
     return this.parseResponse<TResponse>(response);
   }
 
+  static async put<TResponse, TBody = undefined>(
+    url: string,
+    body?: TBody,
+    init?: RequestInit,
+  ): Promise<SuccessResponse<TResponse>> {
+    const response = await fetch(url, {
+      method: "PUT",
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers: {
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+      ...init,
+    });
+
+    return this.parseResponse<TResponse>(response);
+  }
+
   static async patch<TResponse, TBody>(
     url: string,
     body: TBody,

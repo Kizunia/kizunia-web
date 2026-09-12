@@ -33,6 +33,9 @@ import {
   REGISTRATION_FEE_TYPE_OPTIONS,
   REGISTRATION_PLATFORM_OPTIONS,
 } from "@/modules/competitions/constants";
+import { CompetitionUserStateProvider } from "@/modules/competitions/components/user-state/competition-user-state-provider";
+import { CompetitionBookmarkButton } from "@/modules/competitions/components/user-state/competition-bookmark-button";
+import { CompetitionRegistrationButton } from "@/modules/competitions/components/user-state/competition-registration-button";
 export default async function CompetitionPage({
   params,
   searchParams,
@@ -89,6 +92,7 @@ export default async function CompetitionPage({
         { label: competition.title, href: `/competitions/${competition.slug}` },
       ]}
     >
+      <CompetitionUserStateProvider>
       <div className="mx-auto max-w-5xl space-y-8">
         {/* Header */}
         {competition.bannerAsset && (
@@ -122,7 +126,7 @@ export default async function CompetitionPage({
             </div>
 
             <div className="flex-1 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h1 className="text-4xl font-bold">{competition.title}</h1>
 
@@ -131,14 +135,32 @@ export default async function CompetitionPage({
                   </p>
                 </div>
 
-                {competition.status && (
-                  <Badge>
-                    {getCompetitionEnumLabel(
-                      competition.status,
-                      COMPETITION_STATUS_OPTIONS,
-                    )}
-                  </Badge>
-                )}
+                {/*
+                  Per-user actions sit with the status badge in the header's
+                  top-right. Both render unconditionally — including when
+                  there is no registrationLink (the user may have registered
+                  through a channel Kizunia doesn't know about) and at every
+                  lifecycle status (see CompetitionRegistrationService).
+                */}
+                <div className="flex items-center gap-2">
+                  {competition.status && (
+                    <Badge>
+                      {getCompetitionEnumLabel(
+                        competition.status,
+                        COMPETITION_STATUS_OPTIONS,
+                      )}
+                    </Badge>
+                  )}
+
+                  <CompetitionRegistrationButton
+                    competitionId={competition.id}
+                  />
+
+                  <CompetitionBookmarkButton
+                    competitionId={competition.id}
+                    title={competition.title}
+                  />
+                </div>
               </div>
 
               {competition.shortDescription && (
@@ -459,6 +481,7 @@ export default async function CompetitionPage({
           )}
         </div>
       </div>
+      </CompetitionUserStateProvider>
     </PageWrapper>
   );
 }

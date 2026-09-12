@@ -47,6 +47,10 @@ import { CompetitionLifecycleService } from "./lifecycle.service";
 import { ApplyLifecycleSchema } from "../schemas/lifecycle";
 import { AttachCompetitionTechnologySchema } from "../schemas/competition-technology";
 import { CompetitionTechnologyService } from "./competition-technology.service";
+import { CompetitionBookmarkService } from "./competition-bookmark.service";
+import { CompetitionRegistrationService } from "./competition-registration.service";
+import { CompetitionUserStateService } from "./competition-user-state.service";
+import { CompetitionUserStateQuerySchema } from "../schemas/competition-user-state";
 export class CompetitionController {
   static async create(request: NextRequest) {
     return Route.execute(async () => {
@@ -1013,6 +1017,253 @@ export class CompetitionController {
       // -----------------------------------------------------------------
 
       return ApiResponse.ok(technologies);
+    });
+  }
+
+  // ==========================================================================
+  // Per-user state — bookmarks & mark-as-registered
+  //
+  // Fully independent of each other (see CompetitionBookmark and
+  // CompetitionRegistration docblocks): neither mutation ever touches the
+  // other's table, and neither is ever affected by the competition's
+  // lifecycle status. `read` reuses the same viewability rule as every
+  // other public read — there is no separate bookmark-specific visibility
+  // rule.
+  // ==========================================================================
+
+  static async setBookmark(request: NextRequest, competitionId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------
+      // Rate limiting
+      // -----------------------------------------------------------------
+      // Runs after authentication: the policy uses the "user" subject
+      // strategy, which requires a resolved actor id. An anonymous caller
+      // is already rejected with a 401 above and never reaches here.
+
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.COMPETITIONS_USER_STATE_WRITE,
+        request,
+        actor,
+      });
+
+      // -----------------------------------------------------------------
+      // Context & Authorization
+      // -----------------------------------------------------------------
+      // A user may bookmark a competition iff they could have discovered
+      // it — the same rule that governs viewing it. Reusing
+      // `CompetitionAuthorizer.read` here (rather than a bookmark-specific
+      // rule) means bookmarkability tracks viewability automatically:
+      // banned actors and private/deleted competitions are rejected the
+      // same way `findBySlug` already rejects them.
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      CompetitionAuthorizer.read(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      await CompetitionBookmarkService.add(context.competition.id, actor.id);
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+      // `ok({})` rather than `noContent()` — the client already knows the
+      // state it asked for (that is what makes this idempotent), so there
+      // is nothing to echo back. Matches the existing delete/restore
+      // precedent in this controller.
+
+      return ApiResponse.ok({});
+    });
+  }
+
+  /**
+   * Removing a bookmark is deliberately unguarded — no context resolution,
+   * no authorization, no existence check. It must always be possible to
+   * remove your own bookmark, including for a competition that has since
+   * been archived, unpublished or soft-deleted; guarding this would strand
+   * bookmarks a user could never clear again.
+   */
+  static async removeBookmark(request: NextRequest, competitionId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------
+      // Rate limiting
+      // -----------------------------------------------------------------
+
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.COMPETITIONS_USER_STATE_WRITE,
+        request,
+        actor,
+      });
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      await CompetitionBookmarkService.remove(competitionId, actor.id);
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok({});
+    });
+  }
+
+  static async setRegistration(request: NextRequest, competitionId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------
+      // Rate limiting
+      // -----------------------------------------------------------------
+
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.COMPETITIONS_USER_STATE_WRITE,
+        request,
+        actor,
+      });
+
+      // -----------------------------------------------------------------
+      // Context & Authorization
+      // -----------------------------------------------------------------
+      // Same viewability rule as setBookmark — see the comment there. Note
+      // there is no CompetitionStatus check: marking as registered is
+      // allowed at every status. See CompetitionRegistrationService's
+      // docblock for why.
+
+      const context = await CompetitionContextResolver.resolve({
+        actor,
+        competitionId,
+      });
+
+      CompetitionAuthorizer.read(context);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      await CompetitionRegistrationService.mark(
+        context.competition.id,
+        actor.id,
+      );
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok({});
+    });
+  }
+
+  /**
+   * Unguarded for the same reason as `removeBookmark` — clearing your own
+   * registration mark must always be possible.
+   */
+  static async removeRegistration(request: NextRequest, competitionId: string) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getStrictActor(request);
+
+      // -----------------------------------------------------------------
+      // Rate limiting
+      // -----------------------------------------------------------------
+
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.COMPETITIONS_USER_STATE_WRITE,
+        request,
+        actor,
+      });
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      await CompetitionRegistrationService.unmark(competitionId, actor.id);
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok({});
+    });
+  }
+
+  /**
+   * Batch "my state for these competitions" read, used by the list and
+   * detail pages to resolve bookmark/registration state client-side after
+   * first paint — see the module README for why this is not simply a
+   * field on the public competition DTOs.
+   *
+   * Public and optionally authenticated: an anonymous caller gets an
+   * empty answer (200, not 401) for every id, since "signed out" is a
+   * normal, successful state for this read.
+   */
+  static async findMyCompetitionStates(request: NextRequest) {
+    return Route.execute(async () => {
+      // -----------------------------------------------------------------
+      // Authentication
+      // -----------------------------------------------------------------
+
+      const actor = await SessionService.getOptionalActor(request);
+
+      // -----------------------------------------------------------------
+      // Rate limiting
+      // -----------------------------------------------------------------
+      // "user-or-ip": keyed to the actor when signed in, falling back to
+      // the client IP for anonymous callers, so it must run after the
+      // optional session lookup.
+
+      await rateLimitService.enforce({
+        policyId: RateLimitPolicyId.COMPETITIONS_USER_STATE_READ,
+        request,
+        actor,
+      });
+
+      // -----------------------------------------------------------------
+      // Validation
+      // -----------------------------------------------------------------
+
+      const query = Object.fromEntries(request.nextUrl.searchParams.entries());
+      const { competitionIds } = CompetitionUserStateQuerySchema.parse(query);
+
+      // -----------------------------------------------------------------
+      // Business Logic
+      // -----------------------------------------------------------------
+
+      const states = await CompetitionUserStateService.findForCompetitions({
+        competitionIds,
+        actor,
+      });
+
+      // -----------------------------------------------------------------
+      // Response
+      // -----------------------------------------------------------------
+
+      return ApiResponse.ok({ states });
     });
   }
 }

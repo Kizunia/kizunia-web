@@ -16,6 +16,8 @@ import { CompetitionCardDTO } from "../../types/dto";
 import { getInitials } from "@/utils/utils";
 import { StatusBadge } from "../status-badge";
 import { CompetitionShareButton } from "./competition-share-button";
+import { CompetitionUserStateProvider } from "../user-state/competition-user-state-provider";
+import { CompetitionBookmarkButton } from "../user-state/competition-bookmark-button";
 
 /**
  * One row per competition, height driven by whatever that competition
@@ -23,6 +25,10 @@ import { CompetitionShareButton } from "./competition-share-button";
  * filled out, and a shared fixed height either clips the full ones or leaves
  * the sparse ones mostly blank. Every block below renders only when its data
  * exists, so a thin competition produces a short row instead of empty space.
+ *
+ * Wrapped in one `CompetitionUserStateProvider` for the whole list, not one
+ * per row — the provider batches every visible card's bookmark state into a
+ * single request instead of one per card.
  */
 export default function CompetitionsCards({
   competitions,
@@ -30,11 +36,13 @@ export default function CompetitionsCards({
   competitions: CompetitionCardDTO[];
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-      {competitions.map((competition) => (
-        <CompetitionRow key={competition.id} competition={competition} />
-      ))}
-    </div>
+    <CompetitionUserStateProvider>
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+        {competitions.map((competition) => (
+          <CompetitionRow key={competition.id} competition={competition} />
+        ))}
+      </div>
+    </CompetitionUserStateProvider>
   );
 }
 
@@ -66,7 +74,6 @@ function CompetitionRow({ competition }: { competition: CompetitionCardDTO }) {
 
   const hasFacts = fee || teamSize || modeLabel;
   const hasLocation = locations.length > 0;
-  const hasFooter = true || startDate || registrationDeadline || status; // share button is always present, so this is always true
 
   return (
     <Card className="group/card relative flex-row overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
@@ -147,33 +154,40 @@ function CompetitionRow({ competition }: { competition: CompetitionCardDTO }) {
           </CardContent>
         )}
 
-        {hasFooter && (
-          <CardFooter className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm text-muted-foreground">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              {startDate && (
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarIcon className="h-4 w-4" />
-                  {format(startDate, "d MMM yyyy")}
-                </span>
-              )}
+        {/*
+          Always rendered: it hosts the per-user action rail (bookmark,
+          share), which is present on every card regardless of how sparse
+          the competition's data is. The date/status chips on the left
+          remain individually conditional — a sparse card simply yields a
+          footer containing only the action rail, which is correct, not
+          empty.
+        */}
+        <CardFooter className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm text-muted-foreground">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            {startDate && (
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarIcon className="h-4 w-4" />
+                {format(startDate, "d MMM yyyy")}
+              </span>
+            )}
 
-              {registrationDeadline && (
-                <span>{formatDeadline(registrationDeadline)}</span>
-              )}
+            {registrationDeadline && (
+              <span>{formatDeadline(registrationDeadline)}</span>
+            )}
 
-              {status && <StatusBadge status={status} />}
-            </div>
+            {status && <StatusBadge status={status} />}
+          </div>
 
-            <div className="relative z-10 shrink-0">
-              <CompetitionShareButton slug={slug} title={title} />
-            </div>
-          </CardFooter>
-        )}
+          <div className="relative z-10 flex shrink-0 items-center gap-1">
+            <CompetitionBookmarkButton
+              competitionId={competition.id}
+              title={title}
+            />
+
+            <CompetitionShareButton slug={slug} title={title} />
+          </div>
+        </CardFooter>
       </div>
-
-      {/* <div className="relative z-10 shrink-0 p-2">
-        <CompetitionShareButton slug={slug} title={title} />
-      </div> */}
     </Card>
   );
 }
