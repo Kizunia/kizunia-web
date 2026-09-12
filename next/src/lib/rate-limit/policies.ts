@@ -28,6 +28,17 @@ export const RateLimitPolicyId = {
   ASSETS_UPLOAD_INTENT: "assets:upload-intent",
   ASSETS_FINALIZE: "assets:finalize",
   COMPETITIONS_SEARCH: "competitions:search",
+  /**
+   * Bookmark and mark-as-registered toggles share one bucket — the two
+   * features are independent in the domain but identical in cost, and one
+   * bucket is the honest way to bound one person's total toggling.
+   */
+  COMPETITIONS_USER_STATE_WRITE: "competitions:user-state-write",
+  /**
+   * The batch "which of these competitions have I saved/registered for"
+   * read that the list and detail pages each issue once per page load.
+   */
+  COMPETITIONS_USER_STATE_READ: "competitions:user-state-read",
   PORTFOLIO_READ_PUBLIC: "portfolio:read-public",
   AUTH_SIGN_IN: "auth:sign-in",
   AUTH_SIGN_UP: "auth:sign-up",
@@ -142,6 +153,24 @@ export const RATE_LIMIT_POLICIES: Readonly<
     failureMode: "open",
     description:
       "Public search; a placeId filter can reach the billed places:resolve budget on a cache miss. This limit exists for availability, not spend: the global budget already caps spend, but is shared across every caller, so one abuser minting novel placeIds can otherwise exhaust it and degrade search for everyone. Fails open because it guards fairness, not money.",
+  },
+  [RateLimitPolicyId.COMPETITIONS_USER_STATE_WRITE]: {
+    id: RateLimitPolicyId.COMPETITIONS_USER_STATE_WRITE,
+    limit: 120,
+    windowSeconds: 60,
+    subjectStrategies: ["user"],
+    failureMode: "open",
+    description:
+      "Bookmark and mark-as-registered toggles, authenticated (the route already requires a session, so `user` is valid here). One shared bucket for both: they are independent in the domain but identical in cost, so a single bucket is the honest way to bound one person's total toggling. 120/min is far above any real browsing rhythm while still stopping a stuck optimistic-retry loop from hammering the row. Two indexed upserts/deletes on a composite PK — local DB cost only, no spend — so it fails open: a limiter outage should not stop someone saving a competition.",
+  },
+  [RateLimitPolicyId.COMPETITIONS_USER_STATE_READ]: {
+    id: RateLimitPolicyId.COMPETITIONS_USER_STATE_READ,
+    limit: 120,
+    windowSeconds: 60,
+    subjectStrategies: ["user-or-ip"],
+    failureMode: "open",
+    description:
+      "Batch 'which of these competitions have I saved/registered for' lookup that every competition list and detail page issues once on mount. Limited per user when signed in and per IP otherwise, because the endpoint answers anonymous callers with an empty list rather than a 401 and so must still be bounded for them. Matched to competitions:search, which it fires roughly 1:1 with on the list page. Two indexed reads, no spend — fails open, since losing it would leave every bookmark/registration button stuck in its unresolved state.",
   },
   [RateLimitPolicyId.PORTFOLIO_READ_PUBLIC]: {
     id: RateLimitPolicyId.PORTFOLIO_READ_PUBLIC,
