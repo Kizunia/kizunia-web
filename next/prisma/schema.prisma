@@ -369,6 +369,7 @@ model User {
   badges                          UserBadge[]
   competitionMembers              CompetitionMember[]
   competitionBookmarks            CompetitionBookmark[]
+  competitionRegistrations        CompetitionRegistration[]
   portfolio                       Portfolio?
   // ---------------------------------------------------------------------------
   // Competition Suggestions
@@ -784,9 +785,10 @@ model Competition {
 
   categories   CompetitionCategory[]
   technologies CompetitionTechnology[]
-  members      CompetitionMember[]
-  bookmarks    CompetitionBookmark[]
-  projects     CompetitionProject[]
+  members       CompetitionMember[]
+  bookmarks     CompetitionBookmark[]
+  registrations CompetitionRegistration[]
+  projects      CompetitionProject[]
   // Zero locations is valid — it means no location is known yet, not that the
   // competition is online. Participation mode lives on `mode`.
   locations    CompetitionLocation[]
@@ -955,7 +957,44 @@ model CompetitionBookmark {
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([competitionId, userId])
+  // The composite PK is indexed (competitionId, userId) left-to-right, so it
+  // cannot serve "all bookmarks for user X, newest first" — the query a
+  // bookmarks list page runs. This index exists for that read path.
+  @@index([userId, createdAt(sort: Desc)])
   @@map("competition_bookmark")
+}
+
+/// A user's own record that they registered for this competition on the
+/// organizer's external platform.
+///
+/// SELF-DECLARED AND UNVERIFIED. Kizunia is a discovery platform, not the
+/// organizer, and has no channel to confirm any of this. Nothing here may
+/// ever be presented as organizer-confirmed. There is deliberately no
+/// `source`, no `verifiedAt` and no status enum — each would imply a
+/// verification pipeline that does not exist and is not planned.
+///
+/// Fully independent of CompetitionBookmark. All four combinations of
+/// (bookmarked, registered) are legal and neither write ever touches the
+/// other table.
+///
+/// Never removed by lifecycle. A row here survives every CompetitionStatus,
+/// including COMPLETED and CANCELLED — "I registered for that" stays true
+/// after the event ends. Past-vs-upcoming is derived at read time from the
+/// competition's dates, never by deleting rows.
+model CompetitionRegistration {
+  competitionId String
+  userId        String
+
+  /// When the user told us. NOT when they actually registered with the
+  /// organizer — we cannot know that.
+  markedAt DateTime @default(now())
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([competitionId, userId])
+  @@index([userId, markedAt(sort: Desc)])
+  @@map("competition_registration")
 }
 
 // =============================================================================
